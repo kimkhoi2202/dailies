@@ -99,6 +99,22 @@ const GAMES = [
     dislikes: 94,
     scores: [1980, 1650, 2410, 760, 1180, 420],
   },
+  {
+    slug: "brick-out",
+    title: "Brick Out",
+    studio: "Wobble Works",
+    pitch: "Every brick has a way out.",
+    how: "Swipe a brick and it slides until something stops it. Send each brick out through the gate of its own color. Clear the board to add time, and use a freeze, a hammer or a shuffle when you are stuck.",
+    minPlayers: 1,
+    maxPlayers: 4,
+    mode: "casual" as const,
+    category: "Puzzle",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 268,
+    dislikes: 19,
+    scores: [810, 1180, 450, 620, 940, 300],
+  },
 ];
 
 const PLAYERS = [
@@ -117,6 +133,7 @@ const COMMENTS: Record<string, string[]> = {
   "gulp-city": ["swallowed the whole block with two seconds left", "started with a flower, ended with a bus"],
   inkland: ["took a fifth of the map in one loop", "got cut one step from home. again"],
   "lane-dash": ["the near miss at the end. I stopped breathing", "ramp into three gems into a barrier. classic"],
+  "brick-out": ["cleared board six with one second on the clock", "the hammer on the last blue brick. no regrets"],
 };
 
 export const run = internalMutation({

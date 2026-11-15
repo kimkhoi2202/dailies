@@ -10,6 +10,7 @@ import SwiftUI
 
 enum GameKind: String, CaseIterable {
     case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland
+    case brickOut
 }
 
 struct MockGame: Identifiable {
@@ -55,6 +56,7 @@ struct MockGame: Identifiable {
         case .laneDash: LaneDashScene(phase: moment, showHUD: showHUD)
         case .gulpCity: GulpCityScene(phase: moment, showHUD: showHUD)
         case .inkland: InklandScene(phase: moment, showHUD: showHUD)
+        case .brickOut: BrickOutScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -194,7 +196,14 @@ enum Mock {
         plays: "371K", likes: "40.3K", dislikes: "3.9K", approval: 91,
         bestScore: "87%", clipPhase: 0.85, tint: Color(red: 0.55, green: 0.80, blue: 0.70))
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity]
+    static let brickOut = MockGame(
+        id: "brick-out", kind: .brickOut, title: "Brick Out", tagline: "Every brick has a way out.",
+        category: "Puzzle", players: "1 to 4 players", mode: "Casual", studio: "Wobble Works",
+        goldPerMinute: 1.0, avgSession: "2m 10s", seedEarned: 0,
+        plays: "214K", likes: "26.8K", dislikes: "1.9K", approval: 93,
+        bestScore: "1,240 points", clipPhase: 0.6, tint: Color(red: 0.42, green: 0.30, blue: 0.86))
+
+    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, brickOut]
 
     // MARK: Videos
 
