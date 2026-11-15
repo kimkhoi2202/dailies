@@ -847,7 +847,7 @@ struct LaneDashPainter {
             let bob = sin(2 * .pi * (tick * 4 + prop.seed * 0.37)) * 3
             let shade = 0.3 * max(0.25, 1 - prop.lift / 160)
             easel(ctx, at: foot, scale: scale).fill(S.oval(.zero, 11, 3.4), with: .color(ink(0x120A3C, shade)))
-            gem(ctx, art, at: lens.point(x, prop.depth, up: prop.lift + bob), scale: scale * 1.08,
+            gem(ctx, art.gem, at: lens.point(x, prop.depth, up: prop.lift + bob), scale: scale * 1.08,
                 turn: LaneDashClip.wrap(tick * 3 + prop.seed * 0.23), glow: 1)
         case .barrier:
             barrier(ctx, art, foot, scale, wobble: prop.wobble, seed: prop.seed)
@@ -949,7 +949,7 @@ struct LaneDashPainter {
 
     // MARK: Gems
 
-    private func gem(_ ctx: GraphicsContext, _ art: LaneDashArt, at centre: CGPoint, scale: CGFloat, turn: CGFloat, glow: CGFloat) {
+    private func gem(_ ctx: GraphicsContext, _ art: GraphicsContext.ResolvedImage, at centre: CGPoint, scale: CGFloat, turn: CGFloat, glow: CGFloat) {
         if glow > 0 {
             halo(ctx, centre, 32 * scale, [ink(0x9DF6FF, 0.6 * glow), ink(0x39C8FF, 0.2 * glow), ink(0x39C8FF, 0)])
         }
@@ -958,7 +958,7 @@ struct LaneDashPainter {
         let facing = 0.56 + 0.44 * abs(cos(turn * .pi))
         let wide = 17 * facing
         let top: CGFloat = -13
-        c.draw(art.gem, in: CGRect(x: -wide, y: top, width: wide * 2, height: 28))
+        c.draw(art, in: CGRect(x: -wide, y: top, width: wide * 2, height: 28))
         let twinkle = 0.6 + 0.4 * sin(turn * 2 * .pi)
         c.fill(S.star(CGPoint(x: -wide * 0.7, y: top + 1), 6.5 * twinkle), with: .color(ink(0xFFFFFF)))
     }
@@ -1416,7 +1416,7 @@ struct LaneDashPainter {
         ctx.fill(Path(roundedRect: gemPill, cornerRadius: tall / 2), with: down([ink(0x2E1C78, 0.86), ink(0x1A1052, 0.86)], rowTop, rowTop + tall))
         ctx.stroke(Path(roundedRect: gemPill.insetBy(dx: 0.7 * u, dy: 0.7 * u), cornerRadius: tall / 2),
                    with: .color(ink(0xFFFFFF, 0.3)), lineWidth: 1.3 * u)
-        gem(ctx, at: CGPoint(x: rowLeft + 22 * u, y: rowMid - 0.5 * u), scale: u * 0.58, turn: 0, glow: 0)
+        gem(ctx, ctx.resolve(Image("lane-dash-gem")), at: CGPoint(x: rowLeft + 22 * u, y: rowMid - 0.5 * u), scale: u * 0.58, turn: 0, glow: 0)
         ctx.draw(count, at: CGPoint(x: rowLeft + 37 * u, y: rowMid), anchor: .leading)
 
         guard frame.pill != nil else { return }
