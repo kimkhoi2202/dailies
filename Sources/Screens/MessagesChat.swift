@@ -16,7 +16,7 @@ struct MessagesChatScreen: View {
                 topBar(chat).padding(.horizontal, DL.margin).padding(.top, 6).padding(.bottom, 8)
                 ScrollViewReader { reader in
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 6) {
                             if let board = chat.board { MessagesBoardCard(board: board).padding(.bottom, 8) }
                             ForEach(Array(chat.messages.enumerated()), id: \.element.id) { index, message in
                                 if showsTime(chat.messages, index) {
@@ -38,6 +38,7 @@ struct MessagesChatScreen: View {
                         .animation(.snappy(duration: 0.3), value: chat.typing)
                     }
                     .scrollIndicators(.hidden)
+                    .defaultScrollAnchor(.bottom)
                     .scrollDismissesKeyboard(.interactively)
                     .onAppear { reader.scrollTo("end", anchor: .bottom) }
                     .onChange(of: chat.messages.count) { _, _ in
@@ -45,6 +46,12 @@ struct MessagesChatScreen: View {
                     }
                     .onChange(of: chat.typing) { _, _ in
                         withAnimation(.snappy) { reader.scrollTo("end", anchor: .bottom) }
+                    }
+                    .onChange(of: typing) { _, focused in
+                        guard focused else { return }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.snappy) { reader.scrollTo("end", anchor: .bottom) }
+                        }
                     }
                 }
                 composer
