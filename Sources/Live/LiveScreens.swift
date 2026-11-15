@@ -22,10 +22,10 @@ enum LiveBoard {
         "spiral-drop": ["kaz": 742, "devon.plays": 651, "wordnerd.sam": 518, "noor.runs": 434, "tofu": 371, "juno": 196],
         "gulp-city": ["tofu": 87, "juno": 74, "noor.runs": 61, "devon.plays": 52, "kaz": 38, "wordnerd.sam": 24],
         "slip-out": ["kaz": 71, "wordnerd.sam": 64, "juno": 55, "devon.plays": 47, "noor.runs": 39, "tofu": 26],
-        "wild-eights": ["kaz": 168, "juno": 141, "devon.plays": 126, "wordnerd.sam": 97, "tofu": 72, "noor.runs": 44],
+        "wild-eights": ["kaz": 131, "juno": 112, "devon.plays": 96, "wordnerd.sam": 74, "tofu": 41, "noor.runs": 33],
         "daily-grid": ["kaz": 812, "wordnerd.sam": 690, "devon.plays": 544, "juno": 418, "tofu": 305, "noor.runs": 160],
         "letter-rush": ["wordnerd.sam": 3500, "kaz": 2900, "devon.plays": 2600, "juno": 2100, "noor.runs": 1900, "tofu": 1200],
-        "pour-party": ["kaz": 1500, "wordnerd.sam": 1200, "juno": 1000, "devon.plays": 700, "tofu": 400, "noor.runs": 300, wild-eights": ["kaz": 131, "juno": 112, "devon.plays": 96, "wordnerd.sam": 74, "tofu": 41, "noor.runs": 33],
+        "pour-party": ["kaz": 1500, "wordnerd.sam": 1200, "juno": 1000, "devon.plays": 700, "tofu": 400, "noor.runs": 300],
     ]
 
     /// Everyone on the board, best score first.
