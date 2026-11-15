@@ -46,6 +46,9 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "games": "node scripts/build-games.mjs",
+    "postinstall": "node scripts/build-games.mjs",
+    "prestart": "node scripts/build-games.mjs",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
