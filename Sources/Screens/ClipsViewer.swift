@@ -109,6 +109,8 @@ struct ClipsViewer: View {
     @State private var position: Int?
     @State private var userRows: [ConvexClip]?
     @State private var watch: AnyCancellable?
+    /// Set once the list has scrolled to the clip that was tapped.
+    @State private var placed = false
 
     init(source: ClipSource, start: String) {
         self.source = source
@@ -159,21 +161,24 @@ struct ClipsViewer: View {
         }
         .onAppear {
             if case .user(let handle) = source {
-                watch = clips.watchUser(handle) { rows in
-                    let first = userRows == nil
-                    userRows = rows
-                    guard first else { return }
-                    let at = rows.firstIndex { $0.id == start } ?? 0
-                    DispatchQueue.main.async { position = at }
-                }
+                watch = clips.watchUser(handle) { rows in userRows = rows }
             }
+            place(list)
         }
+        .onChange(of: list.map(\.id)) { _, _ in place(items) }
         .onDisappear { watch?.cancel() }
         .onChange(of: list.count) { _, count in
             // The last clip here was deleted or unsaved.
             if count == 0 && userRows != nil || count == 0 && !isUser { LiveNav.shared.back() }
             if let at = position, at >= count, count > 0 { position = count - 1 }
         }
+    }
+
+    /// Scrolls to the clip that was tapped once it is in the list, which can be after the screen opens.
+    private func place(_ list: [ClipItem]) {
+        guard !placed, let at = list.firstIndex(where: { $0.id == start }) else { return }
+        placed = true
+        DispatchQueue.main.async { position = at }
     }
 
     private var isUser: Bool {
