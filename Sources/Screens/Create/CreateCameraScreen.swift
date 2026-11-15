@@ -97,7 +97,7 @@ struct CreateCameraScreen: View {
         let resting = GameLink()
         resting.paused = true
         _link = State(initialValue: resting)
-        _options = State(initialValue: GameOptions(solo: true, playerName: Mock.handle, friendNames: Mock.playFriends, seed: 1))
+        _options = State(initialValue: Self.playOptions(Mock.game(startGameID ?? Mock.games.first?.id ?? ""), seed: 1))
         _centeredID = State(initialValue: startGameID ?? Mock.games.first?.id)
         _userPicked = State(initialValue: startGameID != nil)
     }
@@ -543,7 +543,21 @@ struct CreateCameraScreen: View {
         if phase == .recording { CreateScreenRecorder.discard() }
     }
 
+    /// The same round the game's Play key opens: alone only for a game that is only played alone.
+    static func playOptions(_ game: MockGame, seed: UInt64) -> GameOptions {
+        let store = LiveStore.shared
+        return GameOptions(solo: game.playerRange.upperBound == 1, playerName: store.me?.handle ?? Mock.handle,
+                           friendNames: Mock.playFriends, bestScore: store.s.best[game.id] ?? 0, seed: seed)
+    }
+
     private func gameChanged() {
+        if phase == .idle, let game = selected {
+            // The waiting game is the same game, at rest on its start screen.
+            let resting = GameLink()
+            resting.paused = true
+            options = Self.playOptions(game, seed: 1)
+            link = resting
+        }
         cleared = false
         UISelectionFeedbackGenerator().selectionChanged()
         nameShown = true
@@ -637,8 +651,7 @@ struct CreateCameraScreen: View {
         let round = GameLink()
         round.onFinish = { result in Task { @MainActor in await end(result: result) } }
         let seed = started.map { UInt64(max(1, $0.seed)) } ?? (UInt64(Date().timeIntervalSince1970 * 1000) & 0xFFFF_FFFF)
-        options = GameOptions(solo: game.playerRange.lowerBound == 1, playerName: store.me?.handle ?? Mock.handle,
-                              friendNames: Mock.playFriends, bestScore: store.s.best[game.id] ?? 0, seed: seed)
+        options = Self.playOptions(game, seed: seed)
         link = round
         roundID = started?.roundId
         recording = kind
