@@ -32,7 +32,6 @@ enum Route: Hashable {
     case reviewResult
     case reviewChanges
     // the tab bar and the library
-    case create
     case profile(String)
     case join
     case startRoom
@@ -40,6 +39,10 @@ enum Route: Hashable {
     // the avatar
     /// An item id to open on its sheet, "closet" for the Closet, or nil.
     case shop(String?)
+    // making a clip
+    case create(String?)
+    case createPreview
+    case makeGame
 
     enum Style { case push, cover, sheet }
 
@@ -47,7 +50,8 @@ enum Route: Hashable {
         switch self {
         case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room, .shop:
             .push
-        case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges, .create:
+        case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges,
+             .create, .createPreview, .makeGame:
             .cover
         case .comments, .fairness, .spend, .streak, .saveGold, .notify, .join, .startRoom:
             .sheet

@@ -149,8 +149,12 @@ struct LayerView: View {
             G3ReviewResultScreen()
         case .reviewChanges:
             G3ReviewChangesScreen()
-        case .create:
-            CreatePlaceholderScreen()
+        case .create(let gameID):
+            CreateCameraScreen(startGameID: gameID)
+        case .createPreview:
+            CreatePreviewScreen()
+        case .makeGame:
+            CreateMakeGameScreen()
         case .profile(let handle):
             ProfileScreen(handle: handle)
         case .shop(let focus):
@@ -171,6 +175,7 @@ struct LayerView: View {
 struct LiveVideos: View {
     @ObservedObject private var nav = LiveNav.shared
     @ObservedObject private var store = LiveStore.shared
+    @ObservedObject private var made = CreateClips.shared
 
     /// Long enough that nobody reaches the end. The six clips repeat.
     private let pageCount = 600
@@ -183,10 +188,19 @@ struct LiveVideos: View {
             let playing = nav.tab == 1 && nav.layers.isEmpty && store.isOn("Autoplay clips")
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    // Clips players posted come first, newest at the top, then the catalog clips.
+                    let posted = made.feed
                     ForEach(0..<pageCount, id: \.self) { index in
-                        LiveClipPage(clip: Mock.clips[index % Mock.clips.count], active: playing && nav.videoIndex == index)
-                            .frame(width: screen.width, height: screen.height)
-                            .id(index)
+                        Group {
+                            if index < posted.count {
+                                CreateClipPage(clip: posted[index], active: playing && nav.videoIndex == index)
+                            } else {
+                                LiveClipPage(clip: Mock.clips[(index - posted.count) % Mock.clips.count],
+                                             active: playing && nav.videoIndex == index)
+                            }
+                        }
+                        .frame(width: screen.width, height: screen.height)
+                        .id(index)
                     }
                 }
                 .scrollTargetLayout()
@@ -459,7 +473,7 @@ struct LiveResultsScreen: View {
 ///                       reviewProgress, reviewResult, reviewChanges, or one that takes a value:
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
 ///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
-///                       create, join, startRoom, profile:<handle>, room:<code>,
+///                       create[:<game id>], join, startRoom, profile:<handle>, room:<code>,
 ///                       shop, shop:closet, shop:<item id> (opens that item's sheet)
 ///   -tryon <item id>    in the Shop, try an item on without opening its sheet
 ///   -shopturn 1         in the Shop, turn the Dailie round to show its back
@@ -514,7 +528,7 @@ enum LiveLaunch {
         case "shareRun": return .shareRun(value)
         case "spend": return .spend(Int(value) ?? 1)
         case "publish": return .publish(Int(value) ?? 1)
-        case "create": return .create
+        case "create": return .create(value.isEmpty ? nil : value)
         case "join": return .join
         case "startRoom": return .startRoom
         case "profile": return .profile(value.isEmpty ? "me" : value)
@@ -568,7 +582,7 @@ final class LiveHost: UIHostingController<LiveRoot> {
     override var preferredStatusBarStyle: UIStatusBarStyle {
         // A sheet leaves the screen under it showing, so the top screen that is not a sheet decides.
         switch LiveNav.shared.layers.last(where: { $0.route.style != .sheet })?.route {
-        case .gameReady, .play, .results, .gameDetail, .profile, .shop: .lightContent
+        case .gameReady, .play, .results, .gameDetail, .profile, .shop, .create, .createPreview: .lightContent
         case nil: LiveNav.shared.tab == 1 ? .lightContent : .default
         default: .default
         }

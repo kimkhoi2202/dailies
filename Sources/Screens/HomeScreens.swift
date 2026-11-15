@@ -79,6 +79,7 @@ struct HomeScreen: View {
                     DLLogo(height: 36)
                     Spacer()
                     DLGoldChip(onMedia: false).opens(.gold)
+                    CreatePlusButton().opens(.create(nil)).accessibilityLabel("Create")
                     DLIconButton(symbol: "magnifyingglass").opens(.search).accessibilityLabel("Search")
                     MyAvatarHead(size: 36).opens(.profile("me")).accessibilityLabel("Your profile")
                 }

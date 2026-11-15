@@ -67,7 +67,7 @@ struct LibraryScreen: View {
 
             HomeSectionTitle(title: "Your clips")
             DLEmptyState(symbol: "video.fill", title: "No clips yet", detail: "Film yourself playing with the + button.",
-                         key: "Open camera") { LiveNav.shared.open(.create) }
+                         key: "Open camera") { LiveNav.shared.open(.create(nil)) }
         }
     }
 

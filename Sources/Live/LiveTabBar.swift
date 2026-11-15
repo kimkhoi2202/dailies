@@ -64,7 +64,7 @@ struct LiveCreateKey: View {
     var body: some View {
         Button {
             if LiveStore.shared.s.haptics { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
-            LiveNav.shared.open(.create)
+            LiveNav.shared.open(.create(nil))
         } label: {
             Image(systemName: "plus").font(.system(size: 24, weight: .black))
         }

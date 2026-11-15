@@ -129,6 +129,27 @@ export default defineSchema({
     gameSlug: v.optional(v.string()),
   }).index("by_user", ["userId"]),
 
+  clips: defineTable({
+    userId: v.id("users"),
+    gameSlug: v.string(),
+    kind: v.union(v.literal("video"), v.literal("photo")),
+    // Missing when the phone could not record (a simulator with no screen recording): the clip replays the game.
+    storageId: v.optional(v.id("_storage")),
+    roundId: v.optional(v.id("rounds")),
+    // Copied from the round on the server, never taken from the phone.
+    score: v.optional(v.number()),
+    seed: v.optional(v.number()),
+    caption: v.string(),
+    layout: v.union(v.literal("cutout"), v.literal("bubble")),
+    durationMs: v.number(),
+    visibility: v.union(v.literal("friends"), v.literal("everyone")),
+    likes: v.number(),
+    comments: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_visibility", ["visibility"])
+    .index("by_roundId", ["roundId"]),
+
   purchases: defineTable({
     userId: v.id("users"),
     item: v.string(),
