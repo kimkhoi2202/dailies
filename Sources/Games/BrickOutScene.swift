@@ -4,7 +4,8 @@ import SwiftUI
 //
 // This file holds what the clip in Videos and the playable game share: numbers, colours, the
 // level maker, where the board sits on the screen, and the painter. BrickOutGame.swift holds the
-// rules of a live round, the scripted player and the view the app shows.
+// rules of a live round, the scripted player and the view the app shows. The pictures are the
+// brick-out-* images in Resources/GameArt.
 
 public struct BrickOutScene: View {
     public var phase: Double
@@ -126,7 +127,6 @@ enum BrickOutPalette {
     static let bricks: [BrickOutTint] = [0xF4506C, 0xFF8E3C, 0xFFD23F, 0x4FD46A, 0x3E8BFF, 0xB46BFF]
         .map { BrickOutTint(hex: $0) }
 
-    static let skyTop = BrickOutTint(hex: 0x2E1D5C)
     static let skyBottom = BrickOutTint(hex: 0x150C2C)
     static let frame = BrickOutTint(hex: 0x4D3C8E)
     static let frameDark = BrickOutTint(hex: 0x2A1F5C)
@@ -426,6 +426,29 @@ struct BrickOutLayout {
     }
 }
 
+// MARK: - Pictures
+
+/// The images, resolved once per frame.
+struct BrickOutArt {
+    let backdrop: GraphicsContext.ResolvedImage
+    /// One brick body and one stud per brick colour.
+    let bodies: [GraphicsContext.ResolvedImage]
+    let studs: [GraphicsContext.ResolvedImage]
+    /// Hold time, smash, new deal.
+    let boosters: [GraphicsContext.ResolvedImage]
+
+    init(_ ctx: GraphicsContext) {
+        backdrop = ctx.resolve(Image("brick-out-backdrop"))
+        let colours = 0..<BrickOutPalette.bricks.count
+        bodies = colours.map { ctx.resolve(Image("brick-out-body-\($0)")) }
+        studs = colours.map { ctx.resolve(Image("brick-out-stud-\($0)")) }
+        boosters = ["brick-out-hold", "brick-out-smash", "brick-out-new"].map { ctx.resolve(Image($0)) }
+    }
+
+    func body(_ index: Int) -> GraphicsContext.ResolvedImage { bodies[Swift.max(0, Swift.min(bodies.count - 1, index))] }
+    func stud(_ index: Int) -> GraphicsContext.ResolvedImage { studs[Swift.max(0, Swift.min(studs.count - 1, index))] }
+}
+
 // MARK: - Painter
 
 struct BrickOutPainter {
@@ -444,23 +467,22 @@ struct BrickOutPainter {
 
     func draw(_ ctx: inout GraphicsContext, _ f: BrickOutFrame) {
         let lay = BrickOutLayout(size: CGSize(width: W, height: H), cols: f.cols, rows: f.rows)
-        drawSky(&ctx, f)
+        let art = BrickOutArt(ctx)
+        drawSky(&ctx, f, art)
         drawBoard(&ctx, lay, f)
-        drawBricks(&ctx, lay, f)
+        drawBricks(&ctx, lay, f, art)
         drawParticles(&ctx, lay, f)
         drawFloats(&ctx, lay, f)
         if f.endFade > 0.01 { drawEnd(&ctx, lay, f) }
         if let words = f.callout { drawCallout(&ctx, lay, words, sub: f.calloutSub, age: f.calloutAge) }
         if f.showHUD {
             drawHUD(&ctx, f)
-            drawBoosters(&ctx, lay, f)
+            drawBoosters(&ctx, lay, f, art)
             if let hint = f.hint, f.hintAlpha > 0.01 { drawHint(&ctx, lay, hint, alpha: f.hintAlpha, pulse: f.hintPulse) }
         }
     }
 
     // MARK: Helpers
-
-    private var screen: Path { Path(CGRect(x: 0, y: 0, width: W, height: H)) }
 
     private func rounded(_ r: CGRect, _ radius: Double) -> Path {
         Path(roundedRect: r, cornerRadius: Swift.max(0, Swift.min(radius, Swift.min(r.width, r.height) / 2)), style: .continuous)
@@ -477,14 +499,54 @@ struct BrickOutPainter {
         .system(size: size * u, weight: weight, design: .rounded)
     }
 
+    /// An image at a rect, faded by alpha.
+    private func image(_ ctx: inout GraphicsContext, _ art: GraphicsContext.ResolvedImage, in rect: CGRect, alpha: Double = 1) {
+        if alpha <= 0.001 { return }
+        let before = ctx.opacity
+        ctx.opacity = before * Swift.min(1, alpha)
+        ctx.draw(art, in: rect)
+        ctx.opacity = before
+    }
+
+    /// Stretches an image over a rect of any shape the nine-slice way: the outer `cap` share of
+    /// the image on each side keeps its proportions at `edge` points, only the middle stretches.
+    private func sliced(_ ctx: inout GraphicsContext, _ art: GraphicsContext.ResolvedImage, in rect: CGRect,
+                        cap: Double, edge: Double) {
+        let iw = Double(art.size.width)
+        let ih = Double(art.size.height)
+        if iw < 1 || ih < 1 { return }
+        let e = Swift.min(edge, Double(rect.width) / 2, Double(rect.height) / 2)
+        let sx = [0, cap * iw, iw - cap * iw, iw]
+        let sy = [0, cap * ih, ih - cap * ih, ih]
+        let dx = [Double(rect.minX), Double(rect.minX) + e, Double(rect.maxX) - e, Double(rect.maxX)]
+        let dy = [Double(rect.minY), Double(rect.minY) + e, Double(rect.maxY) - e, Double(rect.maxY)]
+        // Pieces overlap by a hair so no seam shows between them.
+        let hair = 0.3
+        for i in 0..<3 {
+            let scaleX = (dx[i + 1] - dx[i]) / (sx[i + 1] - sx[i])
+            if dx[i + 1] - dx[i] <= 0.01 { continue }
+            for j in 0..<3 {
+                if dy[j + 1] - dy[j] <= 0.01 { continue }
+                let scaleY = (dy[j + 1] - dy[j]) / (sy[j + 1] - sy[j])
+                var piece = ctx
+                piece.clip(to: Path(CGRect(x: dx[i] - (i > 0 ? hair : 0), y: dy[j] - (j > 0 ? hair : 0),
+                                           width: dx[i + 1] - dx[i] + (i > 0 ? hair : 0),
+                                           height: dy[j + 1] - dy[j] + (j > 0 ? hair : 0))))
+                piece.draw(art, in: CGRect(x: dx[i] - sx[i] * scaleX, y: dy[j] - sy[j] * scaleY,
+                                           width: iw * scaleX, height: ih * scaleY))
+            }
+        }
+    }
+
     // MARK: Sky
 
-    private func drawSky(_ ctx: inout GraphicsContext, _ f: BrickOutFrame) {
-        let bands = Gradient(colors: [P.skyTop.color(), P.skyBottom.color()])
-        ctx.fill(screen, with: .linearGradient(bands, startPoint: CGPoint(x: W / 2, y: 0), endPoint: CGPoint(x: W / 2, y: H)))
-        let glow = P.frameLight.mix(.white, 0.2)
-        ctx.fill(screen, with: .radialGradient(Gradient(colors: [glow.color(0.22), glow.color(0)]),
-                                               center: CGPoint(x: W * 0.5, y: H * 0.42), startRadius: 0, endRadius: H * 0.5))
+    private func drawSky(_ ctx: inout GraphicsContext, _ f: BrickOutFrame, _ art: BrickOutArt) {
+        // The backdrop fills the screen, cropped at the sides or the ends.
+        let size = art.backdrop.size
+        let fill = Swift.max(W / Swift.max(1, Double(size.width)), H / Swift.max(1, Double(size.height)))
+        let w = Double(size.width) * fill
+        let h = Double(size.height) * fill
+        ctx.draw(art.backdrop, in: CGRect(x: (W - w) / 2, y: (H - h) / 2, width: w, height: h))
         // A few soft dots drifting up, so the backdrop is never still.
         var rng = BrickOutRandom(seed: 11, salt: BrickOutRandom.level)
         for _ in 0..<26 {
@@ -575,16 +637,15 @@ struct BrickOutPainter {
 
     // MARK: Bricks
 
-    private func drawBricks(_ ctx: inout GraphicsContext, _ lay: BrickOutLayout, _ f: BrickOutFrame) {
+    private func drawBricks(_ ctx: inout GraphicsContext, _ lay: BrickOutLayout, _ f: BrickOutFrame, _ art: BrickOutArt) {
         var inside = ctx
         inside.clip(to: rounded(lay.frame.insetBy(dx: 3 * u, dy: 3 * u), 10 * u))
-        for s in f.sprites where s.lift < 0.01 { drawBrick(&inside, lay, s) }
-        for s in f.sprites where s.lift >= 0.01 { drawBrick(&inside, lay, s) }
+        for s in f.sprites where s.lift < 0.01 { drawBrick(&inside, lay, s, art) }
+        for s in f.sprites where s.lift >= 0.01 { drawBrick(&inside, lay, s, art) }
     }
 
-    private func drawBrick(_ ctx: inout GraphicsContext, _ lay: BrickOutLayout, _ s: BrickOutSprite) {
+    private func drawBrick(_ ctx: inout GraphicsContext, _ lay: BrickOutLayout, _ s: BrickOutSprite, _ art: BrickOutArt) {
         if s.scale <= 0.02 || s.alpha <= 0.01 { return }
-        let tint = P.brick(s.color)
         let gap = 2.2 * u
         let full = CGRect(x: lay.originX + s.x * lay.cell, y: lay.originY + s.y * lay.cell,
                           width: Double(s.w) * lay.cell, height: Double(s.h) * lay.cell)
@@ -599,30 +660,25 @@ struct BrickOutPainter {
             ctx.fill(rounded(rect.offsetBy(dx: 0, dy: 10 * u * s.lift).insetBy(dx: -2 * u, dy: -2 * u), radius),
                      with: .color(P.shadow.color(0.40 * s.lift * a)))
         }
-        // The side, then the top face.
-        ctx.fill(rounded(rect, radius), with: .color(tint.scaled(0.58).color(a)))
+        // The body stretches to the brick's size; its studs, two per cell each way, sit on the top face.
+        let before = ctx.opacity
+        ctx.opacity = before * a
+        sliced(&ctx, art.body(s.color), in: rect, cap: 0.3, edge: Swift.min(Double(rect.width) / Double(s.w), Double(rect.height) / Double(s.h)) * 0.3)
         let top = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height - depth)
-        let faces = Gradient(colors: [tint.mix(.white, 0.22).color(a), tint.color(a), tint.scaled(0.92).color(a)])
-        ctx.fill(rounded(top, radius), with: .linearGradient(faces, startPoint: CGPoint(x: top.minX, y: top.minY), endPoint: CGPoint(x: top.minX, y: top.maxY)))
-        ctx.stroke(rounded(top.insetBy(dx: 1 * u, dy: 1 * u), radius - u), with: .color(Color.white.opacity(0.22 * a)), lineWidth: 1.2 * u)
-
-        // Two studs per cell each way.
         let sx = rect.width / Double(s.w)
         let sy = top.height / Double(s.h)
-        let r = Swift.min(sx, sy) * 0.14
-        let ring = tint.scaled(0.70)
-        let face = tint.mix(.white, 0.12)
+        let r = Swift.min(sx, sy) * 0.19
+        let stud = art.stud(s.color)
         for i in 0..<s.w {
             for j in 0..<s.h {
                 for q in 0..<4 {
                     let cx = rect.minX + sx * (Double(i) + 0.27 + 0.46 * Double(q % 2))
                     let cy = top.minY + sy * (Double(j) + 0.27 + 0.46 * Double(q / 2))
-                    ctx.fill(Path(ellipseIn: CGRect(x: cx - r, y: cy - r + 1.4 * u, width: 2 * r, height: 2 * r)), with: .color(ring.color(a)))
-                    ctx.fill(Path(ellipseIn: CGRect(x: cx - r, y: cy - r, width: 2 * r, height: 2 * r)), with: .color(face.color(a)))
-                    ctx.fill(Path(ellipseIn: CGRect(x: cx - r * 0.55, y: cy - r * 0.75, width: r * 0.8, height: r * 0.5)), with: .color(Color.white.opacity(0.28 * a)))
+                    ctx.draw(stud, in: CGRect(x: cx - r, y: cy - r, width: 2 * r, height: 2 * r))
                 }
             }
         }
+        ctx.opacity = before
     }
 
     // MARK: Bursts and words
@@ -744,7 +800,7 @@ struct BrickOutPainter {
 
     // MARK: Boosters
 
-    private func drawBoosters(_ ctx: inout GraphicsContext, _ lay: BrickOutLayout, _ f: BrickOutFrame) {
+    private func drawBoosters(_ ctx: inout GraphicsContext, _ lay: BrickOutLayout, _ f: BrickOutFrame, _ art: BrickOutArt) {
         for k in 0..<3 {
             let rect = lay.boosterRect(k)
             let left = k < f.boosters.count ? f.boosters[k] : 0
@@ -757,42 +813,8 @@ struct BrickOutPainter {
             let rim = armed ? Color.white.opacity(0.7 + 0.3 * sin(f.ambient * 8)) : P.frameLight.color(0.6 * alpha)
             ctx.stroke(rounded(rect.insetBy(dx: 1.5 * u, dy: 1.5 * u), radius - 1.5 * u), with: .color(rim), lineWidth: 2 * u)
 
-            let c = CGPoint(x: rect.midX, y: rect.midY - 2 * u)
-            let ink = Color.white.opacity(0.95 * alpha)
-            let stroke = StrokeStyle(lineWidth: 3 * u, lineCap: .round, lineJoin: .round)
-            switch k {
-            case 0:
-                var flake = Path()
-                for i in 0..<3 {
-                    let t = Double(i) * .pi / 3
-                    let dx = cos(t) * 13 * u
-                    let dy = sin(t) * 13 * u
-                    flake.move(to: CGPoint(x: c.x + dx, y: c.y + dy))
-                    flake.addLine(to: CGPoint(x: c.x - dx, y: c.y - dy))
-                }
-                ctx.stroke(flake, with: .color(P.ice.color(alpha)), style: stroke)
-                ctx.fill(Path(ellipseIn: CGRect(x: c.x - 3.5 * u, y: c.y - 3.5 * u, width: 7 * u, height: 7 * u)), with: .color(ink))
-            case 1:
-                var local = ctx
-                local.translateBy(x: c.x, y: c.y)
-                local.rotate(by: .degrees(-40))
-                var handle = Path()
-                handle.move(to: CGPoint(x: 0, y: -4 * u))
-                handle.addLine(to: CGPoint(x: 0, y: 15 * u))
-                local.stroke(handle, with: .color(P.brick(1).color(alpha)), style: StrokeStyle(lineWidth: 5 * u, lineCap: .round))
-                local.fill(rounded(CGRect(x: -13 * u, y: -14 * u, width: 26 * u, height: 12 * u), 3 * u), with: .color(ink))
-            default:
-                var loop = Path()
-                loop.addArc(center: c, radius: 11 * u, startAngle: .degrees(-60), endAngle: .degrees(220), clockwise: false)
-                ctx.stroke(loop, with: .color(P.brick(3).color(alpha)), style: stroke)
-                var head = Path()
-                let tip = CGPoint(x: c.x + cos(-.pi / 3) * 11 * u, y: c.y + sin(-.pi / 3) * 11 * u)
-                head.move(to: CGPoint(x: tip.x - 7 * u, y: tip.y - 1 * u))
-                head.addLine(to: CGPoint(x: tip.x + 2 * u, y: tip.y - 6 * u))
-                head.addLine(to: CGPoint(x: tip.x + 1 * u, y: tip.y + 5 * u))
-                head.closeSubpath()
-                ctx.fill(head, with: .color(P.brick(3).color(alpha)))
-            }
+            let icon = 40 * u
+            image(&ctx, art.boosters[k], in: CGRect(x: rect.midX - icon / 2, y: rect.midY - 2 * u - icon / 2, width: icon, height: icon), alpha: alpha)
 
             let badge = CGRect(x: rect.maxX - 14 * u, y: rect.maxY - 14 * u, width: 20 * u, height: 20 * u)
             ctx.fill(Path(ellipseIn: badge), with: .color(alive ? Color.white : P.frameDark.color()))
