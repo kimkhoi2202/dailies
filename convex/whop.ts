@@ -15,7 +15,7 @@ const PACKS = [
   { id: "vault", title: "Vault", gold: 5000, cents: 999 },
 ];
 /** Cents a studio pays for 1,000 views. */
-const RATES = [500, 1000, 2000, 5000];
+const RATES = [1000, 2000, 5000];
 /** Cents a studio can add to a program in one payment. */
 const BUDGETS = [500, 2000, 5000];
 /** The least a creator can send to Whop, in cents. */
@@ -104,7 +104,7 @@ export const settle = internalMutation({
       .query("programs")
       .withIndex("by_gameSlug", (q) => q.eq("gameSlug", game.slug))
       .unique();
-    const rate = row.rate ?? RATES[1];
+    const rate = row.rate ?? RATES[0];
     if (program) await ctx.db.patch("programs", program._id, { rate, budget: program.budget + row.cents, ownerId: row.userId });
     else
       await ctx.db.insert("programs", {

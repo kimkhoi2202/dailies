@@ -56,6 +56,11 @@ enum Route: Hashable {
     case newGroup
     case workplace
     case playTogether(String)
+    // money, through Whop
+    case buyGold
+    case earnings
+    case sendEarnings
+    case program(String)
 
     enum Style { case push, cover, sheet }
 
@@ -74,8 +79,10 @@ enum Route: Hashable {
             .sheet
         case .messages, .chat, .newGroup, .workplace:
             .push
-        case .playTogether:
+        case .playTogether, .buyGold, .sendEarnings, .program:
             .sheet
+        case .earnings:
+            .push
         }
     }
 

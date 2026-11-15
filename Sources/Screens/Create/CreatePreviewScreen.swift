@@ -361,6 +361,12 @@ struct CreateClipPage: View {
                              player: clip.handle, caption: clip.caption, length: "",
                              comments: groupedNumber(Int(clip.comments)), shares: groupedNumber(Int(clip.likes)))
         VideoPage(clip: shown, progress: 0, voted: store.vote(for: game.id), media: AnyView(media(game)), tag: clip.scoreText)
+            // Two seconds on screen is a view. A view of someone else's clip pays its creator when the game has a program.
+            .task(id: active) {
+                guard active, !clip.mine else { return }
+                try? await Task.sleep(for: .seconds(2))
+                if !Task.isCancelled { WhopStore.shared.saw(clip.id) }
+            }
     }
 
     @ViewBuilder private func media(_ game: MockGame) -> some View {

@@ -351,8 +351,8 @@ struct ShopItemSheet: View {
                 HStack(spacing: 10) {
                     DLTextKey(title: "Play a game", symbol: "play.fill", style: .neutral)
                         .tap { LiveNav.shared.goToTab(0) }
-                    DLTextKey(title: "Gold", symbol: "list.bullet", style: .neutral)
-                        .tap { onClose(); LiveNav.shared.open(.gold) }
+                    DLTextKey(title: "Get gold", symbol: "plus", style: .neutral)
+                        .tap { onClose(); LiveNav.shared.open(.buyGold) }
                 }
             } else {
                 buyKey.tap(buy)
