@@ -10,6 +10,7 @@ import SwiftUI
 
 enum GameKind: String, CaseIterable {
     case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut
+    case busRush
 }
 
 struct MockGame: Identifiable {
@@ -59,6 +60,7 @@ struct MockGame: Identifiable {
         case .blockParty: BlockPartyScene(phase: moment, showHUD: showHUD)
         case .wildEights: WildEightsScene(phase: moment, showHUD: showHUD)
         case .brickOut: BrickOutScene(phase: moment, showHUD: showHUD)
+        case .busRush: BusRushScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -226,7 +228,14 @@ enum Mock {
         plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
         bestScore: "1,240 points", clipPhase: 0.5, tint: Color(red: 0.42, green: 0.30, blue: 0.72))
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut]
+    static let busRush = MockGame(
+        id: "bus-rush", kind: .busRush, title: "Bus Rush", tagline: "Clear the lot. Fill every bus.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 30s", seedEarned: 0,
+        plays: "188K", likes: "23.4K", dislikes: "1.9K", approval: 92,
+        bestScore: "240 riders", clipPhase: 0.5, tint: Color(red: 0.23, green: 0.48, blue: 1.0))
+
+    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut, busRush]
 
     // MARK: Videos
 
