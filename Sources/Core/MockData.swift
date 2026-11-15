@@ -399,6 +399,8 @@ enum Mock {
                  caption: "every bus left full and the lot was empty", length: "0:35", comments: "91", shares: "448"),
         (id: "c17", game: "corner-pocket", player: "devon.plays",
                  caption: "called the corner and sank the eight off two rails", length: "0:33", comments: "109", shares: "512"),
+        (id: "c18", game: "can-cannon", player: "noor.runs",
+                 caption: "one ball, the whole pyramid", length: "0:26", comments: "137", shares: "690"),
     ]
     static var clips: [MockClip] { refresh(); return counted.clips }
 
