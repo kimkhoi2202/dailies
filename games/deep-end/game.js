@@ -476,9 +476,10 @@
   function layout() {
     var W = D.W, H = D.H, top = D.safe.top;
     L.W = W; L.H = H; L.top = top; L.bottom = D.safe.bottom;
-    L.cardX = 16; L.cardY = top + 116; L.cardW = W - 32; L.cardH = 136;
+    L.compact = H - top - D.safe.bottom < 700;
+    L.cardX = 16; L.cardY = top + (L.compact ? 72 : 116); L.cardW = W - 32; L.cardH = L.compact ? 100 : 136;
     L.kbBottom = H - D.safe.bottom - 16;
-    var kh = 42, gy = 8, gx = 4, side = 6;
+    var kh = L.compact ? 34 : 42, gy = L.compact ? 5 : 8, gx = 4, side = 6;
     var kw = (W - side * 2 - gx * 9) / 10;
     L.kbTop = L.kbBottom - (kh * 4 + gy * 3);
     keys.length = 0;
@@ -492,10 +493,10 @@
     var bkX = starts[2] + 7 * (kw + gx);
     keys.push({ k: 'BK', label: '<', x: bkX, y: L.kbTop + 2 * (kh + gy), w: W - side - bkX, h: kh });
     keys.push({ k: 'SP', label: 'SPACE', x: side + (kw + gx) * 2, y: L.kbTop + 3 * (kh + gy), w: (kw + gx) * 6 - gx, h: kh });
-    L.inH = 50;
-    L.inY = L.kbTop - 16 - L.inH;
-    L.timerX = 16 + 25;
-    L.inX = 76;
+    L.inH = L.compact ? 42 : 50;
+    L.inY = L.kbTop - (L.compact ? 10 : 16) - L.inH;
+    L.timerX = 16 + L.inH / 2;
+    L.inX = 16 + L.inH + 10;
     dive.w = 80; dive.h = L.inH; dive.x = W - 16 - dive.w; dive.y = L.inY;
     L.inW = dive.x - 8 - L.inX;
     L.msgY = L.inY - 22;
@@ -732,13 +733,13 @@
   }
 
   function drawTitle(ctx, W, alpha) {
-    var top = D.safe.top;
+    var ty = D.safe.top + (L.compact ? 34 : 108);
     ctx.globalAlpha = alpha;
-    drawChroma(ctx, 'DEEP END', W / 2, top + 108, Math.min(6, Math.floor((W - 40) / 47)), 'center');
-    drawText(ctx, 'THE DAILY DIVE', W / 2, top + 168, 2, '#1D6E8C', 'center', 6);
-    drawText(ctx, '7 PROMPTS. 25 SECONDS EACH.', W / 2, top + 200, 1, '#3D6F8A', 'center', 3);
-    drawText(ctx, 'RARER ANSWERS SINK DEEPER.', W / 2, top + 216, 1, '#3D6F8A', 'center', 3);
-    if (D.best > 0) drawText(ctx, 'BEST ' + fmt(D.best) + 'M', W / 2, top + 240, 1, '#1D6E8C', 'center', 3);
+    drawChroma(ctx, 'DEEP END', W / 2, ty, Math.min(6, Math.floor((W - 40) / 47)), 'center');
+    drawText(ctx, 'THE DAILY DIVE', W / 2, ty + 60, 2, '#1D6E8C', 'center', 6);
+    drawText(ctx, '7 PROMPTS. 25 SECONDS EACH.', W / 2, ty + 92, 1, '#3D6F8A', 'center', 3);
+    drawText(ctx, 'RARER ANSWERS SINK DEEPER.', W / 2, ty + 108, 1, '#3D6F8A', 'center', 3);
+    if (D.best > 0) drawText(ctx, 'BEST ' + fmt(D.best) + 'M', W / 2, ty + 132, 1, '#1D6E8C', 'center', 3);
     ctx.globalAlpha = 1;
   }
 
@@ -757,6 +758,10 @@
         ctx.fillStyle = 'rgba(10,20,36,0.8)'; ctx.fillRect(x, y, 12, 12);
       }
     }
+    if (L.compact) {
+      drawChroma(ctx, fmt(shown) + 'M', W / 2, top + 40, 3, 'center');
+      return;
+    }
     drawText(ctx, 'DEPTH', W / 2, top + 60, 1, DIM, 'center', 3);
     drawChroma(ctx, fmt(shown) + 'M', W / 2, top + 74, 4, 'center');
     drawText(ctx, points + ' PTS', W / 2, top + 108, 1, DIM, 'center', 2);
@@ -767,16 +772,16 @@
     panel(ctx, x, y, w, h, 'rgba(10,19,34,0.9)');
     drawText(ctx, 'PROMPT ' + (idx + 1) + ' OF ' + ROUND, x + 18, y + 16, 2, PINK, 'left', 3);
     var q = prompts[idx].q;
-    var s = 3, lines = wrap(q, s, w - 36);
+    var s = L.compact ? 2 : 3, lines = wrap(q, s, w - 36);
     if (lines.length > 2) { s = 2; lines = wrap(q, s, w - 36); }
     var shownChars = phase === 'intro' ? Math.floor(phaseT * 70) : 999;
-    var lh = 7 * s + 8, ty = y + 46 + (s === 3 ? 0 : 6);
+    var lh = 7 * s + 8, ty = y + (L.compact ? 40 : s === 3 ? 46 : 52);
     for (var i = 0; i < lines.length; i++) {
       var line = lines[i].slice(0, Math.max(0, shownChars));
       shownChars -= lines[i].length + 1;
       drawText(ctx, line, x + 18, ty + i * lh, s, WHITE, 'left');
     }
-    drawText(ctx, 'v RARER ANSWERS SINK DEEPER v', x + 18, y + h - 19, 1, DIM, 'left', 2);
+    drawText(ctx, 'v RARER ANSWERS SINK DEEPER v', x + 18, y + h - (L.compact ? 14 : 19), 1, DIM, 'left', 2);
   }
 
   function drawReveal(ctx, W) {
@@ -809,12 +814,13 @@
     var cx = L.timerX, cy = L.inY + L.inH / 2 + off, frac = Math.max(0, timeLeft / TIME);
     var low = phase === 'answer' && timeLeft <= 6;
     ctx.fillStyle = '#081222';
-    ctx.beginPath(); ctx.arc(cx, cy, 25, 0, Math.PI * 2); ctx.fill();
+    var rr = L.inH / 2 - 4;
+    ctx.beginPath(); ctx.arc(cx, cy, rr + 4, 0, Math.PI * 2); ctx.fill();
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(65,214,242,0.18)';
-    ctx.beginPath(); ctx.arc(cx, cy, 21, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
     ctx.strokeStyle = low ? PINK : CYAN;
-    ctx.beginPath(); ctx.arc(cx, cy, 21, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, rr, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); ctx.stroke();
     drawText(ctx, String(Math.ceil(timeLeft)), cx, cy - 7, 2, low ? PINK : CYAN, 'center');
 
     var sx = shakeT > 0 ? Math.round(Math.sin(shakeT * 70) * 5 * (shakeT / 0.35)) : 0;
@@ -827,10 +833,10 @@
     if (input) {
       var vis = input.length > room ? input.slice(input.length - room) : input;
       drawText(ctx, vis, ix + 12, iy + L.inH / 2 - 7, 2, WHITE, 'left');
-      if ((clock * 2) % 2 < 1.2) { ctx.fillStyle = PINK; ctx.fillRect(ix + 12 + textWidth(vis, 2) + 3, iy + 14, 2, L.inH - 28); }
+      if ((clock * 2) % 2 < 1.2) { ctx.fillStyle = PINK; ctx.fillRect(ix + 12 + textWidth(vis, 2) + 3, iy + 12, 2, L.inH - 24); }
     } else {
       drawText(ctx, room >= 15 ? 'TYPE ONE ANSWER' : 'ANSWER', ix + 12, iy + L.inH / 2 - 7, 2, '#3E5670', 'left');
-      if ((clock * 2) % 2 < 1.2) { ctx.fillStyle = PINK; ctx.fillRect(ix + 10, iy + 14, 2, L.inH - 28); }
+      if ((clock * 2) % 2 < 1.2) { ctx.fillStyle = PINK; ctx.fillRect(ix + 10, iy + 12, 2, L.inH - 24); }
     }
     ctx.fillStyle = 'rgba(65,214,242,0.15)';
     ctx.fillRect(L.inX, iy + L.inH + 4, L.inW, 3);
