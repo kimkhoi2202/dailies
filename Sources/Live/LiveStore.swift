@@ -38,6 +38,8 @@ struct RoundSummary: Equatable {
     var balanceBefore: Int
     var earnedTodayAfter: Int
     var isBest: Bool
+    /// The player's best in this game before this round. 0 means no rounds yet.
+    var bestBefore: Int = 0
     /// This round took the game to its daily limit.
     var hitLimit: Bool
     /// The game (or its studio) had already reached its limit before the round.
@@ -96,6 +98,9 @@ final class LiveStore: ObservableObject {
     @Published private(set) var history: [ConvexHistoryRound] = []
     /// The games the player saved in the Library.
     @Published private(set) var saved: Set<String> = []
+    /// The games this player is making or has made in the studio, newest first.
+    @Published private(set) var creations: [ConvexCreation] = []
+    @Published private(set) var creationDetails: [String: ConvexCreationDetail] = [:]
 
     private static let cacheKey = "dailies.live.convex.v1"
 
@@ -106,6 +111,7 @@ final class LiveStore: ObservableObject {
     private var watches: [AnyCancellable] = []
     private var boardWatches: [String: AnyCancellable] = [:]
     private var commentWatches: [String: AnyCancellable] = [:]
+    private var creationWatches: [String: AnyCancellable] = [:]
 
     // The newest answer from each live query.
     private var lastMe: ConvexMe?
@@ -170,6 +176,7 @@ final class LiveStore: ObservableObject {
         watches.removeAll()
         boardWatches.removeAll()
         commentWatches.removeAll()
+        creationWatches.removeAll()
     }
 
     private func forgetServer() {
@@ -181,6 +188,8 @@ final class LiveStore: ObservableObject {
         gameComments = [:]
         history = []
         saved = []
+        creations = []
+        creationDetails = [:]
     }
 
     private func openWatches() {
@@ -218,6 +227,9 @@ final class LiveStore: ObservableObject {
             },
             link.watch("library:mySaved", as: [String].self) { [weak self] value in
                 self?.saved = Set(value)
+            },
+            link.watch("creations:mine", as: [ConvexCreation].self) { [weak self] value in
+                self?.creations = value
             },
         ]
     }
@@ -429,7 +441,8 @@ final class LiveStore: ObservableObject {
         v.balance += gold
         v.earned[game.id, default: 0] += gold
         v.secondsToday[game.id, default: 0] += seconds
-        let isBest = result.score > 0 && result.score > (v.best[game.id] ?? 0)
+        let bestBefore = v.best[game.id] ?? 0
+        let isBest = result.score > 0 && result.score > bestBefore
         if isBest {
             v.best[game.id] = result.score
             v.bestUnit[game.id] = result.unit
@@ -448,7 +461,7 @@ final class LiveStore: ObservableObject {
         }
         setQuietly(v)
         let summary = RoundSummary(gameID: game.id, result: result, seconds: seconds, gold: gold,
-                                   balanceBefore: before, earnedTodayAfter: earnedToday(game.id), isBest: isBest,
+                                   balanceBefore: before, earnedTodayAfter: earnedToday(game.id), isBest: isBest, bestBefore: bestBefore,
                                    hitLimit: nowFull && gold > 0, wasFull: room == 0, solo: solo)
         lastRound = summary
         settle(summary)
@@ -568,6 +581,59 @@ final class LiveStore: ObservableObject {
         return gameComments[gameID] ?? []
     }
 
+    // MARK: Making games
+
+    /// A game in the making with its whole conversation, from the server. nil until the first answer arrives.
+    func creation(_ id: String) -> ConvexCreationDetail? {
+        if signedIn, creationWatches[id] == nil {
+            creationWatches[id] = link.watch("creations:get", ["creationId": id], as: ConvexCreationDetail?.self) { [weak self] value in
+                guard let self, let value else { return }
+                self.creationDetails[id] = value
+            }
+        }
+        return creationDetails[id]
+    }
+
+    /// Opens a creation with the maker's first wish. Returns its id once the server has it.
+    func startCreation(_ text: String) async throws -> String {
+        try await link.mutate("creations:start", ["text": text], as: String.self)
+    }
+
+    /// Adds the maker's next line to a creation.
+    func sendWish(_ text: String, to creationID: String) async throws {
+        try await link.mutate("creations:send", ["creationId": creationID, "text": text])
+    }
+
+    /// Asks the studio again after it failed to answer.
+    func retryCreation(_ creationID: String) async throws {
+        try await link.mutate("creations:retry", ["creationId": creationID])
+    }
+
+    /// Throws a creation away, with the game it became.
+    func removeCreation(_ creationID: String) {
+        creations.removeAll { $0.id == creationID }
+        creationDetails[creationID] = nil
+        creationWatches[creationID] = nil
+        write { try await self.link.mutate("creations:remove", ["creationId": creationID]) }
+    }
+
+    /// A game made in the studio, as the app plays it: the engine the studio chose, with the studio's words on it.
+    func madeGame(_ slug: String) -> MockGame? {
+        guard let made = creations.first(where: { $0.gameSlug == slug }) ?? creationDetails.values.first(where: { $0.gameSlug == slug }).map(Self.summary),
+              let kind = GameKind(rawValue: made.kind ?? "") else { return nil }
+        return MockGame(id: slug, kind: kind, title: made.title ?? "New game", tagline: made.pitch ?? "",
+                        category: made.category ?? "Arcade", players: "1 player", mode: "Casual", studio: me?.handle ?? Mock.handle,
+                        goldPerMinute: 1, avgSession: "2m 00s", seedEarned: 0, plays: "0", likes: "0", dislikes: "0", approval: 0,
+                        bestScore: "", clipPhase: 0.5, tint: Color(hex: made.tint ?? "F5B301"))
+    }
+
+    /// The creation row a detail stands for, so both can be read the same way.
+    static func summary(_ detail: ConvexCreationDetail) -> ConvexCreation {
+        ConvexCreation(id: detail.id, status: detail.status, wish: detail.wish, thinking: detail.thinking, title: detail.title,
+                       pitch: detail.pitch, how: detail.how, category: detail.category, kind: detail.kind, tint: detail.tint,
+                       unit: detail.unit, gameSlug: detail.gameSlug, error: detail.error, at: detail.at)
+    }
+
     // MARK: Text helpers
 
     /// "2m 48s"
@@ -597,6 +663,6 @@ final class LiveStore: ObservableObject {
 }
 
 extension Mock {
-    static func game(_ id: String) -> MockGame { games.first { $0.id == id } ?? tippyTower }
+    static func game(_ id: String) -> MockGame { games.first { $0.id == id } ?? LiveStore.shared.madeGame(id) ?? tippyTower }
     static func clip(_ id: String) -> MockClip { clips.first { $0.id == id } ?? clips[0] }
 }

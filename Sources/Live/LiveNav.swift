@@ -32,31 +32,70 @@ enum Route: Hashable {
     case reviewResult
     case reviewChanges
     // the tab bar and the library
-    case create
     case profile(String)
     case join
     case startRoom
     case room(String)
+    case libraryGame(String)
+    /// One of your own posted clips, by its id.
+    case myClip(String)
+    /// A list of clips full screen ("mine", "saved" or "user:<handle>"), starting at a clip.
+    case clipList(String, String)
     // the avatar
     /// An item id to open on its sheet, "closet" for the Closet, or nil.
     case shop(String?)
+    // making a clip
+    case create(String?)
+    case createPreview
+    // making a game in the studio
+    case makeGame
+    case makeChat(String)
+    case makePreview(String)
+    // community
+    case notifications
+    case story(Int)
+    case rate(String)
+    /// Friends' videos full screen, starting at this feed entry.
+    case friendVideos(String)
+    // messages
+    case messages
+    case chat(String)
+    case newGroup
+    case workplace
+    case playTogether(String)
+    // money, through Whop
+    case buyGold
+    case earnings
+    case sendEarnings
+    case program(String)
 
     enum Style { case push, cover, sheet }
 
     var style: Style {
         switch self {
-        case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room, .shop:
+        case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room, .shop, .makeChat, .makePreview, .notifications:
             .push
-        case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges, .create:
+        case .story, .friendVideos, .myClip, .clipList:
+            .cover
+        case .rate:
+            .sheet
+        case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges,
+             .create, .createPreview, .makeGame:
             .cover
         case .comments, .fairness, .spend, .streak, .saveGold, .notify, .join, .startRoom:
             .sheet
+        case .messages, .chat, .newGroup, .workplace:
+            .push
+        case .playTogether, .libraryGame, .buyGold, .sendEarnings, .program:
+            .sheet
+        case .earnings:
+            .push
         }
     }
 
     fileprivate var isPublishing: Bool {
         switch self {
-        case .publish, .reviewProgress, .reviewResult, .reviewChanges: true
+        case .publish, .reviewProgress, .reviewResult, .reviewChanges, .makeGame, .makeChat, .makePreview: true
         default: false
         }
     }
@@ -70,7 +109,7 @@ struct Layer: Identifiable, Equatable {
 final class LiveNav: ObservableObject {
     static let shared = LiveNav()
 
-    /// 0 Home, 1 Videos, 2 You (out of the bar, shown as the profile), 3 Messages, 4 Library
+    /// 0 Community (in place of Home), 1 Videos, 2 You (out of the bar, shown as the profile), 3 Messages, 4 Library
     @Published var tab = 0
     @Published var layers: [Layer] = []
     /// The clip on screen in Videos, as an index into its endless column.

@@ -9,7 +9,9 @@
   "dependencies": {
     "@auth/core": "^0.41.3",
     "@convex-dev/auth": "^2.0.0",
-    "convex": "^1.50.0"
+    "@whop/sdk": "^2.8.1",
+    "convex": "^1.50.0",
+    "openai": "^7.57.0"
   },
   "devDependencies": {
     "typescript": "~6.0.3"

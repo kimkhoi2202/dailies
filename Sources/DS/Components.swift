@@ -4,7 +4,7 @@ import UIKit
 // Dailies design system: the parts every screen is built from.
 
 /// The dark frosted backing behind anything that floats on video or game art.
-private struct MediaGlass<S: Shape>: View {
+struct MediaGlass<S: Shape>: View {
     let shape: S
     var dim: Double = 0.4
     var body: some View {
@@ -525,15 +525,41 @@ struct DLNavBar: View {
     private var placeholder: some View { Color.clear.frame(width: 40, height: 40) }
 }
 
-/// A sheet over the screen below: the screen dims, the sheet slides up, and a tap outside closes it.
+extension EnvironmentValues {
+    /// true inside the system sheet LiveRoot presents for a sheet route.
+    @Entry var dlInSystemSheet: Bool = false
+}
+
+/// A sheet over the screen below. A sheet route is shown as an iOS sheet: it follows a swipe down
+/// from anywhere on it, and closes on a tap outside. Shown any other way, it draws its own sheet
+/// that closes the same ways.
 struct DLSheet<Background: View, Content: View>: View {
     var height: CGFloat
     /// Kept for callers. The sheet covers whatever is already on screen.
     @ViewBuilder var background: () -> Background
     @ViewBuilder var content: () -> Content
     @State private var raised = false
+    @State private var pull: CGFloat = 0
+    @Environment(\.dlInSystemSheet) private var inSystemSheet
 
     var body: some View {
+        if inSystemSheet {
+            VStack(spacing: 0) {
+                content()
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 22)
+            .frame(maxWidth: .infinity)
+            .presentationDetents([.height(height + 14)])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(38)
+            .presentationBackground(DL.raised)
+        } else {
+            drawn
+        }
+    }
+
+    private var drawn: some View {
         ZStack(alignment: .bottom) {
             Color.black.opacity(0.45).ignoresSafeArea()
                 .contentShape(Rectangle())
@@ -548,7 +574,16 @@ struct DLSheet<Background: View, Content: View>: View {
             .frame(height: height)
             .background(DL.raised, in: RoundedRectangle(cornerRadius: 38, style: .continuous))
             .padding([.horizontal, .bottom], 8)
-            .offset(y: raised ? 0 : height + 40)
+            .offset(y: (raised ? 0 : height + 40) + pull)
+            .simultaneousGesture(DragGesture(minimumDistance: 12)
+                .onChanged { pull = max(0, $0.translation.height) }
+                .onEnded { drag in
+                    if drag.translation.height > 110 || drag.predictedEndTranslation.height > 260 {
+                        LiveNav.shared.back()
+                    } else {
+                        withAnimation(.snappy(duration: 0.25)) { pull = 0 }
+                    }
+                })
         }
         .ignoresSafeArea(.container)
         .onAppear {
@@ -675,11 +710,11 @@ struct DLMonogram: View {
         .background {
             if !plain { RoundedRectangle(cornerRadius: size * 0.22, style: .continuous).fill(DL.gold) }
         }
-        .accessibilityLabel("Dailies")
+        .accessibilityLabel("DEGEN")
     }
 
     /// The D: a tall stem with tight corners on the left and a wide bowl on the right.
-    private static let letter = Path { d in
+    fileprivate static let letter = Path { d in
         d.move(to: CGPoint(x: 0.277, y: 0.186))
         d.addLine(to: CGPoint(x: 0.527, y: 0.186))
         d.addQuadCurve(to: CGPoint(x: 0.771, y: 0.430), control: CGPoint(x: 0.771, y: 0.186))
@@ -692,25 +727,37 @@ struct DLMonogram: View {
         d.closeSubpath()
     }
 
-    private static let triangle = Path { t in
+    fileprivate static let triangle = Path { t in
         t.addLines([CGPoint(x: 0.420, y: 0.375), CGPoint(x: 0.625, y: 0.5), CGPoint(x: 0.420, y: 0.625)])
         t.closeSubpath()
     }
 }
 
-/// The logo, from the brand artwork: bone lettering in dark mode, ink in light.
+/// The logo: the D of the mark, as tall as the capitals and standing on their baseline, then the
+/// rest of the name in the display face.
 struct DLLogo: View {
     var height: CGFloat = 30
-    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        let file = scheme == .dark ? "lockup-bone" : "lockup-ink"
-        if let url = Bundle.main.url(forResource: file, withExtension: "png"), let artwork = UIImage(contentsOfFile: url.path) {
-            Image(uiImage: artwork).resizable().interpolation(.high).scaledToFit()
-                .frame(height: height)
-                .accessibilityLabel("Dailies")
-        } else {
-            Text("DAILIES").font(DL.display(height)).foregroundStyle(DL.ink)
+        let size = height * 1.16
+        let cap = UIFont(name: "BigShoulders-Black", size: size)?.capHeight ?? size * 0.7
+        // The D's box on the unit square the mark is drawn on.
+        let box = CGRect(x: 0.244, y: 0.186, width: 0.527, height: 0.628)
+        let scale = cap / box.height
+        HStack(alignment: .firstTextBaseline, spacing: cap * 0.1) {
+            Canvas { context, _ in
+                let fit = CGAffineTransform(translationX: -box.minX, y: -box.minY).concatenating(CGAffineTransform(scaleX: scale, y: scale))
+                context.fill(DLMonogram.letter.applying(fit), with: .color(DL.ink))
+                let triangle = DLMonogram.triangle.applying(fit)
+                context.fill(triangle, with: .color(DL.gold))
+                context.stroke(triangle, with: .color(DL.gold), style: StrokeStyle(lineWidth: 0.04 * scale, lineJoin: .round))
+            }
+            .frame(width: box.width * scale, height: cap)
+            .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
+            Text("EGEN").font(DL.display(size)).foregroundStyle(DL.ink)
         }
+        .frame(height: height)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("DEGEN")
     }
 }

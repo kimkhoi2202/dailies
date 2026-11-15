@@ -15,18 +15,23 @@ struct LiveRoot: View {
         ZStack {
             // The system bar stays hidden. LiveTabBar draws the bar, with the Create key in its middle.
             TabView(selection: $nav.tab) {
-                Tab("Home", systemImage: "house.fill", value: 0) { HomeScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().underTabBar() }
                 Tab("Reels", systemImage: "play.rectangle.on.rectangle.fill", value: 1) { LiveVideos().toolbar(.hidden, for: .tabBar) }
-                Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().toolbar(.hidden, for: .tabBar) }
-                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesTabScreen().toolbar(.hidden, for: .tabBar) }
-                Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().underTabBar() }
+                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesInboxScreen(showsBack: false).underTabBar() }
+                Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().underTabBar() }
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) { LiveTabBar() }
+            // An inset on the TabView never reaches the pages inside its tabs, so the bar floats over
+            // them and each page keeps its own room for it (underTabBar).
+            .overlay(alignment: .bottom) { LiveTabBar() }
 
+            // Sheets are presented by iOS below, so they swipe down like any other sheet.
             ForEach(Array(nav.layers.enumerated()), id: \.element.id) { depth, layer in
-                LayerView(layer: layer)
-                    .zIndex(Double(depth + 1))
-                    .transition(layer.route.style.entrance)
+                if layer.route.style != .sheet {
+                    LayerView(layer: layer)
+                        .zIndex(Double(depth + 1))
+                        .transition(layer.route.style.entrance)
+                }
             }
 
             if let toast = nav.toast {
@@ -45,9 +50,24 @@ struct LiveRoot: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { store.rollDayIfNeeded() }
         }
+        .sheet(item: Binding(get: { nav.layers.last.flatMap { $0.route.style == .sheet ? $0 : nil } },
+                             set: { shown in
+                                 // Swiped away: drop the sheet's layer, unless something already took it off.
+                                 if shown == nil, nav.layers.last?.route.style == .sheet { nav.layers.removeLast() }
+                             })) { layer in
+            LayerView(layer: layer).environment(\.dlInSystemSheet, true)
+        }
         .statusBarHidden(nav.isPlaying)
         .persistentSystemOverlays(nav.isPlaying ? .hidden : .automatic)
         .defersSystemGestures(on: nav.isPlaying ? .all : [])
+    }
+}
+
+private extension View {
+    /// A tab's page: the system bar hidden, and room at the bottom so the last row scrolls clear of LiveTabBar.
+    func underTabBar() -> some View {
+        toolbar(.hidden, for: .tabBar)
+            .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: LiveTabBar.height) }
     }
 }
 
@@ -149,8 +169,12 @@ struct LayerView: View {
             G3ReviewResultScreen()
         case .reviewChanges:
             G3ReviewChangesScreen()
-        case .create:
-            CreatePlaceholderScreen()
+        case .create(let gameID):
+            CreateCameraScreen(startGameID: gameID)
+        case .createPreview:
+            CreatePreviewScreen()
+        case .makeGame:
+            G4CreateScreen()
         case .profile(let handle):
             ProfileScreen(handle: handle)
         case .shop(let focus):
@@ -161,6 +185,42 @@ struct LayerView: View {
             StartRoomSheet()
         case .room(let code):
             RoomScreen(code: code)
+        case .libraryGame(let gameID):
+            LibraryGameSheet(game: Mock.game(gameID))
+        case .myClip(let clipID):
+            LibraryClipScreen(clipID: clipID)
+        case .clipList(let source, let start):
+            ClipsViewer(source: ClipSource(source), start: start)
+        case .makeChat(let creationID):
+            G4CreateChatScreen(creationID: creationID)
+        case .makePreview(let creationID):
+            G4CreatePreviewScreen(creationID: creationID)
+        case .notifications:
+            CommunityNotificationsScreen()
+        case .story(let index):
+            CommunityStoryScreen(start: index)
+        case .rate(let gameID):
+            CommunityRatingSheet(gameID: gameID)
+        case .friendVideos(let start):
+            CommunityVideoPlayer(start: start)
+        case .messages:
+            MessagesInboxScreen()
+        case .chat(let id):
+            MessagesChatScreen(chatID: id)
+        case .newGroup:
+            MessagesNewGroupScreen()
+        case .workplace:
+            MessagesWorkplaceScreen()
+        case .playTogether(let id):
+            MessagesPlayTogetherSheet(chatID: id)
+        case .buyGold:
+            WhopBuyGoldSheet()
+        case .earnings:
+            WhopEarningsScreen()
+        case .sendEarnings:
+            WhopSendSheet()
+        case .program(let gameID):
+            WhopProgramSheet(game: Mock.game(gameID))
         }
     }
 }
@@ -171,6 +231,7 @@ struct LayerView: View {
 struct LiveVideos: View {
     @ObservedObject private var nav = LiveNav.shared
     @ObservedObject private var store = LiveStore.shared
+    @ObservedObject private var made = CreateClips.shared
 
     /// Long enough that nobody reaches the end. The six clips repeat.
     private let pageCount = 600
@@ -183,10 +244,19 @@ struct LiveVideos: View {
             let playing = nav.tab == 1 && nav.layers.isEmpty && store.isOn("Autoplay clips")
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    // Clips players posted come first, newest at the top, then the catalog clips.
+                    let posted = made.feed
                     ForEach(0..<pageCount, id: \.self) { index in
-                        LiveClipPage(clip: Mock.clips[index % Mock.clips.count], active: playing && nav.videoIndex == index)
-                            .frame(width: screen.width, height: screen.height)
-                            .id(index)
+                        Group {
+                            if index < posted.count {
+                                CreateClipPage(clip: posted[index], active: playing && nav.videoIndex == index)
+                            } else {
+                                LiveClipPage(clip: Mock.clips[(index - posted.count) % Mock.clips.count],
+                                             active: playing && nav.videoIndex == index)
+                            }
+                        }
+                        .frame(width: screen.width, height: screen.height)
+                        .id(index)
                     }
                 }
                 .scrollTargetLayout()
@@ -204,6 +274,8 @@ struct LiveVideos: View {
 struct LiveClipPage: View {
     let clip: MockClip
     let active: Bool
+    /// A catalog clip can be saved. A friend's post shown on the same page cannot.
+    var saveable = true
     @ObservedObject private var store = LiveStore.shared
     @State private var loopStart = Date()
 
@@ -216,17 +288,19 @@ struct LiveClipPage: View {
                 TimelineView(.animation(minimumInterval: 1.0 / 40)) { timeline in
                     let loops = timeline.date.timeIntervalSince(loopStart) / Self.loopSeconds
                     let phase = loops - loops.rounded(.towardZero)
-                    VideoPage(clip: clip, progress: CGFloat(phase), voted: vote, phase: phase)
+                    VideoPage(clip: clip, progress: CGFloat(phase), voted: vote, phase: phase, saveKey: saveKey)
                 }
             } else {
                 // At rest a clip shows its opening moment.
-                VideoPage(clip: clip, progress: 0, voted: vote, phase: 0.02)
+                VideoPage(clip: clip, progress: 0, voted: vote, phase: 0.02, saveKey: saveKey)
             }
         }
         .onChange(of: active) { _, isActive in
             if isActive { loopStart = Date() }
         }
     }
+
+    private var saveKey: String? { saveable ? CreateClips.sampleKey(clip.id) : nil }
 }
 
 // MARK: Playing
@@ -241,6 +315,8 @@ struct LivePlayScreen: View {
     /// Decided once, when the round opens.
     @State private var options: GameOptions
     @State private var asking = false
+    /// Set for a room round the player chose to film.
+    @State private var film: CreateFilmSession?
     @Environment(\.scenePhase) private var scenePhase
 
     init(game: MockGame, solo: Bool) {
@@ -251,6 +327,7 @@ struct LivePlayScreen: View {
         _options = State(initialValue: GameOptions(solo: solo, playerName: Mock.handle, friendNames: Mock.playFriends,
                                                    bestScore: LiveStore.shared.s.best[game.id] ?? 0,
                                                    seed: roomSeed ?? LiveLaunch.seed ?? timeSeed))
+        _film = State(initialValue: roomSeed != nil && CreateFilm.wanted ? CreateFilmSession() : nil)
     }
 
     var body: some View {
@@ -260,6 +337,7 @@ struct LivePlayScreen: View {
                 GameFactory.view(for: game.kind, options: options, link: link)
             }
             .ignoresSafeArea()
+            if let film { CreateFilmBubble(session: film) }
             HStack {
                 DLMediaButton(symbol: "xmark", size: 44)
                     .tap { pause() }
@@ -272,7 +350,10 @@ struct LivePlayScreen: View {
             if asking { pausePrompt }
         }
         .onAppear(perform: begin)
-        .onDisappear { TouchWatcher.remove() }
+        .onDisappear {
+            TouchWatcher.remove()
+            CommunityStore.shared.stopPresence()
+        }
         .onChange(of: scenePhase) { _, phase in
             // Leaving the app pauses the round. The prompt is waiting on return.
             if phase != .active && !link.isFinished {
@@ -287,12 +368,24 @@ struct LivePlayScreen: View {
         let clock = self.clock
         TouchWatcher.install { clock.start() }
         if GameDemo.autopilot { clock.start() }
+        CommunityStore.shared.startPresence(game.id)
+        if let film { Task { await film.begin() } }
         link.onFinish = { result in
             TouchWatcher.remove()
             LiveRoomRound.report(result.score)
             let summary = LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: result, solo: solo)
             if summary.gold > 0 { UINotificationFeedbackGenerator().notificationOccurred(.success) }
-            LiveNav.shared.replaceTop(.results)
+            CommunityStore.shared.roundEnded(summary)
+            guard let film else { return LiveNav.shared.replaceTop(.results) }
+            // A filmed round goes to its clip, ready to caption and post.
+            let seconds = clock.seconds
+            Task { @MainActor in
+                let url = await film.finish()
+                CreateClips.shared.take = CreateTake(gameID: game.id, layout: .bubble, videoURL: url,
+                                                     cameraOnly: film.cameraOnly, result: result,
+                                                     isBest: summary.isBest, seconds: seconds)
+                LiveNav.shared.replaceTop(.createPreview)
+            }
         }
     }
 
@@ -309,6 +402,7 @@ struct LivePlayScreen: View {
 
     /// Leaving early still keeps the gold from the time played. The round has no score.
     private func leave() {
+        film?.discard()
         LiveRoomRound.report(0)
         if clock.seconds > 0 {
             LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: GameResult(score: 0, unit: ""), solo: solo)
@@ -453,14 +547,19 @@ struct LiveResultsScreen: View {
 ///   -fresh 1            start over with a new account
 ///   -scheme light|dark  appearance
 ///   -tab <0...4>        open on a tab: 0 Home, 1 Videos, 2 You, 3 Messages, 4 Library
+///   -scroll bottom      in the Library, open scrolled to the end
 ///   -video <n>          the clip showing in Videos
 ///   -play <game id>     open straight into a game (-solo 1 to play alone, -seed <n> for a fixed round)
 ///   -route <name>       open a screen: gold, history, streak, search, inbox, settings, saveGold, notify, studio,
-///                       reviewProgress, reviewResult, reviewChanges, or one that takes a value:
+///                       reviewProgress, reviewResult, reviewChanges, makeGame, or one that takes a value:
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
 ///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
-///                       create, join, startRoom, profile:<handle>, room:<code>,
-///                       shop, shop:closet, shop:<item id> (opens that item's sheet)
+///                       create[:<game id>], join, startRoom, profile:<handle>, room:<code>,
+///                       libraryGame:<game id>, myClip:<clip id>,
+///                       messages, chat:<chat id>, newGroup, workplace,
+///                       makeChat:<creation id>, makePreview:<creation id>,
+///                       shop, shop:closet, shop:<item id> (opens that item's sheet),
+///                       buyGold, earnings, sendEarnings, program:<game id>
 ///   -tryon <item id>    in the Shop, try an item on without opening its sheet
 ///   -shopturn 1         in the Shop, turn the Dailie round to show its back
 ///   -demo 1             games play themselves (-lose <seconds> has the scripted player lose after that long)
@@ -506,6 +605,9 @@ enum LiveLaunch {
         case "reviewProgress": return .reviewProgress
         case "reviewResult": return .reviewResult
         case "reviewChanges": return .reviewChanges
+        case "makeGame": return .makeGame
+        case "makeChat": return .makeChat(value)
+        case "makePreview": return .makePreview(value)
         case "gameReady": return .gameReady(value)
         case "gameDetail": return .gameDetail(value)
         case "leaderboard": return .leaderboard(value)
@@ -514,12 +616,23 @@ enum LiveLaunch {
         case "shareRun": return .shareRun(value)
         case "spend": return .spend(Int(value) ?? 1)
         case "publish": return .publish(Int(value) ?? 1)
-        case "create": return .create
+        case "create": return .create(value.isEmpty ? nil : value)
         case "join": return .join
         case "startRoom": return .startRoom
         case "profile": return .profile(value.isEmpty ? "me" : value)
         case "room": return .room(value)
+        case "friendVideos": return .friendVideos(value)
+        case "libraryGame": return .libraryGame(value)
+        case "myClip": return .myClip(value)
         case "shop": return .shop(value.isEmpty ? nil : value)
+        case "messages": return .messages
+        case "chat": return .chat(value)
+        case "newGroup": return .newGroup
+        case "workplace": return .workplace
+        case "buyGold": return .buyGold
+        case "earnings": return .earnings
+        case "sendEarnings": return .sendEarnings
+        case "program": return .program(value)
         default: return nil
         }
     }
@@ -568,7 +681,7 @@ final class LiveHost: UIHostingController<LiveRoot> {
     override var preferredStatusBarStyle: UIStatusBarStyle {
         // A sheet leaves the screen under it showing, so the top screen that is not a sheet decides.
         switch LiveNav.shared.layers.last(where: { $0.route.style != .sheet })?.route {
-        case .gameReady, .play, .results, .gameDetail, .profile, .shop: .lightContent
+        case .gameReady, .play, .results, .gameDetail, .profile, .shop, .create, .createPreview, .story, .friendVideos: .lightContent
         case nil: LiveNav.shared.tab == 1 ? .lightContent : .default
         default: .default
         }

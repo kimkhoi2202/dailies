@@ -5,11 +5,11 @@ import SwiftUI
 //   - gold follows play time, about 1 gold a minute, at a rate set per game by the review
 //   - one game gives a player at most 100 gold a day, and one studio's games at most 300
 //   - likes and dislikes belong to a game, not to a single clip, and both counts are public
-//   - watching gives no gold, and gold cannot be bought or sold
+//   - watching gives no gold; gold packs are sold through Whop and sit outside the daily limits
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide, busRush, cornerPocket, canCannon, shortStack
 }
 
 struct MockGame: Identifiable {
@@ -65,6 +65,19 @@ struct MockGame: Identifiable {
         case .laneDash: LaneDashScene(phase: moment, showHUD: showHUD)
         case .gulpCity: GulpCityScene(phase: moment, showHUD: showHUD)
         case .inkland: InklandScene(phase: moment, showHUD: showHUD)
+        case .slipOut: SlipOutScene(phase: moment, showHUD: showHUD)
+        case .blockParty: BlockPartyScene(phase: moment, showHUD: showHUD)
+        case .wildEights: WildEightsScene(phase: moment, showHUD: showHUD)
+        case .brickOut: BrickOutScene(phase: moment, showHUD: showHUD)
+        case .dailyGrid: DailyGridScene(phase: moment, showHUD: showHUD)
+        case .letterRush: LetterRushScene(phase: moment, showHUD: showHUD)
+        case .pourParty: PourPartyScene(phase: moment, showHUD: showHUD)
+        case .deepEnd: DeepEndScene(phase: moment, showHUD: showHUD)
+        case .jamSlide: JamSlideScene(phase: moment, showHUD: showHUD)
+        case .busRush: BusRushScene(phase: moment, showHUD: showHUD)
+        case .cornerPocket: CornerPocketScene(phase: moment, showHUD: showHUD)
+        case .canCannon: CanCannonScene(phase: moment, showHUD: showHUD)
+        case .shortStack: ShortStackScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -179,12 +192,12 @@ enum Mock {
         "Up to 100 gold a day from one game.",
         "Up to 300 gold a day from one studio.",
         "Watching never earns gold.",
-        "Gold can't be bought or sold.",
+        "Gold from a pack is on top of these limits.",
     ]
 
     // MARK: Games
 
-    // The six games as the app ships them. Their counts are samples, shown until the server's first answer.
+    // The games as the app ships them. Their counts are samples, shown until the server's first answer.
     private static let sampleGames = [
       MockGame(
         id: "tippy-tower", kind: .tippyTower, title: "Tippy Tower", tagline: "Stack it. Don't blink.",
@@ -228,6 +241,96 @@ enum Mock {
         plays: "371K", likes: "40.3K", dislikes: "3.9K", approval: 91,
         bestScore: "87%", clipPhase: 0.85, tint: Color(red: 0.55, green: 0.80, blue: 0.70)),
 
+      MockGame(
+        id: "slip-out", kind: .slipOut, title: "Slip Out", tagline: "Tap the arrow. Mind the way out.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 10s", seedEarned: 0,
+        plays: "214K", likes: "27.5K", dislikes: "2.1K", approval: 93,
+        bestScore: "62 arrows", clipPhase: 0.5, tint: Color(red: 0.94, green: 0.33, blue: 0.42)),
+
+      MockGame(
+        id: "block-party", kind: .blockParty, title: "Block Party", tagline: "Fill the line. Clear it.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 40s", seedEarned: 0,
+        plays: "612K", likes: "74.1K", dislikes: "4.2K", approval: 94,
+        bestScore: "2,680 points", clipPhase: 0.85, tint: Color(red: 0.63, green: 0.42, blue: 1.0)),
+
+      MockGame(
+        id: "wild-eights", kind: .wildEights, title: "Wild Eights", tagline: "Match the suit. Eights go anywhere.",
+        category: "Cards", players: "2 to 4 players", mode: "Competitive", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 30s", seedEarned: 0,
+        plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
+        bestScore: "131 points", clipPhase: 0.3, tint: Color(red: 0.16, green: 0.64, blue: 0.57)),
+
+      MockGame(
+        id: "brick-out", kind: .brickOut, title: "Brick Out", tagline: "Slide every brick out.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 30s", seedEarned: 0,
+        plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
+        bestScore: "1,240 points", clipPhase: 0.5, tint: Color(red: 0.42, green: 0.30, blue: 0.72)),
+
+      MockGame(
+        id: "daily-grid", kind: .dailyGrid, title: "Daily Grid", tagline: "Six crowns. No touching.",
+        category: "Puzzle", players: "1 to 4 players", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "3m 00s", seedEarned: 0,
+        plays: "214K", likes: "28.6K", dislikes: "1.4K", approval: 95,
+        bestScore: "640 points", clipPhase: 0.85, tint: Color(red: 0.85, green: 0.66, blue: 0.80)),
+
+      MockGame(
+        id: "letter-rush", kind: .letterRush, title: "Letter Rush", tagline: "Drag a word. Beat the clock.",
+        category: "Word", players: "2 players", mode: "Competitive", studio: "Paper Lantern",
+        goldPerMinute: 1.1, avgSession: "1m 40s", seedEarned: 0,
+        plays: "214K", likes: "27.5K", dislikes: "1.8K", approval: 94,
+        bestScore: "3,500 points", clipPhase: 0.85, tint: Color(red: 0.96, green: 0.70, blue: 0.0)),
+
+      MockGame(
+        id: "pour-party", kind: .pourParty, title: "Pour Party", tagline: "Sort the colours. Beat the clock.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 10s", seedEarned: 0,
+        plays: "214K", likes: "27.6K", dislikes: "2.1K", approval: 93,
+        bestScore: "1,500 points", clipPhase: 0.85, tint: Color(red: 0.24, green: 0.55, blue: 1.0)),
+
+      MockGame(
+        id: "deep-end", kind: .deepEnd, title: "Deep End", tagline: "Rarer answers sink deeper.",
+        category: "Word", players: "1 to 4 players", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 50s", seedEarned: 0,
+        plays: "96K", likes: "11.4K", dislikes: "0.8K", approval: 93,
+        bestScore: "4,650 m", clipPhase: 0.5, tint: Color(red: 0.14, green: 0.38, blue: 0.62)),
+
+      MockGame(
+        id: "jam-slide", kind: .jamSlide, title: "Jam Slide", tagline: "Every block has its gate.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Wobble Works",
+        goldPerMinute: 1.0, avgSession: "2m 40s", seedEarned: 0,
+        plays: "188K", likes: "23.4K", dislikes: "1.9K", approval: 92,
+        bestScore: "2,310 points", clipPhase: 0.5, tint: Color(red: 0.36, green: 0.62, blue: 0.95)),
+
+      MockGame(
+        id: "bus-rush", kind: .busRush, title: "Bus Rush", tagline: "Clear the lot. Fill every bus.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 30s", seedEarned: 0,
+        plays: "188K", likes: "23.4K", dislikes: "1.9K", approval: 92,
+        bestScore: "240 riders", clipPhase: 0.5, tint: Color(red: 0.23, green: 0.48, blue: 1.0)),
+
+      MockGame(
+        id: "corner-pocket", kind: .cornerPocket, title: "Corner Pocket", tagline: "Sink your group. Then the 8.",
+        category: "Sports", players: "1 or 2 players", mode: "Competitive", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "1m 30s", seedEarned: 0,
+        plays: "188K", likes: "23.4K", dislikes: "1.9K", approval: 92,
+        bestScore: "100 points", clipPhase: 0.42, tint: Color(red: 0.18, green: 0.56, blue: 0.44)),
+
+      MockGame(
+        id: "can-cannon", kind: .canCannon, title: "Can Cannon", tagline: "Aim low. Knock it all down.",
+        category: "Arcade", players: "1 to 4 players", mode: "Casual", studio: "Sandcastle",
+        goldPerMinute: 1.0, avgSession: "2m 10s", seedEarned: 0,
+        plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
+        bestScore: "1,480 points", clipPhase: 0.5, tint: Color(red: 0.24, green: 0.42, blue: 0.88)),
+
+      MockGame(
+        id: "short-stack", kind: .shortStack, title: "Short Stack", tagline: "Six seats. Three minutes.",
+        category: "Cards", players: "1 to 6 players", mode: "Competitive", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 40s", seedEarned: 0,
+        plays: "238K", likes: "26.4K", dislikes: "2.1K", approval: 93,
+        bestScore: "2,460 chips", clipPhase: 0.865, tint: Color(red: 0.07, green: 0.56, blue: 0.48)),
     ]
 
     private static var counted: (version: Int, games: [MockGame], clips: [MockClip]) = (-1, [], [])
@@ -253,6 +356,19 @@ enum Mock {
     static var inkland: MockGame { games[3] }
     static var spiralDrop: MockGame { games[4] }
     static var gulpCity: MockGame { games[5] }
+    static var slipOut: MockGame { games[6] }
+    static var shortStack: MockGame { games[7] }
+    static var blockParty: MockGame { games[8] }
+    static var wildEights: MockGame { games[9] }
+    static var brickOut: MockGame { games[10] }
+    static var dailyGrid: MockGame { games[11] }
+    static var letterRush: MockGame { games[12] }
+    static var pourParty: MockGame { games[13] }
+    static var deepEnd: MockGame { games[14] }
+    static var jamSlide: MockGame { games[15] }
+    static var busRush: MockGame { games[16] }
+    static var cornerPocket: MockGame { games[17] }
+    static var canCannon: MockGame { games[18] }
 
     // MARK: Videos
 
@@ -269,6 +385,32 @@ enum Mock {
                  caption: "eleven floors without touching red", length: "0:35", comments: "198", shares: "977"),
         (id: "c6", game: "gulp-city", player: "tofu",
                  caption: "swallowed the whole block with two seconds left", length: "0:29", comments: "88", shares: "412"),
+        (id: "c19", game: "block-party", player: "tofu",
+                 caption: "cleared three lines with one L piece", length: "0:33", comments: "142", shares: "720"),
+        (id: "c8", game: "slip-out", player: "juno",
+                 caption: "forty arrows, not one bump", length: "0:28", comments: "64", shares: "310"),
+        (id: "c9", game: "wild-eights", player: "kaz",
+                 caption: "held the eight until the very last card", length: "0:36", comments: "97", shares: "455"),
+        (id: "c10", game: "brick-out", player: "devon.plays",
+                 caption: "the whole board out in nine moves", length: "0:34", comments: "118", shares: "590"),
+        (id: "c11", game: "daily-grid", player: "wordnerd.sam",
+                 caption: "six crowns in fifty one seconds", length: "0:24", comments: "203", shares: "1.1K"),
+        (id: "c12", game: "letter-rush", player: "wordnerd.sam",
+                 caption: "found PANEL with one second left", length: "0:30", comments: "176", shares: "880"),
+        (id: "c13", game: "pour-party", player: "noor.runs",
+                 caption: "five pours. that is the whole level", length: "0:29", comments: "81", shares: "402"),
+        (id: "c14", game: "deep-end", player: "kaz",
+                 caption: "typed kakapo and sank past everyone", length: "0:37", comments: "154", shares: "760"),
+        (id: "c15", game: "jam-slide", player: "juno",
+                 caption: "the blue gate said 1 and I made it count", length: "0:31", comments: "58", shares: "287"),
+        (id: "c16", game: "bus-rush", player: "tofu",
+                 caption: "every bus left full and the lot was empty", length: "0:35", comments: "91", shares: "448"),
+        (id: "c17", game: "corner-pocket", player: "devon.plays",
+                 caption: "called the corner and sank the eight off two rails", length: "0:33", comments: "109", shares: "512"),
+        (id: "c18", game: "can-cannon", player: "noor.runs",
+                 caption: "one ball, the whole pyramid", length: "0:26", comments: "137", shares: "690"),
+        (id: "c7", game: "short-stack", player: "kaz",
+                 caption: "two pair on the river and the whole table folded too late", length: "0:33", comments: "143", shares: "508"),
     ]
     static var clips: [MockClip] { refresh(); return counted.clips }
 

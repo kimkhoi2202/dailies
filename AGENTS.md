@@ -1,4 +1,4 @@
-# Dailies
+# DEGEN
 
 Consumer mobile app for [The Consumer Mobile Hackathon](https://consumermobilehackathon.com) (Sunday, November 15, 2026). The site's tool guides are the source of truth for each sponsor tool; read the linked page before integrating one.
 
@@ -36,10 +36,12 @@ npx tsc --noEmit -p convex      # typecheck the backend
 ## Games
 
 - Each game is two files in `Sources/Games`: `<Name>Game.swift`, a SwiftUI view made with `init(options: GameOptions, link: GameLink)`, and `<Name>Scene.swift`, a view made with `init(phase: Double, showHUD: Bool)` that draws one moment of the game for covers and the Videos feed. Read `Sources/Games/GameKit.swift` before writing or changing one.
-- A game depends on nothing else in the app, prefixes every type with its own name, draws everything in code, and calls `link.finish(_:)` exactly once. README.md has the steps for adding one to the catalog and to `convex/seed.ts`.
+- A game depends on nothing else in the app, prefixes every type with its own name, draws in code plus its own images in `Resources/GameArt.xcassets` (named `<game-id>-<name>`; SwiftUI `Image` only finds catalog images), and calls `link.finish(_:)` exactly once. README.md has the steps for adding one to the catalog and to `convex/seed.ts`.
 - Frame rate on a real iPhone matters most: keep the rules in a plain Swift model, draw with `Canvas`, and allocate nothing per frame that can be kept.
 
 ## Wording
+
+The app is called DEGEN, in capitals, everywhere a person can read it: under the icon, in the logo, in share text and in store listings. It was first called Dailies, and the repository, the Xcode target and scheme, the bundle id and the Convex project keep that name; do not rename those.
 
 Words on screen are short plain sentences. Never the words win, prize, reward, cash, payout, bonus, bet, wager, jackpot, spin, lucky, token, mint. No exclamation marks, no emoji, no long dashes.
 

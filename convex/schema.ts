@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { communityTables } from "./communitySchema";
 
 export default defineSchema({
   users: defineTable({
@@ -28,6 +29,10 @@ export default defineSchema({
     ),
     // Decor items placed in this player's profile room, in spot order.
     room: v.optional(v.object({ decor: v.array(v.string()) })),
+    // Money a creator's clips have brought in and not yet sent to Whop, in cents. Parts of a cent count.
+    cents: v.optional(v.number()),
+    centsAllTime: v.optional(v.number()),
+    whopUsername: v.optional(v.string()),
   }).index("by_handle", ["handle"]),
 
   games: defineTable({
@@ -47,7 +52,37 @@ export default defineSchema({
     plays: v.number(),
     comments: v.number(),
     order: v.number(),
+    // Set on a game a player made in the studio. It plays on one of the built-in engines, named in kind.
+    creatorId: v.optional(v.id("users")),
+    kind: v.optional(v.string()),
+    tint: v.optional(v.string()),
   }).index("by_slug", ["slug"]),
+
+  // A game being made in the studio: the conversation that shapes it, then the game it became.
+  creations: defineTable({
+    userId: v.id("users"),
+    status: v.union(v.literal("talking"), v.literal("building"), v.literal("ready"), v.literal("failed")),
+    wish: v.string(),
+    // true while the studio is working on its next reply.
+    thinking: v.boolean(),
+    title: v.optional(v.string()),
+    pitch: v.optional(v.string()),
+    how: v.optional(v.string()),
+    category: v.optional(v.string()),
+    kind: v.optional(v.string()),
+    tint: v.optional(v.string()),
+    unit: v.optional(v.string()),
+    gameSlug: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
+
+  creationMessages: defineTable({
+    creationId: v.id("creations"),
+    role: v.union(v.literal("maker"), v.literal("studio")),
+    text: v.string(),
+    options: v.optional(v.array(v.string())),
+    ideas: v.optional(v.array(v.object({ title: v.string(), pitch: v.string() }))),
+  }).index("by_creation", ["creationId"]),
 
   rounds: defineTable({
     userId: v.id("users"),
@@ -124,12 +159,44 @@ export default defineSchema({
 
   ledger: defineTable({
     userId: v.id("users"),
-    kind: v.union(v.literal("round"), v.literal("spend")),
+    kind: v.union(v.literal("round"), v.literal("spend"), v.literal("buy")),
     title: v.string(),
     detail: v.string(),
     amount: v.number(),
     gameSlug: v.optional(v.string()),
   }).index("by_user", ["userId"]),
+
+  clips: defineTable({
+    userId: v.id("users"),
+    gameSlug: v.string(),
+    kind: v.union(v.literal("video"), v.literal("photo")),
+    // Missing when the phone could not record (a simulator with no screen recording): the clip replays the game.
+    storageId: v.optional(v.id("_storage")),
+    roundId: v.optional(v.id("rounds")),
+    // Copied from the round on the server, never taken from the phone.
+    score: v.optional(v.number()),
+    seed: v.optional(v.number()),
+    caption: v.string(),
+    layout: v.union(v.literal("cutout"), v.literal("bubble"), v.literal("window"), v.literal("top")),
+    durationMs: v.number(),
+    visibility: v.union(v.literal("friends"), v.literal("everyone")),
+    likes: v.number(),
+    comments: v.number(),
+    // First views by other players, and what a creator program paid for them, in cents.
+    views: v.optional(v.number()),
+    cents: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_visibility", ["visibility"])
+    .index("by_roundId", ["roundId"]),
+
+  // Clips a player saved, newest last. `key` is a clip id, or "sample:<id>" for a catalog clip in Videos.
+  savedClips: defineTable({
+    userId: v.id("users"),
+    key: v.string(),
+  })
+    .index("by_user_and_key", ["userId", "key"])
+    .index("by_key", ["key"]),
 
   purchases: defineTable({
     userId: v.id("users"),
@@ -148,4 +215,93 @@ export default defineSchema({
     userId: v.id("users"),
     gameSlug: v.string(),
   }).index("by_user_and_gameSlug", ["userId", "gameSlug"]),
+
+  ...communityTables,
+
+  chatConversations: defineTable({
+    kind: v.union(v.literal("direct"), v.literal("group"), v.literal("workplace")),
+    name: v.string(),
+    icon: v.string(),
+    key: v.optional(v.string()),
+    domain: v.optional(v.string()),
+    lastMessageAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_domain", ["domain"]),
+
+  chatMembers: defineTable({
+    conversationId: v.id("chatConversations"),
+    userId: v.id("users"),
+    lastReadAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_conversationId_and_userId", ["conversationId", "userId"]),
+
+  chatMessages: defineTable({
+    conversationId: v.id("chatConversations"),
+    userId: v.id("users"),
+    kind: v.union(v.literal("text"), v.literal("invite"), v.literal("score"), v.literal("post")),
+    body: v.string(),
+    gameSlug: v.optional(v.string()),
+    roomCode: v.optional(v.string()),
+    score: v.optional(v.number()),
+    sentAt: v.optional(v.number()),
+  }).index("by_conversationId", ["conversationId"]),
+
+  chatTyping: defineTable({
+    conversationId: v.id("chatConversations"),
+    userId: v.id("users"),
+    at: v.number(),
+  }).index("by_conversationId_and_userId", ["conversationId", "userId"]),
+
+  chatOnline: defineTable({
+    userId: v.id("users"),
+    at: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  workplaceCodes: defineTable({
+    userId: v.id("users"),
+    domain: v.string(),
+    code: v.string(),
+    expiresAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  // One Whop checkout: a gold pack for a player, or a budget for a studio's creator program.
+  orders: defineTable({
+    userId: v.id("users"),
+    kind: v.union(v.literal("gold"), v.literal("program")),
+    cents: v.number(),
+    gold: v.optional(v.number()),
+    gameSlug: v.optional(v.string()),
+    rate: v.optional(v.number()),
+    checkoutId: v.optional(v.string()),
+    paymentId: v.optional(v.string()),
+    status: v.union(v.literal("open"), v.literal("paid")),
+  }).index("by_user", ["userId"]),
+
+  // A studio pays creators for views of clips of one game. Rate is cents for 1,000 views.
+  programs: defineTable({
+    gameSlug: v.string(),
+    studio: v.string(),
+    ownerId: v.id("users"),
+    rate: v.number(),
+    budget: v.number(),
+    spent: v.number(),
+    views: v.number(),
+  }).index("by_gameSlug", ["gameSlug"]),
+
+  clipViews: defineTable({
+    clipId: v.id("clips"),
+    userId: v.id("users"),
+  }).index("by_clip_and_user", ["clipId", "userId"]),
+
+  // Creator earnings sent to a Whop account.
+  transfers: defineTable({
+    userId: v.id("users"),
+    cents: v.number(),
+    whopUsername: v.string(),
+    status: v.union(v.literal("sending"), v.literal("sent"), v.literal("failed")),
+    whopTransferId: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
 });

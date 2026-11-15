@@ -1,10 +1,10 @@
-# Dailies
+# DEGEN
 
 Consumer mobile app built at [The Consumer Mobile Hackathon](https://consumermobilehackathon.com/) (Sunday, November 15, 2026, YC, San Francisco). The app, the backend, and everything else for the hackathon live in this one repository.
 
 The hackathon's required stack is Capy (writes the app), Revyl (runs it on a device and checks it), and Convex (the backend).
 
-Dailies is a native iOS app written in Swift (SwiftUI). It is a daily feed of small phone games where playing collects gold, with likes, comments, leaderboards and a gold history, all kept in Convex.
+DEGEN (first called Dailies; the repository, the Xcode target and the bundle id keep that name) is a native iOS app written in Swift (SwiftUI). It is a daily feed of small phone games where playing collects gold, with likes, comments, leaderboards and a gold history, all kept in Convex.
 
 ## Run it
 
@@ -37,9 +37,9 @@ npx convex dev --once        # pushes convex/ to the shared dev deployment
 - **`Sources/Live`** is the running app: navigation (`LiveNav.swift`), the root view, play screen and launch arguments (`LiveRoot.swift`), and the store every screen reads (`LiveStore.swift`).
 - **`Sources/Convex`** connects the store to Convex: a device account kept in the Keychain (`DeviceAuth.swift`), the client with live queries and mutations (`ConvexLink.swift`) and the decoded rows (`ConvexModels.swift`).
 - **`Sources/Avatar`** is the Dailie, the player's avatar: the item catalog (`AvatarCatalog.swift`, the same list as `convex/items.ts`), the voxel model every item is built from (`VoxelAvatar.swift`), the 3D stage that meshes it in SceneKit (`AvatarStage.swift`), the flat pixel version for small spots and shop cards (`PixelAvatar.swift`), and the store that keeps the look and the items owned in step with Convex (`AvatarStore.swift`).
-- **`Sources/Screens`** holds every screen: Home, Videos, You, the game page, gold, leaderboards, comments, search, settings and the studio screens.
+- **`Sources/Screens`** holds every screen: Home, Videos, You, the game page, gold, leaderboards, comments, search, settings and the studio screens. `WhopMoney.swift` holds the gold packs sheet, creator earnings, and the studio's creator programs; it opens Whop's checkout page in Safari and watches Convex for the result, so no Whop key or SDK is in the app.
 - **`Sources/Games`** holds the games. Each game draws itself in Swift and has two files: `<Name>Game.swift`, the playable game, and `<Name>Scene.swift`, which draws one moment of the game for covers and the Videos feed. `GameKit.swift` is the small contract between a game and the app.
-- **`convex/`** is the backend: each phone gets its own account (`auth.ts`, `users.ts`), the server starts and finishes rounds and works out gold (`rounds.ts`), and `social.ts`, `games.ts`, `ledger.ts`, `shop.ts` and `rooms.ts` hold likes, comments, leaderboards, the catalog, the gold history, spending and rooms. `items.ts` lists the avatar items and their prices, `avatar.ts` holds a player's look, profile and equipping, and `shop.buy` charges gold for an item on the server. `npx convex run seed:run` adds the launch games and dresses the seeded players.
+- **`convex/`** is the backend: each phone gets its own account (`auth.ts`, `users.ts`), the server starts and finishes rounds and works out gold (`rounds.ts`), and `social.ts`, `games.ts`, `ledger.ts`, `shop.ts` and `rooms.ts` hold likes, comments, leaderboards, the catalog, the gold history, spending and rooms. `items.ts` lists the avatar items and their prices, `avatar.ts` holds a player's look, profile and equipping, and `shop.buy` charges gold for an item on the server. `whop.ts` is where money moves, all of it through Whop: a checkout for a gold pack or for a creator program's budget, and a transfer of a creator's earnings to their Whop account. `http.ts` takes Whop's `payment.succeeded` webhook at `/whop`, checks its signature and hands over what was paid for. `creators.ts` counts views of clips and moves a program's budget to the creators. `npx convex run seed:run` adds the launch games and dresses the seeded players.
 
 ## Add a game
 

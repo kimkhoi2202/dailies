@@ -21,7 +21,19 @@ enum LiveBoard {
         "inkland": ["juno": 342, "kaz": 281, "devon.plays": 236, "tofu": 174, "noor.runs": 152, "wordnerd.sam": 96],
         "spiral-drop": ["kaz": 742, "devon.plays": 651, "wordnerd.sam": 518, "noor.runs": 434, "tofu": 371, "juno": 196],
         "gulp-city": ["tofu": 87, "juno": 74, "noor.runs": 61, "devon.plays": 52, "kaz": 38, "wordnerd.sam": 24],
+        "slip-out": ["kaz": 71, "wordnerd.sam": 64, "juno": 55, "devon.plays": 47, "noor.runs": 39, "tofu": 26],
+        "wild-eights": ["kaz": 131, "juno": 112, "devon.plays": 96, "wordnerd.sam": 74, "tofu": 41, "noor.runs": 33],
+        "daily-grid": ["kaz": 812, "wordnerd.sam": 690, "devon.plays": 544, "juno": 418, "tofu": 305, "noor.runs": 160],
+        "letter-rush": ["wordnerd.sam": 3500, "kaz": 2900, "devon.plays": 2600, "juno": 2100, "noor.runs": 1900, "tofu": 1200],
+        "pour-party": ["kaz": 1500, "wordnerd.sam": 1200, "juno": 1000, "devon.plays": 700, "tofu": 400, "noor.runs": 300],
+        "can-cannon": ["kaz": 1480, "devon.plays": 1210, "juno": 990, "noor.runs": 760, "tofu": 540, "wordnerd.sam": 310],
+        "short-stack": ["kaz": 2460, "devon.plays": 1840, "tofu": 1310, "wordnerd.sam": 1120, "noor.runs": 920, "juno": 640],
     ]
+
+    /// The sample friends' scores for a game, best first. Empty for a game with none.
+    static func sampleScores(for game: MockGame) -> [(name: String, score: Int)] {
+        (friendScores[game.id] ?? [:]).map { (name: $0.key, score: $0.value) }.sorted { $0.score > $1.score }
+    }
 
     /// Everyone on the board, best score first. The server's board once it has answered; until then
     /// the sample scores above.
@@ -45,10 +57,20 @@ enum LiveBoard {
     static func unit(for game: MockGame) -> String {
         switch game.kind {
         case .tippyTower: "floors"
-        case .fiveUp, .spiralDrop: "points"
+        case .fiveUp, .spiralDrop, .blockParty, .wildEights, .letterRush: "points"
         case .laneDash: "metres"
         case .inkland: "share of the land"
         case .gulpCity: "share of the city"
+        case .slipOut: "arrows"
+        case .brickOut: "points"
+        case .dailyGrid: "points"
+        case .pourParty: "points"
+        case .deepEnd: "metres"
+        case .jamSlide: "points"
+        case .busRush: "riders"
+        case .cornerPocket: "points"
+        case .canCannon: "points"
+        case .shortStack: "chips"
         }
     }
 
@@ -57,18 +79,35 @@ enum LiveBoard {
         switch game.kind {
         case .inkland: String(format: "%.1f%%", Double(score) / 10)
         case .gulpCity: "\(score)%"
+        case .brickOut: groupedNumber(score)
+        case .dailyGrid: groupedNumber(score)
+        case .pourParty: groupedNumber(score)
+        case .deepEnd: groupedNumber(score)
+        case .jamSlide: groupedNumber(score)
+        case .busRush: groupedNumber(score)
+        case .cornerPocket: groupedNumber(score)
         default: groupedNumber(score)
         }
     }
 
     /// The distance between two scores in words: "9 floors", "8.1%".
-    private static func gap(_ a: Int, _ b: Int, _ game: MockGame) -> String {
+    static func gap(_ a: Int, _ b: Int, _ game: MockGame) -> String {
         let apart = abs(a - b)
         switch game.kind {
         case .tippyTower: return apart == 1 ? "1 floor" : "\(apart) floors"
-        case .fiveUp, .spiralDrop: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .fiveUp, .spiralDrop, .blockParty, .wildEights, .letterRush: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .laneDash: return "\(groupedNumber(apart)) m"
         case .inkland, .gulpCity: return text(apart, game)
+        case .slipOut: return apart == 1 ? "1 arrow" : "\(apart) arrows"
+        case .brickOut: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .dailyGrid: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .pourParty: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .deepEnd: return "\(groupedNumber(apart)) m"
+        case .jamSlide: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .busRush: return apart == 1 ? "1 rider" : "\(groupedNumber(apart)) riders"
+        case .cornerPocket: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .canCannon: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .shortStack: return apart == 1 ? "1 chip" : "\(groupedNumber(apart)) chips"
         }
     }
 
@@ -121,6 +160,8 @@ enum LiveBoard {
 
 /// Search that searches. With nothing typed and no category picked it shows the three designed shelves.
 struct LiveSearchScreen: View {
+    /// true inside Community's Explore, which has its own top bar, so the back key and title are left out.
+    var embedded = false
     @ObservedObject private var store = LiveStore.shared
     @State private var query = ""
     @State private var category = "All"
@@ -140,13 +181,15 @@ struct LiveSearchScreen: View {
 
     var body: some View {
         DLPage(spacing: 0, bottomInset: 60) {
-            HStack(alignment: .center, spacing: 10) {
-                DLIconButton(symbol: "chevron.left").goesBack().accessibilityLabel("Back")
-                Text("SEARCH").font(DL.display(40)).foregroundStyle(DL.ink)
-                Spacer()
-                DLGoldChip(onMedia: false).opens(.gold)
+            if !embedded {
+                HStack(alignment: .center, spacing: 10) {
+                    DLIconButton(symbol: "chevron.left").goesBack().accessibilityLabel("Back")
+                    Text("SEARCH").font(DL.display(40)).foregroundStyle(DL.ink)
+                    Spacer()
+                    DLGoldChip(onMedia: false).opens(.gold)
+                }
             }
-            field.padding(.top, 10)
+            field.padding(.top, embedded ? 4 : 10)
             categories.padding(.top, 4)
             if words.isEmpty && category == "All" { shelves } else { results }
         }

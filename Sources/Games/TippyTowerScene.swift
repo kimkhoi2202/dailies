@@ -4,7 +4,8 @@ import SwiftUI
 //
 // The whole picture is painted into one Canvas by TippyTowerPainter. The clip in the video feed
 // builds a painter from a phase (0...1) and a fixed script; the playable game builds one from its
-// live state. No assets, any frame size.
+// live state. The skies, sun, moon, clouds, balloon and pillar are painted images from
+// Resources/GameArt; the slabs are drawn in code so they can be cut to any size. Any frame size.
 
 public struct TippyTowerScene: View {
     public var phase: Double
@@ -125,9 +126,7 @@ enum TippyTowerPalette {
 /// The colours of the sky at one height.
 struct TippyTowerSky {
     var top: TippyTowerTint
-    var upper: TippyTowerTint
     var lower: TippyTowerTint
-    var bottom: TippyTowerTint
     var cloudRim: TippyTowerTint
     var cloudBody: TippyTowerTint
     var cloudDeep: TippyTowerTint
@@ -136,20 +135,18 @@ struct TippyTowerSky {
 
     private init(_ hex: [UInt32]) {
         let c = hex.map { TippyTowerTint(hex: $0) }
-        top = c[0]; upper = c[1]; lower = c[2]; bottom = c[3]
-        cloudRim = c[4]; cloudBody = c[5]; cloudDeep = c[6]; halo = c[7]; ambient = c[8]
+        top = c[0]; lower = c[1]
+        cloudRim = c[2]; cloudBody = c[3]; cloudDeep = c[4]; halo = c[5]; ambient = c[6]
     }
 
-    static let dusk = TippyTowerSky([0x2A2473, 0x8D3F9B, 0xF0647C, 0xFFB870, 0xFFE6BF, 0xF28A8C, 0x84429A, 0xFFE3B0, 0x3E1A66])
-    static let blueHour = TippyTowerSky([0x0E0F45, 0x2A2C99, 0x5B57DB, 0xB688EE, 0xEADCFF, 0x8A78EA, 0x312E92, 0xCDBEFF, 0x1A1560])
-    static let space = TippyTowerSky([0x03051A, 0x081643, 0x0D3B68, 0x147283, 0xA6F5E8, 0x1D7E90, 0x0A2A57, 0x8FE9FF, 0x061338])
+    static let dusk = TippyTowerSky([0x2A2473, 0xF0647C, 0xFFE6BF, 0xF28A8C, 0x84429A, 0xFFE3B0, 0x3E1A66])
+    static let blueHour = TippyTowerSky([0x0E0F45, 0x5B57DB, 0xEADCFF, 0x8A78EA, 0x312E92, 0xCDBEFF, 0x1A1560])
+    static let space = TippyTowerSky([0x03051A, 0x0D3B68, 0xA6F5E8, 0x1D7E90, 0x0A2A57, 0x8FE9FF, 0x061338])
 
     func mix(_ other: TippyTowerSky, _ k: Double) -> TippyTowerSky {
         var out = self
         out.top = top.mix(other.top, k)
-        out.upper = upper.mix(other.upper, k)
         out.lower = lower.mix(other.lower, k)
-        out.bottom = bottom.mix(other.bottom, k)
         out.cloudRim = cloudRim.mix(other.cloudRim, k)
         out.cloudBody = cloudBody.mix(other.cloudBody, k)
         out.cloudDeep = cloudDeep.mix(other.cloudDeep, k)
@@ -512,21 +509,21 @@ struct TippyTowerPainter {
 
     // MARK: Sky
 
+    /// Painted skies for dusk, blue hour and the edge of space, faded into each other with height.
     private func drawSky(_ ctx: inout GraphicsContext) {
-        let bands = Gradient(stops: [
-            .init(color: sky.top.color(), location: 0),
-            .init(color: sky.upper.color(), location: 0.36),
-            .init(color: sky.lower.color(), location: 0.70),
-            .init(color: sky.bottom.color(), location: 1)
-        ])
-        ctx.fill(screen, with: .linearGradient(bands, startPoint: CGPoint(x: W / 2, y: 0), endPoint: CGPoint(x: W / 2, y: H)))
-
-        let warm = sky.bottom.mix(.white, 0.25)
-        ctx.fill(screen, with: .radialGradient(Gradient(colors: [warm.color(0.5), warm.color(0)]),
-                                               center: CGPoint(x: W * 0.08, y: H * 0.80), startRadius: 0, endRadius: H * 0.60))
-        let cold = sky.top.mix(.black, 0.35)
-        ctx.fill(screen, with: .radialGradient(Gradient(colors: [cold.color(0.55), cold.color(0)]),
-                                               center: CGPoint(x: W * 1.02, y: -H * 0.02), startRadius: 0, endRadius: H * 0.55))
+        ctx.fill(screen, with: .color(sky.top.color()))
+        let cover = Swift.max(W / 2, H / 3)
+        let frame = CGRect(x: (W - 2 * cover) / 2, y: (H - 3 * cover) / 2, width: 2 * cover, height: 3 * cover)
+        let layers: [(name: String, alpha: Double)] = [
+            ("tippy-tower-sky-dusk", 1 - M.smooth(0.20, 0.53, altitude)),
+            ("tippy-tower-sky-night", M.smooth(0.20, 0.53, altitude) * (1 - M.smooth(0.53, 0.86, altitude))),
+            ("tippy-tower-sky-space", M.smooth(0.53, 0.86, altitude))
+        ]
+        for layer in layers where layer.alpha > 0.005 {
+            var painted = ctx
+            painted.opacity = layer.alpha
+            painted.draw(ctx.resolve(Image(layer.name)), in: frame)
+        }
     }
 
     /// A four-pointed star.
@@ -582,10 +579,9 @@ struct TippyTowerPainter {
 
         let r = 40 * u
         ctx.fill(disc(cx, cy, r * 1.9), with: .color(.white.opacity(0.08 * shown)))
-        ctx.fill(disc(cx, cy, r * 1.42), with: .color(.white.opacity(0.14 * shown)))
-        ctx.fill(disc(cx, cy, r), with: .radialGradient(
-            Gradient(colors: [Tint(hex: 0xFFFEF2).color(shown), Tint(hex: 0xFFE9A6).color(shown)]),
-            center: CGPoint(x: cx - r * 0.3, y: cy - r * 0.3), startRadius: 0, endRadius: r * 1.4))
+        var sun = ctx
+        sun.opacity = shown
+        sun.draw(ctx.resolve(Image("tippy-tower-sun")), in: CGRect(x: cx - r * 1.3, y: cy - r * 1.3, width: r * 2.6, height: r * 2.6))
     }
 
     private func drawMoon(_ ctx: inout GraphicsContext) {
@@ -600,51 +596,24 @@ struct TippyTowerPainter {
             Gradient(colors: [sky.halo.color(0.30 * shown), sky.halo.color(0.08 * shown), sky.halo.color(0)]),
             center: CGPoint(x: cx, y: cy), startRadius: r * 0.6, endRadius: glowR))
 
-        let face = disc(cx, cy, r)
         var moon = ctx
         moon.opacity = shown
-        moon.fill(face, with: .linearGradient(
-            Gradient(colors: [Tint(hex: 0xFFFBEA).color(), Tint(hex: 0xFFE7B5).color()]),
-            startPoint: CGPoint(x: cx - r, y: cy - r), endPoint: CGPoint(x: cx + r, y: cy + r)))
-        moon.clip(to: face)
-        let crater = Tint(hex: 0xE9C98F).color(0.5)
-        moon.fill(disc(cx - 0.42 * r, cy + 0.18 * r, 0.2 * r), with: .color(crater))
-        moon.fill(disc(cx - 0.2 * r, cy - 0.45 * r, 0.13 * r), with: .color(crater))
-        moon.fill(disc(cx - 0.55 * r, cy - 0.2 * r, 0.09 * r), with: .color(crater))
-        // The dark side makes it a crescent.
-        moon.fill(disc(cx + r * 0.46, cy - r * 0.2, r * 1.02), with: .color(sky.upper.mix(sky.top, 0.3).color(0.94)))
+        moon.draw(ctx.resolve(Image("tippy-tower-moon")), in: CGRect(x: cx - r * 1.13, y: cy - r * 1.2, width: r * 2.26, height: r * 2.4))
     }
 
     // MARK: Clouds, balloon, birds
 
-    private static let cloudBumps: [[(x: Double, y: Double, r: Double)]] = [
-        [(-0.25, -0.06, 0.13), (-0.05, -0.15, 0.19), (0.19, -0.08, 0.145)],
-        [(-0.2, -0.1, 0.165), (0.07, -0.13, 0.17), (0.28, -0.04, 0.105), (-0.37, -0.02, 0.08)]
-    ]
+    /// Painted white clouds, wide over tall, tinted to the sky.
+    private static let cloudArt: [(name: String, aspect: Double)] = [("tippy-tower-cloud-a", 0.414), ("tippy-tower-cloud-b", 0.349)]
 
-    private func drawCloud(_ ctx: inout GraphicsContext, cx: Double, cy: Double, width w: Double, kind: Int, alpha: Double) {
+    private func drawCloud(_ ctx: inout GraphicsContext, art: GraphicsContext.ResolvedImage, aspect: Double,
+                           cx: Double, cy: Double, width w: Double, alpha: Double) {
         if alpha <= 0.01 || cy <= -w || cy >= H + w { return }
-        let thick = w * 0.20
-        let bumps = Self.cloudBumps[kind % 2]
-        func outline(down: Double) -> Path {
-            var path = Path()
-            path.addRoundedRect(in: CGRect(x: cx - w / 2, y: cy - thick / 2 + down, width: w, height: thick),
-                                cornerSize: CGSize(width: thick / 2, height: thick / 2))
-            for bump in bumps {
-                let r = bump.r * w
-                path.addEllipse(in: CGRect(x: cx + bump.x * w - r, y: cy + bump.y * w - r + down, width: 2 * r, height: 2 * r))
-            }
-            return path
-        }
-        let belly = sky.cloudDeep.mix(sky.cloudBody, 0.35).color()
-        let body = GraphicsContext.Shading.linearGradient(
-            Gradient(colors: [sky.cloudRim.color(), sky.cloudBody.mix(sky.cloudRim, 0.35).color()]),
-            startPoint: CGPoint(x: cx, y: cy - w * 0.34), endPoint: CGPoint(x: cx, y: cy + thick * 0.6))
-        ctx.drawLayer { layer in
-            layer.opacity = alpha
-            layer.fill(outline(down: w * 0.035), with: .color(belly))
-            layer.fill(outline(down: 0), with: body)
-        }
+        let h = w * aspect
+        var cloud = ctx
+        cloud.opacity = alpha
+        cloud.addFilter(.colorMultiply(sky.cloudRim.mix(sky.cloudBody, 0.3).color()))
+        cloud.draw(art, in: CGRect(x: cx - w / 2, y: cy + 0.12 * w - h, width: w, height: h))
     }
 
     /// x, y at ground level, parallax, width, opacity.
@@ -659,12 +628,14 @@ struct TippyTowerPainter {
 
     private func drawFarClouds(_ ctx: inout GraphicsContext) {
         let thin = 1 - 0.75 * M.smooth(0.6, 0.9, altitude)
+        let art = Self.cloudArt.map { ctx.resolve(Image($0.name)) }
         for (k, cloud) in Self.farClouds.enumerated() {
             let slide = (drift - 0.5) * 34 * u * (k % 2 == 0 ? -1 : 1)
             var cy = H * cloud.y + scroll * cloud.depth
             // Only above the clip's height: a cloud that leaves the bottom drifts in again from the top.
             if cy >= H * 1.1 { cy = -H * 0.5 + (cy + H * 0.5).truncatingRemainder(dividingBy: H * 1.6) }
-            drawCloud(&ctx, cx: W * cloud.x + slide, cy: cy, width: cloud.width * u, kind: k, alpha: cloud.alpha * thin)
+            drawCloud(&ctx, art: art[k % 2], aspect: Self.cloudArt[k % 2].aspect, cx: W * cloud.x + slide, cy: cy,
+                      width: cloud.width * u, alpha: cloud.alpha * thin)
         }
     }
 
@@ -675,37 +646,10 @@ struct TippyTowerPainter {
         let cx = W * 0.80 - (drift - 0.5) * 60 * u
         let cy = H * 0.335 + parallax(from: 5.2, 1.1) + sin(flutter * 2 * .pi * 3) * 3 * u
 
-        var envelope = disc(cx, cy, r)
-        envelope.addPath(shape([
-            CGPoint(x: cx - r * 0.88, y: cy + r * 0.47), CGPoint(x: cx + r * 0.88, y: cy + r * 0.47),
-            CGPoint(x: cx + r * 0.27, y: cy + r * 1.32), CGPoint(x: cx - r * 0.27, y: cy + r * 1.32)
-        ]))
-        var ropes = Path()
-        for side in [-1.0, 1.0] {
-            ropes.move(to: CGPoint(x: cx + side * r * 0.25, y: cy + r * 1.3))
-            ropes.addLine(to: CGPoint(x: cx + side * r * 0.2, y: cy + r * 1.66))
-        }
-        let basket = Path(roundedRect: CGRect(x: cx - r * 0.27, y: cy + r * 1.62, width: r * 0.54, height: r * 0.36),
-                          cornerRadius: r * 0.09)
-        let cream = Tint(hex: 0xFFF1DA).color()
-        let box = Path(CGRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2.4))
-
-        ctx.drawLayer { layer in
-            layer.opacity = shown * 0.95
-            layer.stroke(ropes, with: .color(sky.ambient.color(0.8)), lineWidth: Swift.max(0.5, 0.9 * u))
-            layer.fill(basket, with: .color(Tint(hex: 0x7E4A45).color()))
-
-            var cloth = layer
-            cloth.clip(to: envelope)
-            cloth.fill(box, with: .color(cream))
-            cloth.fill(Path(ellipseIn: CGRect(x: cx - r * 0.72, y: cy - r * 1.1, width: r * 1.44, height: r * 2.8)),
-                       with: .color(Tint(hex: 0xFF6E6A).color()))
-            cloth.fill(Path(ellipseIn: CGRect(x: cx - r * 0.34, y: cy - r * 1.1, width: r * 0.68, height: r * 2.8)),
-                       with: .color(cream))
-            cloth.fill(box, with: .linearGradient(
-                Gradient(colors: [Color.white.opacity(0.18), sky.ambient.color(0), sky.ambient.color(0.42)]),
-                startPoint: CGPoint(x: cx - r, y: cy - r * 0.4), endPoint: CGPoint(x: cx + r, y: cy + r * 0.4)))
-        }
+        var balloon = ctx
+        balloon.opacity = shown * 0.95
+        let w = r * 2.2
+        balloon.draw(ctx.resolve(Image("tippy-tower-balloon")), in: CGRect(x: cx - w / 2, y: cy - r * 1.1, width: w, height: w * 1.49))
     }
 
     /// Offset from the lead bird in design points, and size.
@@ -846,14 +790,13 @@ struct TippyTowerPainter {
     private func drawBase(_ ctx: inout GraphicsContext) {
         if Double(pt(-1.3, 0, -1.3).y) > H + 6 { return }
         let plinth = 0.44
-        let block = 1.3
         let half = 1.07
-        let stone = Tint(hex: 0xB9A9DC).mix(sky.lower, 0.22)
-        for k in (0...7).reversed() {
-            let top = -plinth - Double(k) * block
-            drawSlab(&ctx, x0: -half, x1: half, z0: -half, z1: half, y0: top - block, y1: top,
-                     base: stone.scaled(1 - 0.035 * Double(k)), edge: 0.22)
-        }
+        // The painted stone pillar, its top hidden under the plinth.
+        let pillarLeft = Double(pt(-half, -plinth, half).x)
+        let pillarWidth = Double(pt(half, -plinth, -half).x) - pillarLeft
+        let pillarTop = Double(pt(-half, -plinth, -half).y)
+        ctx.draw(ctx.resolve(Image("tippy-tower-pillar")),
+                 in: CGRect(x: pillarLeft, y: pillarTop, width: pillarWidth, height: pillarWidth * 2.836))
 
         // The plinth's shadow on the top of the pillar.
         let high = -plinth

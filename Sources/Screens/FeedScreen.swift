@@ -22,13 +22,25 @@ struct VideoPage: View {
     /// A moving phase makes the gameplay move. nil holds the game's best still.
     var phase: Double? = nil
     var pressed: Bool = false
+    /// A player's own recording, shown in place of the game's replay.
+    var media: AnyView? = nil
+    /// The run's score, for a player's clip.
+    var tag: String? = nil
+    /// The key the bookmark saves this clip under. nil shows no bookmark.
+    var saveKey: String? = nil
+    /// For the poster's own clip: opens its menu to edit or delete it.
+    var onMore: (() -> Void)? = nil
 
     private var game: MockGame { clip.game }
 
     var body: some View {
         ZStack {
-            // Five Up carries its own header in its art, so it is the one clip shown without the game's HUD.
-            ClipStill(game: game, phase: phase, showHUD: game.kind != .fiveUp, focusY: 0)
+            if let media {
+                media
+            } else {
+                // Five Up carries its own header in its art, so it is the one clip shown without the game's HUD.
+                ClipStill(game: game, phase: phase, showHUD: game.kind != .fiveUp, focusY: 0)
+            }
             shade(from: .top, height: 130, strength: 0.42)
             shade(from: .bottom, height: 400, strength: 0.78)
             HStack(alignment: .bottom, spacing: 10) {
@@ -73,6 +85,7 @@ struct VideoPage: View {
             HStack(spacing: 6) {
                 DLMediaTag(text: game.players, symbol: "person.2.fill")
                 DLMediaTag(text: game.mode)
+                if let tag { DLMediaTag(text: tag, symbol: "trophy.fill") }
             }
             if game.isFullToday {
                 DLMediaTag(text: "Limit reached. More gold in \(Mock.resetIn)", symbol: "checkmark")
@@ -102,15 +115,31 @@ struct VideoPage: View {
 
     private var rail: some View {
         VStack(spacing: 15) {
-            VStack(spacing: 5) {
-                // Once today's gold is all collected the key goes pale. It still plays.
-                DLRoundPlayKey(size: 68, style: game.isFullToday ? .neutral : .gold)
-                    .scaleEffect(pressed ? 0.9 : 1)
-                Text("Play").font(DL.text(13, .bold)).foregroundStyle(.white)
+            // Play the game, or film yourself playing it. Record sits to the left of Play.
+            HStack(alignment: .top, spacing: 12) {
+                VStack(spacing: 5) {
+                    ZStack {
+                        Circle().strokeBorder(.white, lineWidth: 4)
+                        Circle().fill(DL.gold).padding(10)
+                    }
+                    .frame(width: 52, height: 52)
+                    .padding(.top, 8)
+                    Text("Record").font(DL.text(13, .bold)).foregroundStyle(.white)
+                }
+                .opens(.create(game.id))
+                .accessibilityLabel("Record yourself playing \(game.title)")
+                VStack(spacing: 5) {
+                    // Once today's gold is all collected the key goes pale. It still plays.
+                    DLRoundPlayKey(size: 68, style: game.isFullToday ? .neutral : .gold)
+                        .scaleEffect(pressed ? 0.9 : 1)
+                    Text("Play").font(DL.text(13, .bold)).foregroundStyle(.white)
+                }
+                .opens(.gameReady(game.id))
+                .accessibilityLabel("Play \(game.title)")
             }
+            .fixedSize()
+            .frame(width: 72, alignment: .trailing)
             .padding(.bottom, 4)
-            .opens(.gameReady(game.id))
-            .accessibilityLabel("Play \(game.title)")
 
             let liked = voted == true
             counted(game.likes) {
@@ -132,8 +161,16 @@ struct VideoPage: View {
                 .accessibilityLabel("Comments")
 
             counted(clip.shares) { DLMediaButton(symbol: "arrowshape.turn.up.right.fill", size: 46) }
-                .tap { LiveNav.shared.share("Watch @\(clip.player) play \(game.title) on Dailies") }
+                .tap { LiveNav.shared.share("Watch @\(clip.player) play \(game.title) on DEGEN") }
                 .accessibilityLabel("Share")
+
+            if let saveKey { ClipSaveButton(key: saveKey) }
+
+            if let onMore {
+                DLMediaButton(symbol: "ellipsis", size: 46)
+                    .tap(onMore)
+                    .accessibilityLabel("Edit or delete your clip")
+            }
         }
         .frame(width: 72)
     }
@@ -147,6 +184,37 @@ struct VideoPage: View {
                 .monospacedDigit()
                 .foregroundStyle(.white)
         }
+    }
+}
+
+/// The bookmark on a clip. Gold once the clip is saved.
+struct ClipSaveButton: View {
+    let key: String
+    @ObservedObject private var clips = CreateClips.shared
+    @State private var pop = false
+
+    var body: some View {
+        let on = clips.isSaved(key)
+        VStack(spacing: 3) {
+            Image(systemName: on ? "bookmark.fill" : "bookmark")
+                .font(.system(size: 46 * 0.44, weight: .semibold))
+                .foregroundStyle(on ? DL.gold : .white)
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: 46, height: 46)
+                .background(MediaGlass(shape: Circle()))
+                .scaleEffect(pop ? 1.18 : 1)
+            Text(on ? "Saved" : "Save")
+                .font(DL.text(12, .semibold))
+                .foregroundStyle(.white)
+        }
+        .tap {
+            clips.toggleSave(key)
+            withAnimation(.spring(response: 0.18, dampingFraction: 0.4)) { pop = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.55)) { pop = false }
+            }
+        }
+        .accessibilityLabel(on ? "Saved" : "Save")
     }
 }
 

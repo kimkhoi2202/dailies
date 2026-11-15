@@ -79,6 +79,7 @@ struct HomeScreen: View {
                     DLLogo(height: 36)
                     Spacer()
                     DLGoldChip(onMedia: false).opens(.gold)
+                    CreatePlusButton().opens(.create(nil)).accessibilityLabel("Create")
                     DLIconButton(symbol: "magnifyingglass").opens(.search).accessibilityLabel("Search")
                     MyAvatarHead(size: 36).opens(.profile("me")).accessibilityLabel("Your profile")
                 }
@@ -236,6 +237,7 @@ struct GameReadyScreen: View {
                         DLTag(text: game.players, symbol: "person.2.fill")
                         DLTag(text: game.mode)
                         DLTag(text: game.category)
+                        CommunityFriendsTag(gameID: game.id)
                     }
                     goldRow
                     friendsRow
@@ -335,7 +337,7 @@ struct GameReadyScreen: View {
             .padding(.horizontal, 13)
             .frame(height: 36)
             .background(Capsule().fill(DL.body))
-            .tap { LiveNav.shared.share("Come and play \(game.title) with me on Dailies") }
+            .tap { LiveNav.shared.share("Come and play \(game.title) with me on DEGEN") }
         }
         .dlCard(padding: 12, radius: 22)
     }
