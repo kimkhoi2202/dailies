@@ -831,8 +831,8 @@ enum ShortStackClip {
         let potAfter: Int
     }
 
-    /// Seconds the whole clip stands for, to turn a phase into the age of a label.
-    private static let seconds = 16.0
+    /// Seconds the feed takes to play the clip once, to turn a phase into the age of a label.
+    private static let seconds = 7.0
     private static let names = ["mira", "kaz", "devon.plays", "noor.runs", "tofu", "juno"]
     private static let chips = [1180, 940, 760, 1120, 1010, 990]
     private static let holes: [[ShortStackCard]] = [
@@ -923,7 +923,7 @@ enum ShortStackClip {
                 }
             }
             if round.gather >= 0, p >= round.gather {
-                f.gather = M.clamp((p - round.gather) * seconds / 0.45)
+                f.gather = M.clamp((p - round.gather) / 0.03)
                 if f.gather >= 1 {
                     f.gather = 0
                     pot = round.potAfter
@@ -944,30 +944,29 @@ enum ShortStackClip {
             f.seats[0].turn = f.controls.clock
         }
 
-        for k in 0..<5 { f.shown[k] = M.clamp((p - reveals[k]) * seconds / 0.45) }
+        for k in 0..<5 { f.shown[k] = M.clamp((p - reveals[k]) / 0.05) }
         if f.shown[2] >= 1 { f.seats[0].hand = "Pair of kings" }
         if f.shown[3] >= 1 { f.seats[0].hand = "Two pair" }
 
         // The showdown, then the pot goes to its taker.
-        if p >= 0.85 {
-            f.seats[1].face = M.clamp((p - 0.85) * seconds / 0.35)
+        if p >= 0.835 {
+            f.seats[1].face = M.clamp((p - 0.835) / 0.02)
             f.seats[1].hand = "Pair of kings"
             f.seats[1].label = ""
             f.seats[0].label = ""
         }
-        if p >= 0.875 {
+        if p >= 0.845 {
             f.message = "mira takes the pot. Two pair"
-            f.messageAge = (p - 0.875) * seconds
+            f.messageAge = (p - 0.845) * seconds
             f.messageLife = 100
             f.awards = [ShortStackAward(seat: 0, amount: 1160)]
-            f.awardAge = Swift.max(0, (p - 0.905) * seconds)
-            if p < 0.905 { f.awardAge = -1 }
+            f.awardAge = p < 0.87 ? -1 : (p - 0.87) * seconds
             if f.awardAge >= ShortStackLayout.awardSlide {
                 let since = f.awardAge - ShortStackLayout.awardSlide
                 f.pot = 0
                 f.total = 0
-                f.seats[0].chips = 620 + Int(1160 * M.easeOut(since / 0.7))
-                f.seats[0].glow = M.clamp(1 - since / 1.2)
+                f.seats[0].chips = 620 + Int(1160 * M.easeOut(since / 0.28))
+                f.seats[0].glow = M.clamp(1 - since / 0.6)
             }
         }
         return f

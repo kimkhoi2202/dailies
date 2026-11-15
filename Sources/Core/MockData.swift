@@ -201,7 +201,7 @@ enum Mock {
         category: "Cards", players: "1 to 6 players", mode: "Competitive", studio: "Paper Lantern",
         goldPerMinute: 1.0, avgSession: "2m 40s", seedEarned: 0,
         plays: "238K", likes: "26.4K", dislikes: "2.1K", approval: 93,
-        bestScore: "2,460 chips", clipPhase: 0.89, tint: Color(red: 0.07, green: 0.56, blue: 0.48))
+        bestScore: "2,460 chips", clipPhase: 0.865, tint: Color(red: 0.07, green: 0.56, blue: 0.48))
 
     static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, shortStack]
 
