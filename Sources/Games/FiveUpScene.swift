@@ -2,7 +2,8 @@ import SwiftUI
 
 // Five Up: find a hidden five-letter word in six tries.
 //
-// Letterpress tiles and typewriter keys on cream paper, all drawn in code by FiveUpPainter.
+// Letterpress tiles and typewriter keys on cream paper, painted by FiveUpPainter. The paper, slots,
+// tiles and solved stamp are images from Resources/GameArt; letters and keys are drawn in code.
 // Teal: the letter is in the right place. Coral: it is in the word, somewhere else. Ink: it is not
 // in the word. The clip in the video feed makes a board from a phase (0...1) and a fixed script;
 // the playable game makes one from its model.
@@ -322,33 +323,52 @@ struct FiveUpLayout {
 // MARK: - Tile faces
 
 struct FiveUpFace {
+    /// The painted tile, letter-free, with its thickness along the bottom.
+    let art: String
     let top: Color
-    let bottom: Color
     let side: Color
     let letter: Color
     let letterShade: Color
-    let border: Color?
-    let gloss: Color
 
     /// Typed, not yet turned over.
-    static let blank = FiveUpFace(top: FiveUpInk.hex(0xFFFDF6), bottom: FiveUpInk.hex(0xF6EAD2), side: FiveUpInk.ink,
-                                  letter: FiveUpInk.ink, letterShade: Color.white.opacity(0), border: FiveUpInk.ink,
-                                  gloss: Color.white.opacity(0))
-    static let absent = FiveUpFace(top: FiveUpInk.hex(0x3D3857), bottom: FiveUpInk.hex(0x282339), side: FiveUpInk.hex(0x0F0D1A),
-                                   letter: FiveUpInk.hex(0xC9C0D6), letterShade: FiveUpInk.hex(0x0F0D1A, 0.55), border: nil,
-                                   gloss: Color.white.opacity(0.16))
-    static let present = FiveUpFace(top: FiveUpInk.hex(0xFF8B6E), bottom: FiveUpInk.hex(0xF95C3F), side: FiveUpInk.coralLo,
-                                    letter: FiveUpInk.cream, letterShade: FiveUpInk.hex(0xA42E1A, 0.55), border: nil,
-                                    gloss: Color.white.opacity(0.42))
-    static let exact = FiveUpFace(top: FiveUpInk.hex(0x35D0BE), bottom: FiveUpInk.hex(0x10A695), side: FiveUpInk.tealLo,
-                                  letter: FiveUpInk.cream, letterShade: FiveUpInk.hex(0x075E56, 0.55), border: nil,
-                                  gloss: Color.white.opacity(0.45))
+    static let blank = FiveUpFace(art: "five-up-tile-blank", top: FiveUpInk.hex(0xFFFDF6), side: FiveUpInk.ink,
+                                  letter: FiveUpInk.ink, letterShade: Color.white.opacity(0))
+    static let absent = FiveUpFace(art: "five-up-tile-absent", top: FiveUpInk.hex(0x3D3857), side: FiveUpInk.hex(0x0F0D1A),
+                                   letter: FiveUpInk.hex(0xC9C0D6), letterShade: FiveUpInk.hex(0x0F0D1A, 0.55))
+    static let present = FiveUpFace(art: "five-up-tile-present", top: FiveUpInk.hex(0xFF8B6E), side: FiveUpInk.coralLo,
+                                    letter: FiveUpInk.cream, letterShade: FiveUpInk.hex(0xA42E1A, 0.55))
+    static let exact = FiveUpFace(art: "five-up-tile-exact", top: FiveUpInk.hex(0x35D0BE), side: FiveUpInk.tealLo,
+                                  letter: FiveUpInk.cream, letterShade: FiveUpInk.hex(0x075E56, 0.55))
 
     static func of(_ mark: FiveUpMark) -> FiveUpFace {
         switch mark {
         case .absent: return absent
         case .present: return present
         case .exact: return exact
+        }
+    }
+}
+
+/// The four painted tile faces, resolved once a frame.
+struct FiveUpTileArt {
+    private let blank: GraphicsContext.ResolvedImage
+    private let absent: GraphicsContext.ResolvedImage
+    private let present: GraphicsContext.ResolvedImage
+    private let exact: GraphicsContext.ResolvedImage
+
+    init(_ ctx: GraphicsContext) {
+        blank = ctx.resolve(Image(FiveUpFace.blank.art))
+        absent = ctx.resolve(Image(FiveUpFace.absent.art))
+        present = ctx.resolve(Image(FiveUpFace.present.art))
+        exact = ctx.resolve(Image(FiveUpFace.exact.art))
+    }
+
+    func image(for face: FiveUpFace) -> GraphicsContext.ResolvedImage {
+        switch face.art {
+        case FiveUpFace.absent.art: return absent
+        case FiveUpFace.present.art: return present
+        case FiveUpFace.exact.art: return exact
+        default: return blank
         }
     }
 }
@@ -409,6 +429,9 @@ struct FiveUpPainter {
     func paint(_ ctx: inout GraphicsContext, pass: Pass = .all) {
         if pass != .live {
             ctx.fill(Path(CGRect(x: 0, y: 0, width: layout.w, height: layout.h)), with: .color(Ink.paper))
+            let cover = max(layout.w / 2, layout.h / 3)
+            ctx.draw(ctx.resolve(Image("five-up-paper")),
+                     in: CGRect(x: (layout.w - 2 * cover) / 2, y: (layout.h - 3 * cover) / 2, width: 2 * cover, height: 3 * cover))
         }
         if pass == .still { return }
         if showHUD { paintHeader(&ctx) }
@@ -519,22 +542,14 @@ struct FiveUpPainter {
     private func paintSlots(_ ctx: inout GraphicsContext) {
         let u = b
         let radius = 11.5 * u
-        let openColors = [Ink.hex(0xD9C6A4), Ink.hex(0xE6D6B8)]
-        let restColors = [Ink.hex(0xCFBB97), Ink.hex(0xDCCAA8)]
+        let slot = ctx.resolve(Image("five-up-slot"))
         for row in 0..<6 {
             let open = board.activeRow == row
             for column in 0..<5 {
                 let centre = tileCenter(row, column)
                 let rect = CGRect(x: centre.x - 27 * u, y: centre.y - 25 * u, width: 54 * u, height: 57 * u)
-                let well = soft(rect, radius)
-                ctx.fill(soft(rect.offsetBy(dx: 0, dy: 1.4 * u), radius), with: .color(Color.white.opacity(0.7)))
-                ctx.fill(well, with: .linearGradient(Gradient(colors: open ? openColors : restColors),
-                                                     startPoint: CGPoint(x: 0, y: rect.minY), endPoint: CGPoint(x: 0, y: rect.maxY)))
-                // Pressed into the paper: a shaded upper lip and a thin edge.
-                var inside = ctx
-                inside.clip(to: well)
-                inside.stroke(soft(rect.offsetBy(dx: 0, dy: 3 * u), radius), with: .color(Ink.hex(0x5A3F18, 0.13)), lineWidth: 6 * u)
-                inside.stroke(well, with: .color(Ink.hex(0x5A3F18, 0.25)), lineWidth: 1.4 * u)
+                ctx.draw(slot, in: rect)
+                if open { ctx.fill(soft(rect, radius), with: .color(Color.white.opacity(0.22))) }
 
                 if open, column == board.cursor {
                     let inner = soft(rect.insetBy(dx: 1.6 * u, dy: 1.6 * u), radius - 1.6 * u)
@@ -624,11 +639,12 @@ struct FiveUpPainter {
                 if busy { moving.append(pose) } else { resting.append(pose) }
             }
         }
-        for pose in resting { paintTile(&ctx, pose) }
-        for pose in moving { paintTile(&ctx, pose) }
+        let art = FiveUpTileArt(ctx)
+        for pose in resting { paintTile(&ctx, pose, art: art) }
+        for pose in moving { paintTile(&ctx, pose, art: art) }
     }
 
-    func paintTile(_ ctx: inout GraphicsContext, _ pose: TilePose) {
+    func paintTile(_ ctx: inout GraphicsContext, _ pose: TilePose, art: FiveUpTileArt) {
         let u = b
         let side = 54 * u
         let depth = 5.5 * u
@@ -677,25 +693,7 @@ struct FiveUpPainter {
         let rect = CGRect(x: -side / 2, y: -height / 2, width: side, height: height)
         let front = soft(rect, radius)
 
-        g.fill(soft(rect.offsetBy(dx: 0, dy: depth), radius), with: .color(pose.face.side))
-        g.fill(Path(CGRect(x: -side / 2, y: 0, width: side, height: depth)), with: .color(pose.face.side))
-        g.fill(front, with: .linearGradient(Gradient(colors: [pose.face.top, pose.face.bottom]),
-                                            startPoint: CGPoint(x: 0, y: rect.minY), endPoint: CGPoint(x: 0, y: rect.maxY)))
-        if let border = pose.face.border {
-            let line = 2.6 * u
-            g.stroke(soft(rect.insetBy(dx: line / 2, dy: min(line / 2, height / 4)), max(radius - line / 2, 0)),
-                     with: .color(border), lineWidth: line)
-        }
-        if height > side * 0.45 {
-            // The lit lip along the top left.
-            let inset = 2.2 * u
-            var lip = Path()
-            lip.move(to: CGPoint(x: rect.minX + inset, y: rect.minY + radius * 1.15))
-            lip.addQuadCurve(to: CGPoint(x: rect.minX + radius * 1.15, y: rect.minY + inset),
-                             control: CGPoint(x: rect.minX + inset, y: rect.minY + inset))
-            lip.addLine(to: CGPoint(x: rect.maxX - radius * 1.3, y: rect.minY + inset))
-            g.stroke(lip, with: .color(pose.face.gloss), style: StrokeStyle(lineWidth: 1.7 * u, lineCap: .round))
-        }
+        g.draw(art.image(for: pose.face), in: CGRect(x: -side / 2, y: -height / 2, width: side, height: height + depth))
         if let x = pose.shine, pose.mark != nil, height > side * 0.5 {
             let half = 15 * u
             let slant = 12 * u
@@ -736,13 +734,9 @@ struct FiveUpPainter {
         let w = 226 * u, h = 50 * u
         let frame = CGRect(x: -w / 2, y: -h / 2, width: w, height: h)
         let red = Ink.hex(0xF0502F)
-        g.fill(soft(frame, 11 * u), with: .color(Ink.hex(0xFFF3E2, 0.9)))
-        g.stroke(soft(frame, 11 * u), with: .color(red), lineWidth: 3.6 * u)
-        g.stroke(soft(frame.insetBy(dx: 5.4 * u, dy: 5.4 * u), 6.5 * u), with: .color(red), lineWidth: 1.2 * u)
+        g.draw(g.resolve(Image("five-up-stamp")), in: frame)
         label(&g, board.stampText, size: 24 * u, weight: .black, expanded: true, tracking: 3.2 * u, color: red,
               at: CGPoint(x: 2 * u, y: 0))
-        g.fill(star(CGPoint(x: -w / 2 + 22 * u, y: 0), radius: 8 * u, waist: 0.3), with: .color(red))
-        g.fill(star(CGPoint(x: w / 2 - 22 * u, y: 0), radius: 8 * u, waist: 0.3), with: .color(red))
 
         // Gaps where the ink did not take.
         var noise = FiveUpNoise(seed: 77)

@@ -128,21 +128,9 @@ enum CornerPocketPalette {
     static let peach = T(hex: 0xFFB27A)
     static let chalk = T(hex: 0x7FB2E5)
     static let cueBall = T(hex: 0xF7F4EC)
-    static let shaft = T(hex: 0xE4C38F)
-    static let butt = T(hex: 0x5B2C12)
 
-    static let wood = Gradient(colors: [T(hex: 0x91562F).color(), T(hex: 0x6E3B1C).color(), T(hex: 0x4E2711).color()])
-    static let felt = Gradient(colors: [T(hex: 0x33977A).color(), T(hex: 0x2A8569).color(), T(hex: 0x1D634F).color()])
-    static let hole = Gradient(colors: [T(hex: 0x020504).color(), T(hex: 0x0B1713).color(), T(hex: 0x16251F).color()])
     static let meterFill = Gradient(colors: [amber.color(), coral.color()])
-    static let backdrop = Gradient(colors: [T(hex: 0x1C1B19).color(), T(hex: 0x100F0E).color()])
     static let lamp = Gradient(colors: [white.color(0.06), white.color(0)])
-    static let shine = Gradient(stops: [
-        .init(color: Color.white.opacity(0.6), location: 0),
-        .init(color: Color.white.opacity(0), location: 0.32),
-        .init(color: Color.black.opacity(0), location: 0.58),
-        .init(color: Color.black.opacity(0.32), location: 1),
-    ])
 
     /// Solids are 1 to 4, stripes 9 to 12, the cue ball 0.
     static func ball(_ number: Int) -> T {
@@ -159,8 +147,6 @@ enum CornerPocketPalette {
         default: return T(hex: 0x5BB65A)
         }
     }
-
-    static func isStripe(_ number: Int) -> Bool { number >= 9 }
 }
 
 // MARK: - The table
@@ -646,6 +632,37 @@ struct CornerPocketFrame {
     var time = 0.0
 }
 
+// MARK: - Pictures
+
+/// The pictures in Resources/GameArt, resolved once for each frame.
+struct CornerPocketArt {
+    let room: GraphicsContext.ResolvedImage
+    let wood: GraphicsContext.ResolvedImage
+    let felt: GraphicsContext.ResolvedImage
+    let pocket: GraphicsContext.ResolvedImage
+    /// Lying flat, the tip on the right.
+    let cue: GraphicsContext.ResolvedImage
+    /// The cue ball, 1 to 4, the 8, then 9 to 12.
+    let balls: [GraphicsContext.ResolvedImage]
+
+    init(_ ctx: GraphicsContext) {
+        room = ctx.resolve(Image("corner-pocket-room"))
+        wood = ctx.resolve(Image("corner-pocket-wood"))
+        felt = ctx.resolve(Image("corner-pocket-felt"))
+        pocket = ctx.resolve(Image("corner-pocket-pocket"))
+        cue = ctx.resolve(Image("corner-pocket-cue"))
+        balls = [0, 1, 2, 3, 4, 8, 9, 10, 11, 12].map { ctx.resolve(Image("corner-pocket-ball-\($0)")) }
+    }
+
+    func ball(_ number: Int) -> GraphicsContext.ResolvedImage {
+        switch number {
+        case 0...4: return balls[number]
+        case 8: return balls[5]
+        default: return balls[Swift.min(9, number - 3)]
+        }
+    }
+}
+
 // MARK: - Painter
 
 struct CornerPocketPainter {
@@ -666,16 +683,17 @@ struct CornerPocketPainter {
     }
 
     func draw(_ f: CornerPocketFrame, _ ctx: inout GraphicsContext) {
-        drawBackdrop(&ctx)
-        drawSeats(&ctx, f)
+        let art = CornerPocketArt(ctx)
+        drawBackdrop(&ctx, art)
+        drawSeats(&ctx, art, f)
         if f.showHUD { drawScore(&ctx, f) }
-        drawTable(&ctx)
-        drawSinking(&ctx, f.balls)
+        drawTable(&ctx, art)
+        drawSinking(&ctx, art, f.balls)
         if let aim = f.aim { drawGuide(&ctx, aim) }
-        drawBalls(&ctx, f)
+        drawBalls(&ctx, art, f)
         if let aim = f.aim {
             drawGhost(&ctx, aim, f.balls)
-            drawCue(&ctx, aim, power: f.power)
+            drawCue(&ctx, art, aim, power: f.power)
         }
         drawMeter(&ctx, f)
         for burst in f.bursts { drawBurst(&ctx, burst) }
@@ -703,15 +721,17 @@ struct CornerPocketPainter {
 
     // MARK: Room and players
 
-    private func drawBackdrop(_ ctx: inout GraphicsContext) {
-        ctx.fill(Path(CGRect(x: 0, y: 0, width: L.W, height: L.H)),
-                 with: .linearGradient(P.backdrop, startPoint: CGPoint(x: L.W / 2, y: 0), endPoint: CGPoint(x: L.W / 2, y: L.H)))
+    private func drawBackdrop(_ ctx: inout GraphicsContext, _ art: CornerPocketArt) {
+        let fill = Swift.max(L.W / Double(art.room.size.width), L.H / Double(art.room.size.height))
+        let roomW = Double(art.room.size.width) * fill
+        let roomH = Double(art.room.size.height) * fill
+        ctx.draw(art.room, in: CGRect(x: (L.W - roomW) / 2, y: (L.H - roomH) / 2, width: roomW, height: roomH))
         let c = CGPoint(x: L.felt.midX, y: L.felt.midY)
         ctx.fill(Path(ellipseIn: L.outer.insetBy(dx: -60 * u, dy: -40 * u)),
                  with: .radialGradient(P.lamp, center: c, startRadius: 0, endRadius: Double(L.outer.height) * 0.62))
     }
 
-    private func drawSeats(_ ctx: inout GraphicsContext, _ f: CornerPocketFrame) {
+    private func drawSeats(_ ctx: inout GraphicsContext, _ art: CornerPocketArt, _ f: CornerPocketFrame) {
         let r = 15 * u
         for (k, seat) in f.seats.enumerated() {
             let right = k == 1
@@ -746,14 +766,14 @@ struct CornerPocketPainter {
             let pr = 5 * u
             let stepX = 13 * u
             if seat.left == 0 {
-                drawBall(&ctx, 8, right ? labelX - pr : labelX + pr, L.pipY, pr)
+                drawBall(&ctx, art, 8, right ? labelX - pr : labelX + pr, L.pipY, pr)
                 continue
             }
             for p in 0..<4 {
                 let x = right ? labelX - pr - Double(p) * stepX : labelX + pr + Double(p) * stepX
                 let number = seat.group == 1 ? p + 1 : p + 9
                 if seat.left & (1 << p) != 0 {
-                    drawBall(&ctx, number, x, L.pipY, pr)
+                    drawBall(&ctx, art, number, x, L.pipY, pr)
                 } else {
                     ctx.stroke(disc(x, L.pipY, pr - 0.5 * u), with: .color(P.white.color(0.2)), lineWidth: 1.2 * u)
                 }
@@ -780,19 +800,19 @@ struct CornerPocketPainter {
 
     // MARK: Table
 
-    private func drawTable(_ ctx: inout GraphicsContext) {
+    private func drawTable(_ ctx: inout GraphicsContext, _ art: CornerPocketArt) {
         let o = L.outer
         let f = L.felt
         let s = L.s
         ctx.fill(Path(roundedRect: o.offsetBy(dx: 0, dy: 8 * u), cornerRadius: 18 * u, style: .continuous),
                  with: .color(P.black.color(0.45)))
-        ctx.fill(Path(roundedRect: o, cornerRadius: 18 * u, style: .continuous),
-                 with: .linearGradient(P.wood, startPoint: CGPoint(x: o.minX, y: o.minY), endPoint: CGPoint(x: o.maxX, y: o.maxY)))
+        var rail = ctx
+        rail.clip(to: Path(roundedRect: o, cornerRadius: 18 * u, style: .continuous))
+        rail.draw(art.wood, in: o)
         ctx.stroke(Path(roundedRect: o.insetBy(dx: 1.5 * u, dy: 1.5 * u), cornerRadius: 17 * u, style: .continuous),
                    with: .color(P.white.color(0.13)), lineWidth: 1.2 * u)
         ctx.fill(Path(roundedRect: f.insetBy(dx: -5 * u, dy: -5 * u), cornerRadius: 3 * u), with: .color(P.cushion.color()))
-        ctx.fill(Path(f), with: .radialGradient(P.felt, center: CGPoint(x: f.midX, y: f.midY - f.height * 0.08),
-                                                startRadius: 0, endRadius: f.height * 0.64))
+        ctx.draw(art.felt, in: f)
 
         // The head string and the foot spot.
         var head = Path()
@@ -819,7 +839,7 @@ struct CornerPocketPainter {
             let y = L.py(hole.y)
             let r = hole.drawRadius * s
             ctx.fill(disc(x, y, r + 2.5 * u), with: .color(P.black.color(0.28)))
-            ctx.fill(disc(x, y, r), with: .radialGradient(P.hole, center: CGPoint(x: x, y: y), startRadius: 0, endRadius: r))
+            ctx.draw(art.pocket, in: CGRect(x: x - r - 2.5 * u, y: y - r - 2.5 * u, width: 2 * r + 5 * u, height: 2 * r + 5 * u))
         }
     }
 
@@ -833,27 +853,11 @@ struct CornerPocketPainter {
 
     // MARK: Balls
 
-    func drawBall(_ ctx: inout GraphicsContext, _ number: Int, _ x: Double, _ y: Double, _ r: Double) {
-        let body = disc(x, y, r)
-        let tint = P.ball(number)
-        if P.isStripe(number) {
-            ctx.fill(body, with: .color(P.cueBall.color()))
-            var band = ctx
-            band.clip(to: body)
-            band.fill(Path(CGRect(x: x - r, y: y - r * 0.56, width: 2 * r, height: r * 1.12)), with: .color(tint.color()))
-        } else {
-            ctx.fill(body, with: .color(tint.color()))
-        }
-        if number != 0 && r > 7 {
-            ctx.fill(disc(x, y, r * 0.46), with: .color(P.cueBall.color()))
-            ctx.draw(Text("\(number)").font(.system(size: r * 0.6, weight: .heavy, design: .rounded)).foregroundColor(P.ink.color()),
-                     at: CGPoint(x: x, y: y), anchor: .center)
-        }
-        ctx.fill(body, with: .radialGradient(P.shine, center: CGPoint(x: x - r * 0.38, y: y - r * 0.42),
-                                             startRadius: 0, endRadius: r * 1.5))
+    func drawBall(_ ctx: inout GraphicsContext, _ art: CornerPocketArt, _ number: Int, _ x: Double, _ y: Double, _ r: Double) {
+        ctx.draw(art.ball(number), in: CGRect(x: x - r, y: y - r, width: 2 * r, height: 2 * r))
     }
 
-    private func drawBalls(_ ctx: inout GraphicsContext, _ f: CornerPocketFrame) {
+    private func drawBalls(_ ctx: inout GraphicsContext, _ art: CornerPocketArt, _ f: CornerPocketFrame) {
         let r = T.radius * L.s
         let fade = M.smooth(0, 0.35, f.rackAge)
         for b in f.balls where b.live {
@@ -864,14 +868,14 @@ struct CornerPocketPainter {
             if b.number != 0 && fade < 1 {
                 var layer = ctx
                 layer.opacity = fade
-                drawBall(&layer, b.number, L.px(b.x), L.py(b.y), r * (0.7 + 0.3 * M.easeOut(fade)))
+                drawBall(&layer, art, b.number, L.px(b.x), L.py(b.y), r * (0.7 + 0.3 * M.easeOut(fade)))
             } else {
-                drawBall(&ctx, b.number, L.px(b.x), L.py(b.y), r)
+                drawBall(&ctx, art, b.number, L.px(b.x), L.py(b.y), r)
             }
         }
     }
 
-    private func drawSinking(_ ctx: inout GraphicsContext, _ balls: [CornerPocketBall]) {
+    private func drawSinking(_ ctx: inout GraphicsContext, _ art: CornerPocketArt, _ balls: [CornerPocketBall]) {
         let r = T.radius * L.s
         for b in balls where !b.live && b.sunk >= 0 && b.sunk < T.sinkLength {
             let k = b.sunk / T.sinkLength
@@ -879,7 +883,7 @@ struct CornerPocketPainter {
             let e = M.easeOut(k)
             var layer = ctx
             layer.opacity = 1 - k * k
-            drawBall(&layer, b.number, L.px(M.lerp(b.dropX, hole.x, e)), L.py(M.lerp(b.dropY, hole.y, e)), r * (1 - 0.45 * k))
+            drawBall(&layer, art, b.number, L.px(M.lerp(b.dropX, hole.x, e)), L.py(M.lerp(b.dropY, hole.y, e)), r * (1 - 0.45 * k))
         }
     }
 
@@ -925,7 +929,7 @@ struct CornerPocketPainter {
         }
     }
 
-    private func drawCue(_ ctx: inout GraphicsContext, _ aim: CornerPocketAim, power: Double) {
+    private func drawCue(_ ctx: inout GraphicsContext, _ art: CornerPocketArt, _ aim: CornerPocketAim, power: Double) {
         let r = T.radius * L.s
         let dx = cos(aim.angle)
         let dy = sin(aim.angle)
@@ -955,11 +959,10 @@ struct CornerPocketPainter {
         var shadow = cue
         shadow.translateBy(x: 3 * u, y: 6 * u)
         shadow.fill(slab(gap, gap + length), with: .color(P.black.color(0.3)))
-        cue.fill(slab(gap, gap + length * 0.62), with: .color(P.shaft.color()))
-        cue.fill(slab(gap + length * 0.62, gap + length), with: .color(P.butt.color()))
-        cue.fill(slab(gap + length * 0.6, gap + length * 0.64), with: .color(P.cream.color(0.85)))
-        cue.fill(slab(gap, gap + 8 * u), with: .color(P.cream.color()))
-        cue.fill(slab(gap, gap + 2.5 * u), with: .color(P.chalk.color()))
+        cue.translateBy(x: cx, y: cy)
+        cue.rotate(by: .radians(aim.angle))
+        let thick = length * Double(art.cue.size.height) / Swift.max(1, Double(art.cue.size.width))
+        cue.draw(art.cue, in: CGRect(x: -gap - length, y: -thick / 2, width: length, height: thick))
     }
 
     // MARK: Meter

@@ -5,7 +5,8 @@ import SwiftUI
 //
 // The whole picture is painted into one Canvas by SlipOutPainter from a SlipOutFrame. The clip in
 // the video feed builds a frame from a phase (0...1) and a fixed level; the playable game builds
-// one from its live state. No assets, any frame size, drawn for a 402 x 874 stage.
+// one from its live state. The pictures are the slip-out-* images in Resources/GameArt; any frame
+// size, drawn for a 402 x 874 stage.
 
 public struct SlipOutScene: View {
     public var phase: Double
@@ -92,13 +93,10 @@ enum SlipOutInk {
               blue: Double(value & 255) / 255, opacity: alpha)
     }
 
-    static let paper = hex(0xF8F6F1)
     static let dot = hex(0xCDC7BC)
     static let ink = hex(0x151412)
     static let inkSoft = hex(0x151412, 0.55)
     static let red = hex(0xE8503F)
-    static let heart = hex(0xF0556A)
-    static let heartOff = hex(0xD9D3E6)
     static let green = hex(0x2EB872)
 }
 
@@ -487,6 +485,28 @@ enum SlipOutClip {
     }
 }
 
+// MARK: - Pictures
+
+/// The images, resolved once per frame.
+struct SlipOutArt {
+    let backdrop: GraphicsContext.ResolvedImage
+    /// Arrowheads, pointing up.
+    let head: GraphicsContext.ResolvedImage
+    let headHot: GraphicsContext.ResolvedImage
+    let heart: GraphicsContext.ResolvedImage
+    let heartOff: GraphicsContext.ResolvedImage
+    let medal: GraphicsContext.ResolvedImage
+
+    init(_ ctx: GraphicsContext) {
+        backdrop = ctx.resolve(Image("slip-out-backdrop"))
+        head = ctx.resolve(Image("slip-out-head"))
+        headHot = ctx.resolve(Image("slip-out-head-hot"))
+        heart = ctx.resolve(Image("slip-out-heart"))
+        heartOff = ctx.resolve(Image("slip-out-heart-off"))
+        medal = ctx.resolve(Image("slip-out-medal"))
+    }
+}
+
 // MARK: - Painter
 
 struct SlipOutPainter {
@@ -548,17 +568,30 @@ struct SlipOutPainter {
         ctx.draw(text, at: p, anchor: anchor)
     }
 
-    private var screen: Path { Path(CGRect(x: 0, y: 0, width: W, height: H)) }
+    /// An image at a rect, faded by alpha.
+    private func image(_ ctx: inout GraphicsContext, _ art: GraphicsContext.ResolvedImage, in rect: CGRect, alpha: Double = 1) {
+        if alpha <= 0.001 { return }
+        let before = ctx.opacity
+        ctx.opacity = before * Swift.min(1, alpha)
+        ctx.draw(art, in: rect)
+        ctx.opacity = before
+    }
 
     // MARK: Frame
 
     func draw(_ ctx: inout GraphicsContext) {
-        ctx.fill(screen, with: .color(SlipOutInk.paper))
+        let art = SlipOutArt(ctx)
+        // The backdrop fills the screen, cropped at the sides or the ends.
+        let size = art.backdrop.size
+        let fill = Swift.max(W / Swift.max(1, Double(size.width)), H / Swift.max(1, Double(size.height)))
+        let w = Double(size.width) * fill
+        let h = Double(size.height) * fill
+        ctx.draw(art.backdrop, in: CGRect(x: (W - w) / 2, y: (H - h) / 2, width: w, height: h))
         drawDots(&ctx)
-        drawArrows(&ctx)
+        drawArrows(&ctx, art)
         drawFloats(&ctx)
-        drawClear(&ctx)
-        if showHUD { drawHUD(&ctx) }
+        drawClear(&ctx, art)
+        if showHUD { drawHUD(&ctx, art) }
         drawEnd(&ctx)
     }
 
@@ -587,29 +620,29 @@ struct SlipOutPainter {
             if k == 0 { path.move(to: q) } else { path.addLine(to: q) }
         }
         let head = centre(arrow.head)
-        let reach = 0.30 * cell
+        let reach = 0.12 * cell
         path.addLine(to: CGPoint(x: head.x + sx + Double(arrow.dir.dx) * reach, y: head.y + sy + Double(arrow.dir.dy) * reach))
         return path
     }
 
-    /// The two strokes of the head.
-    func headPath(_ arrow: SlipOutArrow, shift: Double) -> Path {
+    /// The arrowhead picture, its tip 0.36 of a cell past the head cell's centre.
+    private func drawHead(_ ctx: inout GraphicsContext, _ arrow: SlipOutArrow, shift: Double, art: SlipOutArt,
+                          hot: Double, alpha: Double) {
         let head = centre(arrow.head)
         let dx = Double(arrow.dir.dx)
         let dy = Double(arrow.dir.dy)
-        let tip = CGPoint(x: head.x + dx * (shift * cell + 0.30 * cell), y: head.y + dy * (shift * cell + 0.30 * cell))
-        let back = 0.28 * cell
-        // Perpendicular to the direction.
-        let px = -dy
-        let py = dx
-        var path = Path()
-        path.move(to: CGPoint(x: tip.x - dx * back + px * back, y: tip.y - dy * back + py * back))
-        path.addLine(to: tip)
-        path.addLine(to: CGPoint(x: tip.x - dx * back - px * back, y: tip.y - dy * back - py * back))
-        return path
+        let reach = shift * cell + 0.36 * cell
+        var local = ctx
+        local.translateBy(x: head.x + dx * reach, y: head.y + dy * reach)
+        local.rotate(by: .degrees(Double(arrow.dir.rawValue) * 90))
+        let w = 0.66 * cell
+        let h = w * Double(art.head.size.height) / Swift.max(1, Double(art.head.size.width))
+        let rect = CGRect(x: -w / 2, y: 0, width: w, height: h)
+        if hot < 0.999 { image(&local, art.head, in: rect, alpha: alpha) }
+        if hot > 0.001 { image(&local, art.headHot, in: rect, alpha: alpha * hot) }
     }
 
-    private func drawArrows(_ ctx: inout GraphicsContext) {
+    private func drawArrows(_ ctx: inout GraphicsContext, _ art: SlipOutArt) {
         let fade = 1 - M.smooth(0, 0.6, frame.endAge ?? 0)
         let width = Swift.max(2.5, cell * 0.15)
         let style = StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round)
@@ -631,14 +664,13 @@ struct SlipOutPainter {
             let inkColor: Color = item.hot > 0.01 ? Self.mixRed(item.hot) : SlipOutInk.ink
             let color = inkColor.opacity(alpha)
             let line = arrowPath(item.arrow, shift: item.offset)
-            let head = headPath(item.arrow, shift: item.offset)
             if item.swell > 0.01 {
                 // A soft wider stroke around an arrow just let go.
                 let soft = StrokeStyle(lineWidth: width * (1 + 2.6 * item.swell), lineCap: .round, lineJoin: .round)
                 inner.stroke(line, with: .color(inkColor.opacity(alpha * 0.16 * item.swell)), style: soft)
             }
             inner.stroke(line, with: .color(color), style: style)
-            inner.stroke(head, with: .color(color), style: style)
+            drawHead(&inner, item.arrow, shift: item.offset, art: art, hot: item.hot, alpha: alpha)
         }
     }
 
@@ -661,7 +693,7 @@ struct SlipOutPainter {
     }
 
     /// The check and the word when a level is cleared.
-    private func drawClear(_ ctx: inout GraphicsContext) {
+    private func drawClear(_ ctx: inout GraphicsContext, _ art: SlipOutArt) {
         guard let age = frame.clearAge else { return }
         let cx = ox + boardW / 2
         let cy = oy + boardH * 0.46
@@ -670,8 +702,7 @@ struct SlipOutPainter {
         if alpha <= 0.01 { return }
         let r = 46 * u * arrive
         if r > 0.5 {
-            ctx.fill(Path(ellipseIn: CGRect(x: cx - r, y: cy - r, width: 2 * r, height: 2 * r)),
-                     with: .color(SlipOutInk.green.opacity(alpha)))
+            image(&ctx, art.medal, in: CGRect(x: cx - r * 1.12, y: cy - r * 1.12, width: 2.24 * r, height: 2.24 * r), alpha: alpha)
             // The check draws itself in.
             let drawn = M.easeOut((age - 0.1) / 0.3)
             if drawn > 0.01 {
@@ -701,24 +732,7 @@ struct SlipOutPainter {
 
     // MARK: HUD
 
-    private func heart(_ c: CGPoint, _ r: Double) -> Path {
-        var path = Path()
-        let x = Double(c.x)
-        let y = Double(c.y)
-        path.move(to: CGPoint(x: x, y: y + r * 0.95))
-        path.addCurve(to: CGPoint(x: x - r, y: y - r * 0.15),
-                      control1: CGPoint(x: x - r * 0.55, y: y + r * 0.55), control2: CGPoint(x: x - r, y: y + r * 0.25))
-        path.addCurve(to: CGPoint(x: x, y: y - r * 0.35),
-                      control1: CGPoint(x: x - r, y: y - r * 0.85), control2: CGPoint(x: x - r * 0.2, y: y - r * 0.95))
-        path.addCurve(to: CGPoint(x: x + r, y: y - r * 0.15),
-                      control1: CGPoint(x: x + r * 0.2, y: y - r * 0.95), control2: CGPoint(x: x + r, y: y - r * 0.85))
-        path.addCurve(to: CGPoint(x: x, y: y + r * 0.95),
-                      control1: CGPoint(x: x + r, y: y + r * 0.25), control2: CGPoint(x: x + r * 0.55, y: y + r * 0.55))
-        path.closeSubpath()
-        return path
-    }
-
-    private func drawHUD(_ ctx: inout GraphicsContext) {
+    private func drawHUD(_ ctx: inout GraphicsContext, _ art: SlipOutArt) {
         let cx = W / 2
         let topLine = Double(GameLayout.statusBarHeight)
         let bandBottom = Double(GameLayout.topBand)
@@ -733,15 +747,16 @@ struct SlipOutPainter {
             let x = cx + Double(k - 1) * gap
             var scale = 1.0
             var shake = 0.0
-            var fill: Color = k < frame.hearts ? SlipOutInk.heart : SlipOutInk.heartOff
+            var full = k < frame.hearts
             if k == frame.hearts, frame.heartAge < 0.6 {
-                // The heart just lost flares red, shakes and goes grey.
+                // The heart just lost swells, shakes and goes grey.
                 let t = frame.heartAge / 0.6
                 scale = 1 + 0.4 * (1 - t)
                 shake = sin(frame.heartAge * 70) * 3 * u * (1 - t)
-                fill = t < 0.55 ? SlipOutInk.red : SlipOutInk.heartOff
+                full = t < 0.55
             }
-            ctx.fill(heart(CGPoint(x: x + shake, y: y), r * scale), with: .color(fill))
+            let side = 2.3 * r * scale
+            ctx.draw(full ? art.heart : art.heartOff, in: CGRect(x: x + shake - side / 2, y: y - side / 2, width: side, height: side))
         }
 
         // The clock and the score sit under the band, over the board.

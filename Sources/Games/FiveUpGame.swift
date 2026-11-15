@@ -645,11 +645,12 @@ extension FiveUpPainter {
         label(&g, "THE WORD WAS", size: 10 * u, weight: .heavy, expanded: true, tracking: 2.6 * u,
               color: Ink.ink, at: CGPoint(x: 1.3 * u, y: -29 * u))
 
+        let art = FiveUpTileArt(g)
         for (k, letter) in model.answer.enumerated() {
             var tile = g
             tile.translateBy(x: CGFloat(k - 2) * 43 * u, y: 9 * u)
             tile.scaleBy(x: 0.7, y: 0.7)
-            paintTile(&tile, TilePose(center: .zero, face: .exact, letter: letter, mark: .exact))
+            paintTile(&tile, TilePose(center: .zero, face: .exact, letter: letter, mark: .exact), art: art)
         }
     }
 }

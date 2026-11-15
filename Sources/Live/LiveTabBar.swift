@@ -11,6 +11,8 @@ struct LiveTabBar: View {
 
     /// Five slots fit on an iPhone SE at this width.
     private let slot: CGFloat = 60
+    /// How tall the bar stands above the home indicator: the room a tab's page leaves at its bottom.
+    static let height: CGFloat = 14 + 5 + 48 + 5 + 4
 
     var body: some View {
         HStack(spacing: 0) {

@@ -3,7 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { currentUser, requireUser } from "./lib";
-import { defaultLook, itemById } from "./items";
+import { ROOM_SPOTS, defaultLook, itemById } from "./items";
 
 const SLOTS = ["body", "face", "hair", "hat", "outfit", "gadget"] as const;
 
@@ -25,7 +25,7 @@ export const locker = query({
   handler: async (ctx) => {
     const user = await currentUser(ctx);
     if (user === null) return null;
-    return { look: lookOf(user), owned: await ownedIds(ctx, user._id), color: user.color };
+    return { look: lookOf(user), owned: await ownedIds(ctx, user._id), color: user.color, decor: user.room?.decor ?? [] };
   },
 });
 
@@ -54,6 +54,7 @@ export const profile = query({
       streak: user.streak,
       rounds: user.rounds,
       look: lookOf(user),
+      decor: user.room?.decor ?? [],
       you: me !== null && me._id === user._id,
       bests: bests.map((row) => ({ gameSlug: row.gameSlug, score: row.score, text: row.text ?? null, unit: row.unit ?? null })),
     };
@@ -85,6 +86,28 @@ export const equip = mutation({
       look[args.slot] = item.id;
     }
     await ctx.db.patch("users", user._id, { avatar: look });
+    return null;
+  },
+});
+
+/** Puts an owned decor item in the room, or takes it out. The room holds ROOM_SPOTS items. */
+export const placeDecor = mutation({
+  args: { itemId: v.string(), placed: v.boolean() },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const item = itemById(args.itemId);
+    if (!item || item.slot !== "decor") throw new ConvexError("No such item");
+    const decor = (user.room?.decor ?? []).filter((id) => id !== item.id);
+    if (args.placed) {
+      const owned = await ctx.db
+        .query("inventory")
+        .withIndex("by_user_and_item", (q) => q.eq("userId", user._id).eq("itemId", item.id))
+        .unique();
+      if (owned === null) throw new ConvexError("Get it in the shop first");
+      if (decor.length >= ROOM_SPOTS) throw new ConvexError("Your room is full. Take something out first.");
+      decor.push(item.id);
+    }
+    await ctx.db.patch("users", user._id, { room: { decor } });
     return null;
   },
 });

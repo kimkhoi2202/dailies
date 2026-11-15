@@ -38,6 +38,8 @@ struct RoundSummary: Equatable {
     var balanceBefore: Int
     var earnedTodayAfter: Int
     var isBest: Bool
+    /// The player's best in this game before this round. 0 means no rounds yet.
+    var bestBefore: Int = 0
     /// This round took the game to its daily limit.
     var hitLimit: Bool
     /// The game (or its studio) had already reached its limit before the round.
@@ -439,7 +441,8 @@ final class LiveStore: ObservableObject {
         v.balance += gold
         v.earned[game.id, default: 0] += gold
         v.secondsToday[game.id, default: 0] += seconds
-        let isBest = result.score > 0 && result.score > (v.best[game.id] ?? 0)
+        let bestBefore = v.best[game.id] ?? 0
+        let isBest = result.score > 0 && result.score > bestBefore
         if isBest {
             v.best[game.id] = result.score
             v.bestUnit[game.id] = result.unit
@@ -458,7 +461,7 @@ final class LiveStore: ObservableObject {
         }
         setQuietly(v)
         let summary = RoundSummary(gameID: game.id, result: result, seconds: seconds, gold: gold,
-                                   balanceBefore: before, earnedTodayAfter: earnedToday(game.id), isBest: isBest,
+                                   balanceBefore: before, earnedTodayAfter: earnedToday(game.id), isBest: isBest, bestBefore: bestBefore,
                                    hitLimit: nowFull && gold > 0, wasFull: room == 0, solo: solo)
         lastRound = summary
         settle(summary)
