@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Wordmark } from '@/components/brand';
 import { Body, Card, Chip, Display, GoldPill, Icon, IconButton, Label, Meter, Row, Tag } from '@/components/ui';
 import { catalog } from '@/lib/catalog';
-import { likedPercent, players, score } from '@/lib/format';
+import { likedPercent, players, score, unitWord } from '@/lib/format';
 import { useGames, useMe } from '@/lib/session';
 import { haptic } from '@/lib/settings';
 import { Margin, OnGold, useTheme } from '@/lib/theme';
@@ -77,7 +77,7 @@ export default function Home() {
           }}
           style={{ marginHorizontal: Margin, height: 236, borderRadius: 26, borderCurve: 'continuous', overflow: 'hidden', backgroundColor: catalog[hero.slug]?.tint }}>
           <Image source={catalog[hero.slug]?.cover} style={{ position: 'absolute', width: '100%', height: '100%' }} contentFit="cover" contentPosition="top" />
-          <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.72)']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 150 }} />
+          <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.78)', 'rgba(0,0,0,0.9)']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 190 }} />
           <View style={{ position: 'absolute', left: 14, top: 14 }}>
             <Tag onDark label={hero.left > 0 ? `${hero.left} gold left today` : 'Limit reached today'} />
           </View>
@@ -106,7 +106,7 @@ export default function Home() {
                 <View style={{ padding: 10, gap: 2 }}>
                   <Display size={18}>{game.title}</Display>
                   <Body size={11.5} color={t.ink2} lines={1}>
-                    Your best: {score(game.best ?? 0, game.unit)} {game.unit === '%' || game.unit === 'm' ? '' : game.unit}
+                    Your best: {score(game.best ?? 0, game.unit)} {unitWord(game.best ?? 0, game.unit)}
                   </Body>
                 </View>
               </Pressable>

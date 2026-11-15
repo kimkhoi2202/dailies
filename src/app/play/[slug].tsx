@@ -13,7 +13,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { catalog } from '@/lib/catalog';
 import { localDay } from '@/lib/day';
-import { duration, score as formatScore, untilMidnight } from '@/lib/format';
+import { duration, score as formatScore, unitWord, untilMidnight } from '@/lib/format';
 import { useGame, useVote } from '@/lib/session';
 import { haptic } from '@/lib/settings';
 import { Margin, useTheme } from '@/lib/theme';
@@ -219,7 +219,7 @@ export default function Play() {
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: insets.top + 30, gap: 4 }}>
             <Label color="rgba(255,255,255,0.75)">Round time {duration(outcome.playMs)}</Label>
             <Display size={104} color="#FFFFFF" style={{ lineHeight: 104 }}>{formatScore(outcome.score, outcome.unit)}</Display>
-            {outcome.unit !== '%' && outcome.unit !== 'm' && <Display size={30} color="#FFFFFF">{outcome.unit}</Display>}
+            {unitWord(outcome.score, outcome.unit) !== '' && <Display size={30} color="#FFFFFF">{unitWord(outcome.score, outcome.unit)}</Display>}
             {outcome.newBest && (
               <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: t.gold, borderRadius: 12, height: 24, paddingHorizontal: 10 }}>
                 <Icon name="send" size={10} color="#151412" />

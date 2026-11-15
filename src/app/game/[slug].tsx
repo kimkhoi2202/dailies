@@ -8,7 +8,7 @@ import { Avatar, Body, Card, Coin, Display, GoldPill, Icon, IconButton, Key, Lab
 import { VoteButton } from '@/components/vote-button';
 import { api } from '@/convex/_generated/api';
 import { catalog } from '@/lib/catalog';
-import { compact, likedPercent, players, score, untilMidnight } from '@/lib/format';
+import { compact, likedPercent, players, score, unitWord, untilMidnight } from '@/lib/format';
 import { useGame, useMe, useVote } from '@/lib/session';
 import { Margin, useTheme } from '@/lib/theme';
 
@@ -109,7 +109,7 @@ export default function GameScreen() {
             {[
               ['Plays', compact(game?.plays ?? 0), 'all time'],
               ['Liked', liked === null ? '–' : `${liked}%`, 'of votes'],
-              ['Your best', game?.best == null ? '–' : score(game.best, game.unit), game?.unit === '%' ? 'of the map' : (game?.unit ?? '')],
+              ['Your best', game?.best == null ? '–' : score(game.best, game.unit), game?.unit === '%' ? 'of the map' : game?.unit === 'm' ? 'distance' : unitWord(game?.best ?? 0, game?.unit ?? '')],
             ].map(([label, value, note]) => (
               <Card key={label} style={{ flex: 1, padding: 12, gap: 2 }}>
                 <Label size={10}>{label}</Label>

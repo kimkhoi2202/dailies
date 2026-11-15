@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-11-15T18:02:39Z
-- **Last updated:** 2026-11-15T19:35:08Z
+- **Last updated:** 2026-11-15T19:58:03Z
 
 ## Log
 
@@ -65,3 +65,13 @@ friends join with the code, and everyone plays the same seeded level while live
 scores from the others show on screen through a Convex query. Rounds played in a
 room collect gold like any other round (`convex/rooms.ts`,
 `src/app/room/[code].tsx`, `src/app/join.tsx`, `src/app/play/[slug].tsx`).
+
+### 2026-11-15 - 8bf5e90
+Added the six launch games, each one canvas file with its own bot, cover and
+icon: Tippy Tower (stacking), Five Up (five letter words), Lane Dash (three lane
+runner), Inkland (claim territory against five bots), Spiral Drop (helix drop)
+and Gulp City (a hole that eats a city). The app now lists only the games a
+build carries, so a game seeded by another branch does not show up half built.
+All six ran on a Revyl cloud iPhone in play mode, and a signed build installed
+on an iPhone over USB. Merged to `main` (`games/`, `assets/games/`,
+`src/lib/session.tsx`).

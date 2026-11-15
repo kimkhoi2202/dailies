@@ -23,6 +23,12 @@ export function score(value: number, unit: string) {
   return text;
 }
 
+/** The unit as a word after a score: "1 floor", "3 floors". Percent and metres are already part of the score. */
+export function unitWord(value: number, unit: string) {
+  if (unit === '%' || unit === 'm') return '';
+  return value === 1 && unit.endsWith('s') ? unit.slice(0, -1) : unit;
+}
+
 export function duration(ms: number) {
   const seconds = Math.round(ms / 1000);
   if (seconds < 60) return `${seconds}s`;
