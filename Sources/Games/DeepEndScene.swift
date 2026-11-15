@@ -2,9 +2,11 @@ import SwiftUI
 
 // Deep End: one prompt at a time, one typed answer each. Rarer answers sink the krill deeper.
 //
-// A pixel ocean drawn in code by DeepEndPainter from a DeepEndPicture. The playable game fills the
-// picture from its model; the clip in the video feed builds one from a phase (0...1) and a fixed
-// script. No assets, any frame size.
+// Drawn like an old rubber-hose cartoon by DeepEndPainter from a DeepEndPicture: cream paper, ink
+// outlines, flat 1930s colours and a little film wear. The playable game fills the picture from its
+// model; the clip in the video feed builds one from a phase (0...1) and a fixed script. The krill,
+// fish, kelp, sun, clouds, boat and seabed are painted pictures in Resources/GameArt; the rest is
+// drawn in code at any frame size.
 
 public struct DeepEndScene: View {
     public var phase: Double
@@ -113,6 +115,15 @@ struct DeepEndRandom {
 
     mutating func range(_ lo: Double, _ hi: Double) -> Double { lo + (hi - lo) * next() }
 
+    /// A steady 0 ..< 1 for a whole number, for things that change on a film frame.
+    static func hash(_ n: Int) -> Double {
+        var v = UInt64(bitPattern: Int64(n)) &* 0x9E3779B97F4A7C15 &+ 0x632BE59BD9B4E019
+        v = (v ^ (v >> 30)) &* 0xBF58476D1CE4E5B9
+        v = (v ^ (v >> 27)) &* 0x94D049BB133111EB
+        v ^= v >> 31
+        return Double(v >> 11) / 9007199254740992.0
+    }
+
     /// 0 ..< count
     mutating func int(_ count: Int) -> Int {
         Swift.min(Swift.max(count - 1, 0), Int(next() * Double(count)))
@@ -131,52 +142,38 @@ enum DeepEndInk {
         Color(.sRGB, red: r / 255, green: g / 255, blue: b / 255, opacity: alpha)
     }
 
-    static let cyan = hex(0x41D6F2)
-    static let pink = hex(0xFF5C8A)
-    static let white = hex(0xF2F7FB)
-    static let dim = hex(0x7891AD)
-    static let key = hex(0x1B2C47)
-    static let keyDown = hex(0x2A4266)
-    static let keyEdge = hex(0x0A1424)
-    static let keyText = hex(0xCFE6F5)
-    static let tiers: [Color] = [0xBFE9FF, 0x7FD4F5, 0x41D6F2, 0x9C8CFF, 0xFF5C8A, 0xFFC531].map { hex($0) }
-    static let missed = hex(0x3A4A5E)
-    static let ink = hex(0x081222)
-    static let placeholder = hex(0x3E5670)
-    static let diveBase = hex(0x8E2944)
-    static let diveTop = hex(0xE0587C)
-    static let diveText = hex(0x2A0B16)
-    static let titleDeep = hex(0x1D6E8C)
-    static let titleSoft = hex(0x3D6F8A)
-    static let foam = hex(0xBFE6F7)
-    static let floor = hex(0x02040A)
+    static let paper = hex(0xF3E6C8)
+    static let paperLight = hex(0xFBF3DF)
+    static let paperShade = hex(0xEBD6A8)
+    static let sepia = hex(0x8A6A43)
+    static let ink = hex(0x1E1712)
+    static let red = hex(0xC8453A)
+    static let mustard = hex(0xD9A441)
+    static let seabed = hex(0x30201A)
+    static let glove = hex(0xFFFBF0)
+    static let tiers: [Color] = [0xD9E6CF, 0xA9CDB4, 0x5E9E98, 0x8C7BB0, 0xC8453A, 0xD9A441].map { hex($0) }
+    static let missed = hex(0x9C8C74)
 
-    static let cardFill = rgb(10, 19, 34, 0.9)
-    static let pipEmpty = rgb(10, 20, 36, 0.8)
-    static let shelf = rgb(4, 9, 18, 0.84)
-    static let hintFill = rgb(8, 16, 30, 0.86)
-    static let ringBack = rgb(65, 214, 242, 0.18)
-    static let barBack = rgb(65, 214, 242, 0.15)
-    static let majorZone = rgb(65, 214, 242, 0.55)
-    static let zoneTick = rgb(160, 190, 220, 0.35)
-    static let zoneText = rgb(170, 200, 230, 0.6)
-    static let ruler = rgb(150, 180, 210, 0.3)
-    static let rulerMajor = rgb(150, 180, 210, 0.55)
-    static let mote = rgb(200, 225, 245, 0.25)
-    static let bubble = rgb(200, 235, 255, 0.55)
-    static let kelp = rgb(5, 18, 34, 0.55)
-    static let surfaceGlare = rgb(255, 255, 255, 0.35)
-    static let friend = rgb(255, 197, 49, 0.75)
-    static let scanLight = rgb(255, 255, 255, 0.035)
-    static let scanDark = rgb(0, 0, 0, 0.09)
+    static let ruler = hex(0xF3E6C8, 0.3)
+    static let rulerShallow = hex(0x1E1712, 0.35)
+    static let mote = hex(0xF3E6C8, 0.3)
+    static let current = hex(0xF3E6C8, 0.16)
+    static let grainDark = hex(0x1E1712, 0.13)
+    static let grainLight = hex(0xFBF3DF, 0.10)
+    static let scratch = hex(0xFBF3DF, 0.35)
+    static let shadow = hex(0x1E1712, 0.85)
 
-    static let sunGlow = Gradient(colors: [rgb(255, 236, 170, 0.55), rgb(255, 236, 170, 0)])
-    static let krillGlow = Gradient(colors: [rgb(255, 77, 103, 0.32), rgb(255, 77, 103, 0)])
+    static let sky = Gradient(colors: [hex(0xF7EDD3), hex(0xEBD6A8)])
+    static let halo = Gradient(colors: [hex(0xF3E6C8, 0.2), hex(0xF3E6C8, 0)])
+    static let vignette = Gradient(stops: [.init(color: hex(0x1E1712, 0), location: 0),
+                                           .init(color: hex(0x1E1712, 0.12), location: 0.45),
+                                           .init(color: hex(0x1E1712, 0.55), location: 1)])
 
-    /// The water's colour every 10 m from the surface to 8,000 m.
+    /// The water's colour every 10 m from the surface to 8,000 m: pale sea green, teal, deep
+    /// blue-green, then ink.
     static let water: [Color] = {
-        let stops: [[Double]] = [[0, 58, 127, 181], [150, 37, 96, 143], [500, 23, 63, 102], [1200, 14, 38, 67],
-                                 [3000, 8, 22, 41], [6000, 5, 11, 22], [8000, 3, 6, 13]]
+        let stops: [[Double]] = [[0, 169, 205, 180], [150, 122, 178, 166], [500, 78, 138, 138], [1200, 47, 94, 98],
+                                 [3000, 31, 62, 66], [6000, 22, 32, 34], [8000, 16, 19, 20]]
         var out: [Color] = []
         out.reserveCapacity(801)
         for i in 0..<801 {
@@ -190,226 +187,11 @@ enum DeepEndInk {
         }
         return out
     }()
-
-    /// Fourteen bands of sky, from the top down to the horizon.
-    static let sky: [Color] = (0..<14).map { i in
-        let k = Double(i) / 13
-        return rgb((126 + 88 * k).rounded(), (200 + 40 * k).rounded(), (234 + 14 * k).rounded())
-    }
-}
-
-// MARK: - Pixel type
-
-/// A 5 x 7 pixel font. Every string becomes one path, made the first time it is drawn and kept.
-enum DeepEndText {
-    private struct Key: Hashable {
-        let text: String
-        let scale: CGFloat
-        let track: CGFloat
-    }
-
-    private struct Run {
-        let x: Int
-        let y: Int
-        let length: Int
-    }
-
-    static let glyphs: [Character: String] = [
-        "0": ".###.#...##..###.#.###..##...#.###.",
-        "1": "..#...##....#....#....#....#...###.",
-        "2": ".###.#...#....#...#...#...#...#####",
-        "3": "####.....#....#.###.....#....#####.",
-        "4": "...#...##..#.#.#..#.#####...#....#.",
-        "5": "######....####.....#....##...#.###.",
-        "6": ".###.#....#....####.#...##...#.###.",
-        "7": "#####....#...#...#...#....#....#...",
-        "8": ".###.#...##...#.###.#...##...#.###.",
-        "9": ".###.#...##...#.####....#....#.###.",
-        "A": ".###.#...##...#######...##...##...#",
-        "B": "####.#...##...#####.#...##...#####.",
-        "C": ".###.#...##....#....#....#...#.###.",
-        "D": "####.#...##...##...##...##...#####.",
-        "E": "######....#....####.#....#....#####",
-        "F": "######....#....####.#....#....#....",
-        "G": ".###.#...##....#.####...##...#.####",
-        "H": "#...##...##...#######...##...##...#",
-        "I": ".###...#....#....#....#....#...###.",
-        "J": "..###...#....#....#....#.#..#..##..",
-        "K": "#...##..#.#.#..##...#.#..#..#.#...#",
-        "L": "#....#....#....#....#....#....#####",
-        "M": "#...###.###.#.##.#.##...##...##...#",
-        "N": "#...##...###..##.#.##..###...##...#",
-        "O": ".###.#...##...##...##...##...#.###.",
-        "P": "####.#...##...#####.#....#....#....",
-        "Q": ".###.#...##...##...##.#.##..#..##.#",
-        "R": "####.#...##...#####.#.#..#..#.#...#",
-        "S": ".#####....#.....###.....#....#####.",
-        "T": "#####..#....#....#....#....#....#..",
-        "U": "#...##...##...##...##...##...#.###.",
-        "V": "#...##...##...##...##...#.#.#...#..",
-        "W": "#...##...##...##.#.##.#.##.#.#.#.#.",
-        "X": "#...##...#.#.#...#...#.#.#...##...#",
-        "Y": "#...##...#.#.#...#....#....#....#..",
-        "Z": "#####....#...#...#...#...#....#####",
-        ".": "................................#..",
-        ",": "...........................#...#...",
-        "-": "................###................",
-        "+": ".......#....#..#####..#....#.......",
-        ":": ".......#...................#.......",
-        "?": ".###.#...#....#...#...#.........#..",
-        "<": ".......#...#...#####.#.....#.......",
-        "v": "##########.###..###...#....#......."
-    ]
-
-    /// Each glyph as runs of lit pixels along its rows.
-    private static let runs: [Character: [Run]] = {
-        var out: [Character: [Run]] = [:]
-        for (ch, bits) in glyphs {
-            let cells = Array(bits)
-            var list: [Run] = []
-            for y in 0..<7 {
-                var x = 0
-                while x < 5 {
-                    let at = y * 5 + x
-                    guard at < cells.count, cells[at] == "#" else { x += 1; continue }
-                    var length = 1
-                    while x + length < 5, at + length < cells.count, cells[at + length] == "#" { length += 1 }
-                    list.append(Run(x: x, y: y, length: length))
-                    x += length
-                }
-            }
-            out[ch] = list
-        }
-        return out
-    }()
-
-    private static var paths: [Key: Path] = [:]
-    private static var wraps: [Key: [String]] = [:]
-
-    static func width(_ text: String, _ s: CGFloat, _ track: CGFloat = 0) -> CGFloat {
-        let n = CGFloat(text.count)
-        return n > 0 ? (n * 6 - 1) * s + (n - 1) * track : 0
-    }
-
-    /// The string with its top left corner at the origin.
-    static func path(_ text: String, _ s: CGFloat, _ track: CGFloat) -> Path {
-        let key = Key(text: text, scale: s, track: track)
-        if let kept = paths[key] { return kept }
-        if paths.count > 600 { paths.removeAll(keepingCapacity: true) }
-        var path = Path()
-        var x: CGFloat = 0
-        for ch in text {
-            if let list = runs[ch] {
-                for run in list {
-                    path.addRect(CGRect(x: x + CGFloat(run.x) * s, y: CGFloat(run.y) * s,
-                                        width: CGFloat(run.length) * s, height: s))
-                }
-            }
-            x += 6 * s + track
-        }
-        paths[key] = path
-        return path
-    }
-
-    /// Breaks a line of words to fit a width.
-    static func wrap(_ text: String, _ s: CGFloat, _ maxWidth: CGFloat) -> [String] {
-        let key = Key(text: text, scale: s, track: maxWidth)
-        if let kept = wraps[key] { return kept }
-        if wraps.count > 200 { wraps.removeAll(keepingCapacity: true) }
-        var lines: [String] = []
-        var line = ""
-        for word in text.split(separator: " ") {
-            let next = line.isEmpty ? String(word) : line + " " + word
-            if !line.isEmpty, width(next, s) > maxWidth {
-                lines.append(line)
-                line = String(word)
-            } else {
-                line = next
-            }
-        }
-        if !line.isEmpty { lines.append(line) }
-        wraps[key] = lines
-        return lines
-    }
-}
-
-// MARK: - Pixel sprites
-
-struct DeepEndSprite {
-    let layers: [(color: Color, path: Path)]
-    let width: CGFloat
-    let height: CGFloat
-
-    init(_ rows: [String], _ palette: [Character: Color], _ s: CGFloat) {
-        var paths: [Character: Path] = [:]
-        for (y, row) in rows.enumerated() {
-            let cells = Array(row)
-            var x = 0
-            while x < cells.count {
-                let ch = cells[x]
-                guard palette[ch] != nil else { x += 1; continue }
-                var length = 1
-                while x + length < cells.count, cells[x + length] == ch { length += 1 }
-                paths[ch, default: Path()].addRect(CGRect(x: CGFloat(x) * s, y: CGFloat(y) * s,
-                                                          width: CGFloat(length) * s, height: s))
-                x += length
-            }
-        }
-        layers = paths.compactMap { ch, path in palette[ch].map { (color: $0, path: path) } }
-        width = CGFloat(rows.first?.count ?? 0) * s
-        height = CGFloat(rows.count) * s
-    }
-
-    func draw(_ ctx: inout GraphicsContext, x: CGFloat, y: CGFloat, scale: CGFloat = 1) {
-        var c = ctx
-        c.translateBy(x: x, y: y)
-        if scale != 1 { c.scaleBy(x: scale, y: scale) }
-        for layer in layers { c.fill(layer.path, with: .color(layer.color)) }
-    }
-}
-
-enum DeepEndSprites {
-    static let krill: [DeepEndSprite] = {
-        let palette: [Character: Color] = [
-            "a": DeepEndInk.hex(0xFF9AAA), "r": DeepEndInk.hex(0xFF4D67), "R": DeepEndInk.hex(0xFF8E9C),
-            "w": DeepEndInk.hex(0xFFFFFF), "k": DeepEndInk.hex(0x1A0F14), "l": DeepEndInk.hex(0xD12C47)
-        ]
-        let body = ["..a...........", ".a.a..........", "a...a.rrrr....", "....rrRRRRrr..",
-                    "...rwkrRRRRrr.", "..rrrrrrrrrrrr", "...rrrrrrrr.rr"]
-        return [DeepEndSprite(body + ["....l.l.l.l.r.", "...l.l.l.l..rr"], palette, 3),
-                DeepEndSprite(body + ["...l.l.l.l..r.", "....l.l.l.l.rr"], palette, 3)]
-    }()
-
-    private static let fishRows = ["..###...", ".#####.#", "########", ".#####.#", "..###..."]
-    private static let fishInk: [Character: Color] = ["#": DeepEndInk.rgb(6, 16, 30, 0.8)]
-    static let fishLeft = DeepEndSprite(fishRows, fishInk, 3)
-    static let fishRight = DeepEndSprite(fishRows.map { String($0.reversed()) }, fishInk, 3)
-
-    static let sun: DeepEndSprite = {
-        var rows: [String] = []
-        for y in 0..<20 {
-            var row = ""
-            for x in 0..<20 {
-                let dx = Double(x) - 9.5, dy = Double(y) - 9.5
-                let d = (dx * dx + dy * dy).squareRoot()
-                row.append(d < 8 ? "c" : d < 9.6 ? "r" : ".")
-            }
-            rows.append(row)
-        }
-        return DeepEndSprite(rows, ["c": DeepEndInk.hex(0xFFF1B8), "r": DeepEndInk.hex(0xFFE08A)], 3)
-    }()
-
-    static let cloud = DeepEndSprite(["......####........", "....########..##..", "..##############..",
-                                      ".################.", "##################", ".gggggggggggggggg."],
-                                     ["#": DeepEndInk.hex(0xFFFFFF), "g": DeepEndInk.hex(0xDCEEF6)], 4)
-
-    static let boat = DeepEndSprite(["....f.....", "....fpp...", "....f.....", "..dddd....", "dddddddddd", ".dddddddd."],
-                                    ["d": DeepEndInk.hex(0x1E2B3A), "f": DeepEndInk.hex(0x1E2B3A), "p": DeepEndInk.pink], 3)
 }
 
 // MARK: - Layout
 
-/// Where everything sits on a screen of a given size, in points. One point is one pixel of the art.
+/// Where everything sits on a screen of a given size, in points.
 struct DeepEndLayout {
     let w: CGFloat
     let h: CGFloat
@@ -555,7 +337,7 @@ struct DeepEndPicture {
     var input = ""
     var timeLeft = DeepEndRules.answerTime
     var message = ""
-    var messageColor = DeepEndInk.pink
+    var messageColor = DeepEndInk.red
     var messageTime = 0.0
     var shake = 0.0
     var pressKey = -1
@@ -571,13 +353,74 @@ struct DeepEndPicture {
     var endTime = 0.0
 }
 
+// MARK: - Kept between frames
+
+/// Paths that only change with the canvas size, made once per size and kept.
+enum DeepEndCache {
+    struct Key: Hashable {
+        let w: Int
+        let h: Int
+    }
+
+    struct Keys {
+        let shadows: Path
+        let caps: Path
+    }
+
+    struct Grain {
+        let dark: Path
+        let light: Path
+    }
+
+    static var keys: [Key: Keys] = [:]
+    static var grain: [Key: Grain] = [:]
+
+    static func keys(for lay: DeepEndLayout) -> Keys {
+        let key = Key(w: Int(lay.w.rounded()), h: Int(lay.h.rounded()))
+        if let kept = keys[key] { return kept }
+        var shadows = Path(), caps = Path()
+        for code in 0...DeepEndRules.space {
+            let r = lay.keyRect(code)
+            caps.addRoundedRect(in: r.insetBy(dx: 1, dy: 1), cornerSize: CGSize(width: 7, height: 7))
+            shadows.addRoundedRect(in: r.insetBy(dx: 1, dy: 1).offsetBy(dx: 2, dy: 3), cornerSize: CGSize(width: 7, height: 7))
+        }
+        let made = Keys(shadows: shadows, caps: caps)
+        if keys.count >= 8 { keys.removeAll(keepingCapacity: true) }
+        keys[key] = made
+        return made
+    }
+
+    /// Film grain over an area a little larger than the screen, so it can jump about each frame.
+    static func grain(for lay: DeepEndLayout) -> Grain {
+        let key = Key(w: Int(lay.w.rounded()), h: Int(lay.h.rounded()))
+        if let kept = grain[key] { return kept }
+        var rng = DeepEndRandom(seed: UInt64(key.w * 4099 + key.h), salt: 0x677261696E)
+        var dark = Path(), light = Path()
+        let w = Double(lay.w) + 64, h = Double(lay.h) + 64
+        let count = Int(w * h / 260)
+        for i in 0..<count {
+            let size = rng.range(0.8, 1.8)
+            let dot = CGRect(x: rng.next() * w, y: rng.next() * h, width: size, height: size)
+            if i % 3 == 0 { light.addEllipse(in: dot) } else { dark.addEllipse(in: dot) }
+        }
+        let made = Grain(dark: dark, light: light)
+        if grain.count >= 8 { grain.removeAll(keepingCapacity: true) }
+        grain[key] = made
+        return made
+    }
+}
+
 // MARK: - Painter
 
+/// Paints a DeepEndPicture as an old cartoon: cream paper, ink outlines, flat muted colours and a
+/// bit of film wear.
 struct DeepEndPainter {
-    enum Align { case left, center, right }
-
     private typealias Ink = DeepEndInk
-    private typealias Txt = DeepEndText
+
+    /// Eight directions for drawing an outline around type.
+    private static let ring: [CGPoint] = (0..<8).map { k in
+        CGPoint(x: cos(Double(k) * .pi / 4), y: sin(Double(k) * .pi / 4))
+    }
 
     let pic: DeepEndPicture
     let lay: DeepEndLayout
@@ -591,212 +434,390 @@ struct DeepEndPainter {
 
     private func screenY(_ depth: Double) -> CGFloat { lay.baseY + CGFloat(depth - pic.cam) }
 
+    /// Everything bounces on the beat: two poses, swapped a little over twice a second.
+    private var offBeat: Bool { Int(pic.clock * 2.4) % 2 == 1 }
+
+    private var labelTop: CGFloat { pic.started ? lay.cardY + lay.cardH + 8 : -20 }
+
+    private var krillPoint: CGPoint {
+        CGPoint(x: lay.w / 2 + CGFloat(sin(pic.clock * 1.3) * 14),
+                y: screenY(pic.krill) + CGFloat(sin(pic.clock * 2.1) * 3) - (offBeat ? 3 : 0))
+    }
+
     func draw(_ ctx: inout GraphicsContext) {
-        drawScene(&ctx)
+        let sy = screenY(0).rounded()
+        drawSky(&ctx, sy)
+        drawWater(&ctx, sy)
+        drawZones(&ctx)
+        drawKelp(&ctx)
+        drawFloor(&ctx)
+        drawRuler(&ctx, sy)
+        drawMotes(&ctx, sy)
+        drawFriends(&ctx)
+        drawFish(&ctx)
+        drawSurface(&ctx, sy)
+        drawKrill(&ctx)
+        drawBubbles(&ctx, sy)
         if pic.titleAlpha > 0 { drawTitle(&ctx) }
+        if pic.ending { drawIris(&ctx) }
         if pic.started, showHUD { drawHud(&ctx) }
         if pic.started, !pic.ending { drawCard(&ctx) }
         if pic.step == .reveal, let reveal = pic.reveal { drawReveal(&ctx, reveal) }
         if pic.keyboard > 0 { drawInput(&ctx) }
         if pic.ending { drawEnding(&ctx) }
         if pic.showHint { drawHint(&ctx) }
-        drawScanlines(&ctx)
+        drawFilm(&ctx)
     }
 
     // MARK: Helpers
 
-    private func rect(_ ctx: inout GraphicsContext, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ color: Color) {
-        ctx.fill(Path(CGRect(x: x, y: y, width: w, height: h)), with: .color(color))
-    }
-
-    private func text(_ ctx: inout GraphicsContext, _ str: String, _ x: CGFloat, _ y: CGFloat, _ s: CGFloat,
-                      _ color: Color, _ align: Align = .left, _ track: CGFloat = 0) {
-        if str.isEmpty { return }
-        let w = Txt.width(str, s, track)
-        let x0 = align == .center ? x - w / 2 : align == .right ? x - w : x
+    /// A brush line: the stroke, and a thinner one nudged down and right so the line swells a little.
+    private func inked(_ ctx: inout GraphicsContext, _ path: Path, _ width: CGFloat = 3, _ color: Color = DeepEndInk.ink) {
+        ctx.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
         var c = ctx
-        c.translateBy(x: x0.rounded(), y: y.rounded())
-        c.fill(Txt.path(str, s, track), with: .color(color))
+        c.translateBy(x: 0.7, y: 0.9)
+        c.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: width * 0.45, lineCap: .round, lineJoin: .round))
     }
 
-    /// White type with a pink and a cyan ghost either side.
-    private func chroma(_ ctx: inout GraphicsContext, _ str: String, _ x: CGFloat, _ y: CGFloat, _ s: CGFloat,
-                        _ align: Align = .left, _ track: CGFloat = 0) {
-        let o = Swift.max(1, (s / 2).rounded())
-        text(&ctx, str, x - o, y + o, s, Ink.pink, align, track)
-        text(&ctx, str, x + o, y - o, s, Ink.cyan, align, track)
-        text(&ctx, str, x, y, s, Ink.white, align, track)
+    private func type(_ s: String, _ size: CGFloat, _ weight: Font.Weight, _ design: Font.Design, _ color: Color,
+                      tracking: CGFloat = 0) -> Text {
+        Text(s).font(.system(size: size, weight: weight, design: design)).tracking(tracking).foregroundStyle(color)
     }
 
-    /// A box with its corners knocked off, pixel style.
-    private func panel(_ ctx: inout GraphicsContext, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ color: Color) {
+    private func label(_ ctx: inout GraphicsContext, _ s: String, _ size: CGFloat, _ weight: Font.Weight, _ design: Font.Design,
+                       _ color: Color, at p: CGPoint, anchor: UnitPoint = .center, tracking: CGFloat = 0) {
+        ctx.draw(type(s, size, weight, design, color, tracking: tracking), at: p, anchor: anchor)
+    }
+
+    /// Type filled with one colour inside an outline of another, with an optional drop shadow.
+    private func outlined(_ ctx: inout GraphicsContext, _ s: String, _ size: CGFloat, fill: Color, edge: Color = DeepEndInk.ink,
+                          width: CGFloat = 2.5, shadow: CGFloat = 0, at p: CGPoint, anchor: UnitPoint = .center,
+                          weight: Font.Weight = .black, design: Font.Design = .rounded, tracking: CGFloat = 0) {
+        let back = ctx.resolve(type(s, size, weight, design, edge, tracking: tracking))
+        let face = ctx.resolve(type(s, size, weight, design, fill, tracking: tracking))
+        if shadow > 0 { ctx.draw(back, at: CGPoint(x: p.x + shadow * 0.6, y: p.y + shadow + width), anchor: anchor) }
+        for d in Self.ring { ctx.draw(back, at: CGPoint(x: p.x + d.x * width, y: p.y + d.y * width), anchor: anchor) }
+        ctx.draw(face, at: p, anchor: anchor)
+    }
+
+    private func width(_ ctx: inout GraphicsContext, _ text: Text) -> CGFloat {
+        ctx.resolve(text).measure(in: CGSize(width: 2000, height: 400)).width
+    }
+
+    /// A cream card with an ink outline and a hard ink shadow.
+    private func card(_ ctx: inout GraphicsContext, _ r: CGRect, radius: CGFloat, fill: Color = DeepEndInk.paperLight,
+                      shadow: CGSize = CGSize(width: 4, height: 5), line: CGFloat = 3) {
+        let corner = CGSize(width: radius, height: radius)
+        ctx.fill(Path(roundedRect: r.offsetBy(dx: shadow.width, dy: shadow.height), cornerSize: corner), with: .color(Ink.shadow))
+        let body = Path(roundedRect: r, cornerSize: corner)
+        ctx.fill(body, with: .color(fill))
+        inked(&ctx, body, line)
+    }
+
+    /// A ribbon banner with swallowtail ends.
+    private func ribbon(_ ctx: inout GraphicsContext, center c: CGPoint, width w: CGFloat, height h: CGFloat, fill: Color) {
+        let x0 = c.x - w / 2, x1 = c.x + w / 2, y0 = c.y - h / 2, y1 = c.y + h / 2
         var p = Path()
-        p.addRect(CGRect(x: x + 6, y: y, width: w - 12, height: h))
-        p.addRect(CGRect(x: x, y: y + 6, width: w, height: h - 12))
-        p.addRect(CGRect(x: x + 2, y: y + 2, width: w - 4, height: h - 4))
-        ctx.fill(p, with: .color(color))
+        p.move(to: CGPoint(x: x0 - 12, y: y0))
+        p.addLine(to: CGPoint(x: x1 + 12, y: y0))
+        p.addLine(to: CGPoint(x: x1 + 3, y: c.y))
+        p.addLine(to: CGPoint(x: x1 + 12, y: y1))
+        p.addLine(to: CGPoint(x: x0 - 12, y: y1))
+        p.addLine(to: CGPoint(x: x0 - 3, y: c.y))
+        p.closeSubpath()
+        var s = ctx
+        s.translateBy(x: 2, y: 3)
+        s.fill(p, with: .color(Ink.shadow))
+        ctx.fill(p, with: .color(fill))
+        inked(&ctx, p, 2.5)
     }
 
-    private func glow(_ ctx: inout GraphicsContext, _ cx: CGFloat, _ cy: CGFloat, _ r: CGFloat, _ gradient: Gradient) {
-        let center = CGPoint(x: cx, y: cy)
-        ctx.fill(Path(ellipseIn: CGRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2)),
-                 with: .radialGradient(gradient, center: center, startRadius: 0, endRadius: r))
+    /// Where a picture goes, kept to its own proportions, from its centre and its width or height.
+    private func artRect(_ art: GraphicsContext.ResolvedImage, center c: CGPoint, width: CGFloat? = nil, height: CGFloat? = nil) -> CGRect {
+        let aspect = art.size.height > 0 ? art.size.width / art.size.height : 1
+        let w = width ?? (height ?? 0) * aspect
+        let h = height ?? w / aspect
+        return CGRect(x: c.x - w / 2, y: c.y - h / 2, width: w, height: h)
     }
 
-    // MARK: The ocean
+    /// Colour for small words over the water at a depth: ink near the pale top, cream below.
+    private func onWater(_ depth: Double, _ alpha: Double = 0.75) -> Color {
+        depth < 420 ? Ink.ink.opacity(alpha * 0.8) : Ink.paper.opacity(alpha)
+    }
 
-    private func drawScene(_ ctx: inout GraphicsContext) {
-        let W = lay.w, H = lay.h
-        let t = pic.clock
-        let sy = screenY(0).rounded()
+    // MARK: Sky and surface
 
-        if sy > 0 {
-            let bh = (sy / CGFloat(Ink.sky.count)).rounded(.up)
-            for b in 0..<Ink.sky.count { rect(&ctx, 0, CGFloat(b) * bh, W, bh + 1, Ink.sky[b]) }
-            let sunX = (W * 0.84).rounded(), sunY = (sy - 56).rounded()
-            glow(&ctx, sunX, sunY, 85, Ink.sunGlow)
-            DeepEndSprites.sun.draw(&ctx, x: sunX - 30, y: sunY - 30)
-            for cloud in pic.clouds {
-                DeepEndSprites.cloud.draw(&ctx, x: CGFloat(cloud.x).rounded(), y: (sy - CGFloat(cloud.y)).rounded(), scale: CGFloat(cloud.s))
-            }
-            rect(&ctx, 0, sy - 18, W, 18, Ink.surfaceGlare)
+    private func drawSky(_ ctx: inout GraphicsContext, _ sy: CGFloat) {
+        guard sy > 0 else { return }
+        let W = lay.w, t = pic.clock
+        ctx.fill(Path(CGRect(x: 0, y: 0, width: W, height: sy)),
+                 with: .linearGradient(Ink.sky, startPoint: .zero, endPoint: CGPoint(x: 0, y: sy)))
+
+        // A sun with a face, low on the horizon, rocking on the beat.
+        var sun = ctx
+        sun.translateBy(x: (W * 0.86).rounded(), y: sy - 24 - (offBeat ? 2 : 0))
+        sun.rotate(by: .radians(sin(t * 0.8) * 0.12))
+        let face = sun.resolve(Image("deep-end-sun"))
+        sun.draw(face, in: artRect(face, center: .zero, height: 100))
+
+        let cloud = ctx.resolve(Image("deep-end-cloud"))
+        for puff in pic.clouds {
+            let s = CGFloat(puff.s)
+            let center = CGPoint(x: CGFloat(puff.x) + 26 * s, y: sy - 12 - CGFloat(puff.y) * 0.3 - 8 * s)
+            ctx.draw(cloud, in: artRect(cloud, center: center, width: 84 * s))
         }
+    }
 
-        // Water in 6 point bands, one fill per run of the same colour.
-        let band: CGFloat = 6
-        var y = Swift.max(0, sy)
+    private func drawSurface(_ ctx: inout GraphicsContext, _ sy: CGFloat) {
+        guard sy > -20, sy < lay.h + 20 else { return }
+        let W = lay.w, t = pic.clock
+        func wave(_ x: CGFloat) -> CGFloat { sy + CGFloat(sin(Double(x) * 0.045 + t * 2.2) * 3.5) }
+
+        // The sky dips into every trough.
+        var air = Path()
+        air.move(to: CGPoint(x: 0, y: sy - 9))
+        var x: CGFloat = 0
+        while x <= W + 6 {
+            air.addLine(to: CGPoint(x: x, y: wave(x)))
+            x += 6
+        }
+        air.addLine(to: CGPoint(x: W + 6, y: sy - 9))
+        air.closeSubpath()
+        ctx.fill(air, with: .color(Ink.paperShade))
+
+        var line = Path()
+        line.move(to: CGPoint(x: 0, y: wave(0)))
+        x = 6
+        while x <= W + 6 {
+            line.addLine(to: CGPoint(x: x, y: wave(x)))
+            x += 6
+        }
+        // Curls riding the crests.
+        let drift = CGFloat((t * 14).truncatingRemainder(dividingBy: 70))
+        var cx: CGFloat = -70 + drift
+        while cx < W + 20 {
+            let cy = wave(cx) - 1
+            line.move(to: CGPoint(x: cx - 6, y: cy + 3))
+            line.addArc(center: CGPoint(x: cx, y: cy - 2), radius: 6, startAngle: .degrees(180), endAngle: .degrees(430), clockwise: false)
+            cx += 70
+        }
+        inked(&ctx, line, 3)
+
+        var under = Path()
+        x = 0
+        under.move(to: CGPoint(x: 0, y: wave(0) + 11))
+        while x <= W + 6 {
+            under.addLine(to: CGPoint(x: x, y: sy + 11 + CGFloat(sin(Double(x) * 0.06 - t * 1.7) * 2)))
+            x += 8
+        }
+        ctx.stroke(under, with: .color(Ink.paper.opacity(0.45)), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+
+        // The boat, bobbing on the beat.
+        let bx = (W * 0.26).rounded()
+        let by = wave(bx) - 3 - (offBeat ? 2 : 0)
+        let boat = ctx.resolve(Image("deep-end-boat"))
+        let hull = artRect(boat, center: .zero, width: 60)
+        ctx.draw(boat, in: hull.offsetBy(dx: bx, dy: by + 8 - hull.maxY))
+    }
+
+    // MARK: Water
+
+    private func drawWater(_ ctx: inout GraphicsContext, _ sy: CGFloat) {
+        let W = lay.w, H = lay.h, t = pic.clock
+        let band: CGFloat = 4
+        var y = Swift.max(0, sy - 9)
         var runStart = y
         var runIndex = -1
         while y < H {
             let d = pic.cam + Double(y + band / 2 - lay.baseY)
             let index = d <= 0 ? 0 : Swift.min(Ink.water.count - 1, Int(d / 10))
             if index != runIndex {
-                if runIndex >= 0 { rect(&ctx, 0, runStart, W, y - runStart, Ink.water[runIndex]) }
+                if runIndex >= 0 { ctx.fill(Path(CGRect(x: 0, y: runStart, width: W, height: y - runStart)), with: .color(Ink.water[runIndex])) }
                 runIndex = index
                 runStart = y
             }
             y += band
         }
-        if runIndex >= 0 { rect(&ctx, 0, runStart, W, y - runStart, Ink.water[runIndex]) }
+        if runIndex >= 0 { ctx.fill(Path(CGRect(x: 0, y: runStart, width: W, height: y - runStart)), with: .color(Ink.water[runIndex])) }
 
-        if sy > -12, sy < H {
-            var foam = Path()
-            var wx: CGFloat = 0
-            while wx < W {
-                let lift = (sin(Double(wx) * 0.035 + t * 1.6) * 1.5).rounded()
-                foam.addRect(CGRect(x: wx, y: sy - 2 + CGFloat(lift), width: 4, height: 3))
-                wx += 4
+        // Hand-drawn current lines drifting through the water.
+        let top = pic.cam - Double(lay.baseY), bottom = top + Double(H)
+        var currents = Path()
+        var m = Swift.max(60, (top / 110).rounded(.up) * 110)
+        while m <= bottom {
+            let cy = screenY(m)
+            let span = Double(W) * 0.75
+            let start = CGFloat((m * 53 + t * 9).truncatingRemainder(dividingBy: span)) - 40
+            currents.move(to: CGPoint(x: start, y: cy))
+            for k in 1...10 {
+                currents.addLine(to: CGPoint(x: start + CGFloat(k) * 10, y: cy + CGFloat(sin(Double(k) * 0.9 + t * 1.5) * 2.5)))
             }
-            ctx.fill(foam, with: .color(Ink.foam))
-            let bob = CGFloat((sin(t * 1.4) * 1.5).rounded())
-            DeepEndSprites.boat.draw(&ctx, x: (W * 0.26).rounded(), y: sy - DeepEndSprites.boat.height + 4 + bob)
+            m += 110
         }
+        ctx.stroke(currents, with: .color(Ink.current), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+    }
 
-        let labelTop = pic.started ? lay.cardY + lay.cardH + 8 : -20
+    private func drawZones(_ ctx: inout GraphicsContext) {
+        let W = lay.w, H = lay.h
         for (z, zone) in DeepEndOcean.zones.enumerated() {
             let zy = screenY(zone.depth)
-            if zy < labelTop || zy > H + 20 { continue }
+            if zy < labelTop + 14 || zy > H + 20 { continue }
             if zone.major {
-                text(&ctx, zone.text, W / 2 - 12, zy - 7, 2, Ink.majorZone, .center, 2)
+                // A title card: a cream cartouche with a double outline.
+                let words = type(zone.text, 13, .heavy, .serif, Ink.ink, tracking: 1.6)
+                let w = width(&ctx, words) + 40
+                let box = CGRect(x: (W / 2 - 12 - w / 2).rounded(), y: zy - 14, width: w, height: 28)
+                card(&ctx, box, radius: 14, fill: Ink.paper, shadow: CGSize(width: 3, height: 3), line: 2.5)
+                inked(&ctx, Path(roundedRect: box.insetBy(dx: 4, dy: 4), cornerSize: CGSize(width: 10, height: 10)), 1)
+                ctx.draw(words, at: CGPoint(x: box.midX, y: box.midY), anchor: .center)
             } else if z % 2 == 1 {
-                rect(&ctx, 16, zy.rounded(), 18, 1, Ink.zoneTick)
-                text(&ctx, zone.text, 40, zy - 3, 1, Ink.zoneText, .left, 1)
+                ctx.fill(Path(CGRect(x: 16, y: zy.rounded(), width: 18, height: 1.5)), with: .color(onWater(zone.depth, 0.6)))
+                label(&ctx, zone.text, 10, .semibold, .serif, onWater(zone.depth), at: CGPoint(x: 40, y: zy), anchor: .leading, tracking: 1)
             } else {
-                rect(&ctx, W - 70, zy.rounded(), 18, 1, Ink.zoneTick)
-                text(&ctx, zone.text, W - 76, zy - 3, 1, Ink.zoneText, .right, 1)
+                ctx.fill(Path(CGRect(x: W - 70, y: zy.rounded(), width: 18, height: 1.5)), with: .color(onWater(zone.depth, 0.6)))
+                label(&ctx, zone.text, 10, .semibold, .serif, onWater(zone.depth), at: CGPoint(x: W - 76, y: zy), anchor: .trailing, tracking: 1)
             }
-        }
-
-        let kelpBase = screenY(330)
-        if kelpBase > -10, kelpBase - 240 < H {
-            var kelp = Path()
-            let strands: [CGFloat] = [8, 30, 54, W - 66, W - 40]
-            for (s, root) in strands.enumerated() {
-                for seg in 0..<26 {
-                    let sway = sin(t * 1.1 + Double(seg) * 0.45 + Double(s) * 1.7) * Double(seg) * 0.5
-                    let kx = (root + CGFloat(sway)).rounded()
-                    let ky = (kelpBase - CGFloat(seg) * 8).rounded()
-                    kelp.addRect(CGRect(x: kx, y: ky - 8, width: 6, height: 8))
-                    if seg % 3 == 1 { kelp.addRect(CGRect(x: seg % 2 == 1 ? kx + 6 : kx - 6, y: ky - 6, width: 6, height: 4)) }
-                }
-            }
-            ctx.fill(kelp, with: .color(Ink.kelp))
-        }
-
-        for fish in pic.fish where fish.depth > 8 {
-            let fy = screenY(fish.depth)
-            if fy < -20 || fy > H + 20 { continue }
-            let sprite = fish.vx > 0 ? DeepEndSprites.fishRight : DeepEndSprites.fishLeft
-            sprite.draw(&ctx, x: CGFloat(fish.x).rounded(), y: fy.rounded())
-        }
-
-        let floorY = screenY(7000)
-        if floorY < H {
-            var ground = Path()
-            ground.addRect(CGRect(x: 0, y: floorY.rounded(), width: W, height: H - floorY + 1))
-            var fx = 0
-            while CGFloat(fx) < W {
-                ground.addRect(CGRect(x: CGFloat(fx), y: (floorY - CGFloat((fx * 37) % 5) * 3).rounded(), width: 8, height: 16))
-                fx += 8
-            }
-            ctx.fill(ground, with: .color(Ink.floor))
-        }
-
-        drawRuler(&ctx, surface: sy, labelTop: labelTop)
-
-        var motes = Path()
-        for mote in pic.motes where CGFloat(mote.y) >= sy + 4 {
-            motes.addRect(CGRect(x: CGFloat(mote.x).rounded(), y: CGFloat(mote.y).rounded(), width: CGFloat(mote.size), height: CGFloat(mote.size)))
-        }
-        ctx.fill(motes, with: .color(Ink.mote))
-
-        for friend in pic.friends {
-            let fy = screenY(friend.depth).rounded()
-            if fy < labelTop || fy > H + 10 { continue }
-            rect(&ctx, 6, fy, 26, 2, Ink.friend)
-            rect(&ctx, 6, fy - 9, 2, 9, Ink.friend)
-            text(&ctx, friend.name, 12, fy - 9, 1, Ink.friend, .left, 1)
-        }
-
-        let kx = lay.w / 2 + CGFloat(sin(t * 1.3) * 14)
-        let ky = screenY(pic.krill) + CGFloat(sin(t * 2.1) * 3)
-        glow(&ctx, kx.rounded(), ky.rounded(), 60, Ink.krillGlow)
-        let busy = pic.started && !pic.ending
-        let frame = Int(t * (busy ? 6 : 3)) % 2
-        let sprite = DeepEndSprites.krill[frame]
-        sprite.draw(&ctx, x: (kx - sprite.width / 2).rounded(), y: (ky - sprite.height / 2).rounded())
-
-        for bubble in pic.bubbles where bubble.life > 0 && CGFloat(bubble.y) >= sy {
-            var c = ctx
-            c.opacity = Swift.min(1, bubble.life)
-            let r = CGFloat(bubble.r)
-            c.stroke(Path(ellipseIn: CGRect(x: CGFloat(bubble.x) - r, y: CGFloat(bubble.y) - r, width: r * 2, height: r * 2)),
-                     with: .color(Ink.bubble), lineWidth: 1.5)
         }
     }
 
-    private func drawRuler(_ ctx: inout GraphicsContext, surface sy: CGFloat, labelTop: CGFloat) {
+    private func drawKelp(_ ctx: inout GraphicsContext) {
+        let base = screenY(330)
+        guard base > -10, base - 240 < lay.h else { return }
+        let t = pic.clock
+        let kelp = ctx.resolve(Image("deep-end-kelp"))
+        let roots: [CGFloat] = [14, 38, 62, lay.w - 62, lay.w - 36]
+        for (s, root) in roots.enumerated() {
+            // Each stalk leans from its root, so the tip sways and the base stays put.
+            let tall = CGFloat(20 + (s * 7) % 5) * 9.5 + 12
+            let lean = CGFloat(sin(t * 1.1 + Double(s) * 1.7) * 0.07)
+            var c = ctx
+            c.concatenate(CGAffineTransform(a: s % 2 == 0 ? 1 : -1, b: 0, c: lean, d: 1, tx: root - lean * base, ty: 0))
+            let wide = kelp.size.height > 0 ? tall * kelp.size.width / kelp.size.height * 0.75 : 0
+            c.draw(kelp, in: CGRect(x: -wide / 2, y: base + 4 - tall, width: wide, height: tall))
+        }
+    }
+
+    private func drawFloor(_ ctx: inout GraphicsContext) {
+        let floorY = screenY(7000)
+        guard floorY < lay.h + 20 else { return }
+        let ground = ctx.resolve(Image("deep-end-seabed"))
+        let size = artRect(ground, center: .zero, width: lay.w)
+        // The top of the dirt sits at 62 percent of the picture; the boulders rise above the floor line.
+        let r = size.offsetBy(dx: lay.w / 2, dy: floorY - size.minY - size.height * 0.62)
+        ctx.fill(Path(CGRect(x: 0, y: r.maxY - 2, width: lay.w, height: Swift.max(0, lay.h - r.maxY + 4))), with: .color(Ink.seabed))
+        ctx.draw(ground, in: r)
+    }
+
+    private func drawRuler(_ ctx: inout GraphicsContext, _ sy: CGFloat) {
         let H = lay.h
         let rx = lay.w - 22
-        let lineTop = Swift.max(0, sy)
-        if lineTop < H { rect(&ctx, rx, lineTop, 1, H - lineTop, Ink.ruler) }
+        let lineTop = Swift.max(0, sy + 8)
+        if lineTop < H { ctx.fill(Path(CGRect(x: rx, y: lineTop, width: 1.5, height: H - lineTop)), with: .color(Ink.ruler)) }
         let dTop = Swift.max(0, pic.cam - Double(lay.baseY))
         let dBottom = pic.cam + Double(H - lay.baseY)
-        var minor = Path()
-        var major = Path()
+        var ticks = Path()
         var m = Int((dTop / 50).rounded(.down)) * 50
         while Double(m) <= dBottom {
             let my = screenY(Double(m)).rounded()
-            if m % 100 == 0 {
-                major.addRect(CGRect(x: rx - 10, y: my, width: 10, height: 1))
-                if my > labelTop { text(&ctx, m == 0 ? "0M" : "-\(m)M", rx - 14, my - 3, 1, Ink.zoneText, .right) }
-            } else {
-                minor.addRect(CGRect(x: rx - 5, y: my, width: 5, height: 1))
+            if m > 0 {
+                let major = m % 100 == 0
+                ticks.addRect(CGRect(x: rx - (major ? 10 : 5), y: my, width: major ? 10 : 5, height: 1.5))
+                if major, my > labelTop {
+                    label(&ctx, DeepEndRules.grouped(m) + " m", 9, .semibold, .serif, onWater(Double(m), 0.6),
+                          at: CGPoint(x: rx - 14, y: my + 1), anchor: .trailing)
+                }
             }
             m += 50
         }
-        ctx.fill(minor, with: .color(Ink.ruler))
-        ctx.fill(major, with: .color(Ink.rulerMajor))
+        ctx.fill(ticks, with: .color(pic.cam < 300 ? Ink.rulerShallow : Ink.ruler))
+    }
+
+    private func drawMotes(_ ctx: inout GraphicsContext, _ sy: CGFloat) {
+        var motes = Path()
+        for mote in pic.motes where CGFloat(mote.y) >= sy + 6 {
+            let s = CGFloat(mote.size) + 0.5
+            motes.addEllipse(in: CGRect(x: CGFloat(mote.x), y: CGFloat(mote.y), width: s, height: s))
+        }
+        ctx.fill(motes, with: .color(Ink.mote))
+    }
+
+    private func drawFriends(_ ctx: inout GraphicsContext) {
+        for friend in pic.friends {
+            let fy = screenY(friend.depth).rounded()
+            if fy < labelTop + 20 || fy > lay.h + 10 { continue }
+            var pole = Path()
+            pole.move(to: CGPoint(x: 10, y: fy))
+            pole.addLine(to: CGPoint(x: 10, y: fy - 22))
+            pole.move(to: CGPoint(x: 4, y: fy))
+            pole.addLine(to: CGPoint(x: 36, y: fy))
+            inked(&ctx, pole, 2, Ink.paper.opacity(0.8))
+            var pennant = Path()
+            pennant.move(to: CGPoint(x: 11, y: fy - 22))
+            pennant.addLine(to: CGPoint(x: 27, y: fy - 17 - (offBeat ? 1.5 : 0)))
+            pennant.addLine(to: CGPoint(x: 11, y: fy - 12))
+            pennant.closeSubpath()
+            ctx.fill(pennant, with: .color(Ink.mustard))
+            inked(&ctx, pennant, 1.6)
+            label(&ctx, friend.name, 10, .bold, .serif, onWater(friend.depth, 0.85), at: CGPoint(x: 31, y: fy - 9), anchor: .leading, tracking: 0.6)
+        }
+    }
+
+    private func drawFish(_ ctx: inout GraphicsContext) {
+        let kinds = [ctx.resolve(Image("deep-end-fish-gold")), ctx.resolve(Image("deep-end-fish-red")),
+                     ctx.resolve(Image("deep-end-fish-blue"))]
+        for (i, fish) in pic.fish.enumerated() where fish.depth > 10 {
+            let fy = screenY(fish.depth)
+            if fy < -24 || fy > lay.h + 24 { continue }
+            let art = kinds[i % kinds.count]
+            var c = ctx
+            c.translateBy(x: CGFloat(fish.x), y: fy - ((i % 2 == 0) == offBeat ? 2.5 : 0))
+            if fish.vx < 0 { c.scaleBy(x: -1, y: 1) }
+            c.draw(art, in: artRect(art, center: .zero, width: i % kinds.count == 2 ? 48 : 36))
+        }
+    }
+
+    // MARK: The krill
+
+    private func drawKrill(_ ctx: inout GraphicsContext) {
+        let p = krillPoint
+        let dark = pic.cam > 900
+        if dark {
+            ctx.fill(Path(ellipseIn: CGRect(x: p.x - 70, y: p.y - 70, width: 140, height: 140)),
+                     with: .radialGradient(Ink.halo, center: p, startRadius: 0, endRadius: 70))
+        }
+        var c = ctx
+        c.translateBy(x: p.x, y: p.y)
+        // A squash and stretch on every reveal, and a small squash on each beat.
+        var sx: CGFloat = 1, sy: CGFloat = 1
+        if pic.step == .reveal, pic.stepTime < 0.7 {
+            let k = pic.stepTime
+            let wobble = CGFloat(exp(-6 * k) * cos(k * 20) * 0.26)
+            sx += wobble
+            sy -= wobble
+        } else if offBeat {
+            sx = 1.04
+            sy = 0.96
+        }
+        c.translateBy(x: 0, y: 18)
+        c.scaleBy(x: sx, y: sy)
+        c.translateBy(x: 0, y: -18)
+
+        // Two poses, swapped on the beat like an old cartoon cycle.
+        let krill = c.resolve(Image(offBeat ? "deep-end-krill-b" : "deep-end-krill"))
+        c.draw(krill, in: artRect(krill, center: CGPoint(x: -4, y: -4), height: 98))
+    }
+
+    private func drawBubbles(_ ctx: inout GraphicsContext, _ sy: CGFloat) {
+        for bubble in pic.bubbles where bubble.life > 0 && CGFloat(bubble.y) >= sy + 4 {
+            var c = ctx
+            c.opacity = Swift.min(1, bubble.life)
+            let r = CGFloat(bubble.r) + 1
+            let x = CGFloat(bubble.x), y = CGFloat(bubble.y)
+            let ring = Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2))
+            c.fill(ring, with: .color(Ink.paper.opacity(0.22)))
+            c.stroke(ring, with: .color(Ink.ink), lineWidth: 1.5)
+            c.fill(Path(ellipseIn: CGRect(x: x - r * 0.55, y: y - r * 0.6, width: r * 0.55, height: r * 0.45)), with: .color(Ink.glove))
+        }
     }
 
     // MARK: Words over the water
@@ -805,14 +826,16 @@ struct DeepEndPainter {
         var c = ctx
         c.opacity = Swift.max(0, Swift.min(1, pic.titleAlpha))
         let W = lay.w
-        let ty = lay.top + (lay.compact ? 50 : 108)
-        let big = Swift.max(2, Swift.min(6, ((W - 40) / 47).rounded(.down)))
-        chroma(&c, "DEEP END", W / 2, ty, big, .center)
-        text(&c, "THE DAILY DIVE", W / 2, ty + 60, 2, Ink.titleDeep, .center, 6)
-        text(&c, "7 PROMPTS. 25 SECONDS EACH.", W / 2, ty + 92, 1, Ink.titleSoft, .center, 3)
-        text(&c, "RARER ANSWERS SINK DEEPER.", W / 2, ty + 108, 1, Ink.titleSoft, .center, 3)
+        let ty = lay.top + (lay.compact ? 36 : 86)
+        let big = Swift.min(62, (W - 40) / 5.4)
+        outlined(&c, "DEEP END", big, fill: Ink.paperLight, width: 3.5, shadow: 4, at: CGPoint(x: W / 2, y: ty + 28))
+        ribbon(&c, center: CGPoint(x: W / 2, y: ty + 76), width: 190, height: 28, fill: Ink.red)
+        label(&c, "THE DAILY DIVE", 14, .heavy, .serif, Ink.paperLight, at: CGPoint(x: W / 2, y: ty + 76), tracking: 3)
+        label(&c, "7 PROMPTS. 25 SECONDS EACH.", 12, .semibold, .serif, Ink.sepia, at: CGPoint(x: W / 2, y: ty + 110), tracking: 1.6)
+        label(&c, "RARER ANSWERS SINK DEEPER.", 12, .semibold, .serif, Ink.sepia, at: CGPoint(x: W / 2, y: ty + 128), tracking: 1.6)
         if pic.best > 0 {
-            text(&c, "BEST " + DeepEndRules.grouped(pic.best) + "M", W / 2, ty + 132, 1, Ink.titleDeep, .center, 3)
+            label(&c, "BEST " + DeepEndRules.grouped(pic.best) + " M", 12, .heavy, .serif, Ink.ink,
+                  at: CGPoint(x: W / 2, y: ty + 152), tracking: 2)
         }
     }
 
@@ -821,216 +844,292 @@ struct DeepEndPainter {
         let count = DeepEndRules.round
         let pw = CGFloat(count * 12 + (count - 1) * 5)
         let px = Swift.max(GameLayout.cornerWidth, Swift.min(W - GameLayout.cornerWidth - pw, W / 2 - pw / 2)).rounded()
-        let y = top + 18
+        let y = top + 24
         for i in 0..<count {
-            let x = px + CGFloat(i * 17)
+            let x = px + CGFloat(i * 17) + 6
             if i < pic.results.count {
                 let tier = pic.results[i]
-                rect(&ctx, x, y, 12, 12, tier > 0 ? Ink.tiers[tier - 1] : Ink.missed)
+                let dot = Path(ellipseIn: CGRect(x: x - 6.5, y: y - 6.5, width: 13, height: 13))
+                ctx.fill(dot, with: .color(tier > 0 ? Ink.tiers[tier - 1] : Ink.missed))
+                inked(&ctx, dot, 2)
             } else if i == pic.promptIndex, !pic.ending {
-                rect(&ctx, x - 2, y - 2, 16, 16, Ink.white)
-                rect(&ctx, x, y, 12, 12, Ink.pink)
+                let r: CGFloat = offBeat ? 8.5 : 7.5
+                let dot = Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2))
+                ctx.fill(dot, with: .color(Ink.paperLight))
+                inked(&ctx, dot, 2.8)
+                ctx.fill(Path(ellipseIn: CGRect(x: x - 2.5, y: y - 2.5, width: 5, height: 5)), with: .color(Ink.red))
             } else {
-                rect(&ctx, x, y, 12, 12, Ink.pipEmpty)
+                let dot = Path(ellipseIn: CGRect(x: x - 5, y: y - 5, width: 10, height: 10))
+                ctx.fill(dot, with: .color(Ink.paper.opacity(0.4)))
+                ctx.stroke(dot, with: .color(Ink.ink.opacity(0.5)), lineWidth: 1.5)
             }
         }
-        let depth = DeepEndRules.grouped(Int(pic.shown.rounded())) + "M"
+        let depth = DeepEndRules.grouped(Int(pic.shown.rounded())) + " m"
         if lay.compact {
-            chroma(&ctx, depth, W / 2, top + 58, 3, .center, 1)
+            outlined(&ctx, depth, 28, fill: Ink.paperLight, width: 2.5, shadow: 2, at: CGPoint(x: W / 2, y: top + 60))
             return
         }
-        text(&ctx, "DEPTH", W / 2, top + 60, 1, Ink.dim, .center, 3)
-        chroma(&ctx, depth, W / 2, top + 74, 4, .center, 1)
-        text(&ctx, "\(pic.points) PTS", W / 2, top + 108, 1, Ink.dim, .center, 2)
+        outlined(&ctx, depth, 36, fill: Ink.paperLight, width: 3, shadow: 3, at: CGPoint(x: W / 2, y: top + 70))
+        outlined(&ctx, "\(pic.points) POINTS", 11, fill: Ink.paperLight, width: 1.5, at: CGPoint(x: W / 2, y: top + 103),
+                 weight: .heavy, design: .serif, tracking: 1.6)
     }
 
     private func drawCard(_ ctx: inout GraphicsContext) {
-        let x = lay.cardX, y = lay.cardY, w = lay.cardW, h = lay.cardH
-        panel(&ctx, x, y, w, h, Ink.cardFill)
-        text(&ctx, "PROMPT \(pic.promptIndex + 1) OF \(DeepEndRules.round)", x + 18, y + 16, 2, Ink.pink, .left, 3)
-        var s: CGFloat = lay.compact ? 2 : 3
-        var lines = Txt.wrap(pic.question, s, w - 36)
-        if lines.count > 2 {
-            s = 2
-            lines = Txt.wrap(pic.question, s, w - 36)
+        let r = CGRect(x: lay.cardX, y: lay.cardY, width: lay.cardW, height: lay.cardH)
+        card(&ctx, r, radius: 14, shadow: CGSize(width: 5, height: 6))
+        inked(&ctx, Path(roundedRect: r.insetBy(dx: 6, dy: 6), cornerSize: CGSize(width: 9, height: 9)), 1, Ink.sepia.opacity(0.6))
+        let compact = lay.compact
+        label(&ctx, "PROMPT \(pic.promptIndex + 1) OF \(DeepEndRules.round)", compact ? 11 : 12, .heavy, .serif, Ink.red,
+              at: CGPoint(x: r.minX + 18, y: r.minY + (compact ? 16 : 22)), anchor: .leading, tracking: 2)
+
+        // The question types itself out while the prompt opens. The unseen letters keep their room,
+        // so the lines break the same way from the first letter to the last.
+        let chars = pic.step == .intro ? Swift.max(0, Int(pic.stepTime * 70)) : Int.max
+        let question = pic.question
+        let shown = chars >= question.count ? question : String(question.prefix(chars))
+        let rest = chars >= question.count ? "" : String(question.dropFirst(chars))
+        let size: CGFloat = compact ? 19 : 25
+        let font = Font.system(size: size, weight: .heavy, design: .serif)
+        let words = Text(shown).font(font).foregroundStyle(Ink.ink) + Text(rest).font(font).foregroundStyle(Color.clear)
+        let box = CGRect(x: r.minX + 18, y: r.minY + (compact ? 28 : 38), width: r.width - 36, height: r.height - (compact ? 44 : 62))
+        ctx.draw(words, in: box)
+
+        let footer = type("RARER ANSWERS SINK DEEPER", compact ? 9 : 10, .bold, .serif, Ink.sepia, tracking: 1.6)
+        let fy = r.maxY - (compact ? 12 : 17)
+        let fw = width(&ctx, footer)
+        ctx.draw(footer, at: CGPoint(x: r.midX, y: fy), anchor: .center)
+        var arrows = Path()
+        for side in [-1.0, 1.0] {
+            let ax = r.midX + CGFloat(side) * (fw / 2 + 12)
+            arrows.move(to: CGPoint(x: ax - 4, y: fy - 2))
+            arrows.addLine(to: CGPoint(x: ax + 4, y: fy - 2))
+            arrows.addLine(to: CGPoint(x: ax, y: fy + 3))
+            arrows.closeSubpath()
         }
-        // The question types itself out while the prompt opens.
-        var left = pic.step == .intro ? Int(pic.stepTime * 70) : 999
-        let lh = 7 * s + 8
-        let ty = y + (lay.compact ? 40 : s == 3 ? 46 : 52)
-        for (i, line) in lines.enumerated() {
-            let count = line.count
-            let visible = Swift.min(count, Swift.max(0, left))
-            left -= count + 1
-            if visible <= 0 { continue }
-            let ly = ty + CGFloat(i) * lh
-            if visible >= count {
-                text(&ctx, line, x + 18, ly, s, Ink.white)
-            } else {
-                var c = ctx
-                c.clip(to: Path(CGRect(x: x + 18, y: ly - 2, width: CGFloat(visible) * 6 * s, height: 7 * s + 4)))
-                text(&c, line, x + 18, ly, s, Ink.white)
-            }
-        }
-        text(&ctx, "v RARER ANSWERS SINK DEEPER v", x + 18, y + h - (lay.compact ? 14 : 19), 1, Ink.dim, .left, 2)
+        ctx.fill(arrows, with: .color(Ink.sepia))
     }
 
     private func drawReveal(_ ctx: inout GraphicsContext, _ reveal: DeepEndReveal) {
         let W = lay.w
-        let a = Swift.min(1, pic.stepTime / 0.15)
-        let y = lay.cardY + lay.cardH + (lay.compact ? 10 : 18) - CGFloat(1 - a) * 8
+        let k = pic.stepTime
+        let a = Swift.min(1, k / 0.15)
         var c = ctx
         c.opacity = a
-        let s: CGFloat = lay.compact || Txt.width(reveal.name, 3) > W - 40 ? 2 : 3
-        if reveal.tier > 0 {
-            let lines = Txt.wrap(reveal.name, s, W - 32)
-            for (i, line) in lines.enumerated() { chroma(&c, line, W / 2, y + CGFloat(i) * (7 * s + 6), s, .center) }
-            let below = y + CGFloat(lines.count) * (7 * s + 6) + 4
-            text(&c, "+\(reveal.points)  " + DeepEndRules.tierNames[reveal.tier - 1], W / 2, below, 2,
-                 Ink.tiers[reveal.tier - 1], .center, 3)
-        } else {
-            text(&c, "TIME", W / 2, y, s, Ink.pink, .center, 3)
-            text(&c, "+0", W / 2, y + 7 * s + 10, 2, Ink.dim, .center, 3)
-        }
+        let top = lay.cardY + lay.cardH + (lay.compact ? 10 : 18) - CGFloat(1 - a) * 8
+        let base: CGFloat = lay.compact ? 26 : 34
+        let pop = CGFloat(1 + 0.22 * exp(-9 * k))
+        let name = reveal.tier > 0 ? reveal.name : "TIME"
+        let natural = width(&c, type(name, base, .black, .rounded, Ink.ink))
+        let size = Swift.max(14, base * Swift.min(1, (W - 44) / Swift.max(natural, 1))) * pop
+        outlined(&c, name, size, fill: reveal.tier > 0 ? Ink.paperLight : Ink.red, width: 3, shadow: 3,
+                 at: CGPoint(x: W / 2, y: top + base * 0.6))
+        let line = reveal.tier > 0 ? "+\(reveal.points)  " + DeepEndRules.tierNames[reveal.tier - 1] : "+0"
+        let words = type(line, 13, .heavy, .serif, Ink.ink, tracking: 2)
+        let ribbonWidth = width(&c, words) + 26
+        let ry = top + base * 0.6 + base * 0.5 + 18
+        ribbon(&c, center: CGPoint(x: W / 2, y: ry), width: ribbonWidth, height: 24,
+               fill: reveal.tier > 0 ? Ink.tiers[reveal.tier - 1] : Ink.missed)
+        c.draw(words, at: CGPoint(x: W / 2, y: ry), anchor: .center)
     }
 
     private func drawInput(_ ctx: inout GraphicsContext) {
         let W = lay.w, H = lay.h
         let e = 1 - pow(1 - Swift.min(1, pic.keyboard), 3)
-        let off = (CGFloat(1 - e) * (H - lay.inY + 30)).rounded()
-        rect(&ctx, 0, lay.inY - 30 + off, W, H - lay.inY + 30, Ink.shelf)
+        let off = (CGFloat(1 - e) * (H - lay.inY + 34)).rounded()
 
         if pic.messageTime > 0, !pic.message.isEmpty {
-            text(&ctx, pic.message, W / 2, lay.msgY - 7 + off - 26, 2,
-                 pic.messageColor.opacity(Swift.min(1, pic.messageTime / 0.3)), .center, 3)
+            var m = ctx
+            m.opacity = Swift.min(1, pic.messageTime / 0.3)
+            outlined(&m, pic.message, 18, fill: pic.messageColor, edge: Ink.paperLight, width: 2.5,
+                     at: CGPoint(x: W / 2, y: lay.msgY - 26 + off), tracking: 1.5)
         }
 
-        // The clock: a ring that empties, pink for the last six seconds.
-        let cx = lay.timerX, cy = lay.inY + lay.inH / 2 + off
+        // The shelf: printed card stock with an ink edge.
+        let shelfTop = lay.inY - 30 + off
+        var shelf = Path()
+        shelf.move(to: CGPoint(x: -4, y: H + 4))
+        shelf.addLine(to: CGPoint(x: -4, y: shelfTop))
+        var x: CGFloat = 0
+        while x <= W + 20 {
+            shelf.addQuadCurve(to: CGPoint(x: x + 20, y: shelfTop), control: CGPoint(x: x + 10, y: shelfTop + (Int(x / 20) % 2 == 0 ? -2 : 2)))
+            x += 20
+        }
+        shelf.addLine(to: CGPoint(x: W + 24, y: H + 4))
+        shelf.closeSubpath()
+        ctx.fill(shelf, with: .color(Ink.paper))
+        inked(&ctx, shelf, 3)
+        ctx.fill(Path(CGRect(x: 0, y: shelfTop + 7, width: W, height: 1.5)), with: .color(Ink.sepia.opacity(0.4)))
+
+        // The clock: a dial with a pie of the time left, red for the last six seconds.
+        let center = CGPoint(x: lay.timerX, y: lay.inY + lay.inH / 2 + off)
         let frac = Swift.max(0, pic.timeLeft / DeepEndRules.answerTime)
         let low = pic.step == .answer && pic.timeLeft <= 6
-        let hot = low ? Ink.pink : Ink.cyan
-        let rr = lay.inH / 2 - 4
-        ctx.fill(Path(ellipseIn: CGRect(x: cx - rr - 4, y: cy - rr - 4, width: (rr + 4) * 2, height: (rr + 4) * 2)), with: .color(Ink.ink))
-        ctx.stroke(Path(ellipseIn: CGRect(x: cx - rr, y: cy - rr, width: rr * 2, height: rr * 2)), with: .color(Ink.ringBack), lineWidth: 3)
+        let hot = low ? Ink.red : Ink.tiers[2]
+        let rr = lay.inH / 2 - 2
+        let dial = Path(ellipseIn: CGRect(x: center.x - rr, y: center.y - rr, width: rr * 2, height: rr * 2))
+        var dropped = ctx
+        dropped.translateBy(x: 2, y: 3)
+        dropped.fill(dial, with: .color(Ink.shadow))
+        ctx.fill(dial, with: .color(Ink.paperLight))
         if frac > 0 {
-            var arc = Path()
-            arc.addArc(center: CGPoint(x: cx, y: cy), radius: rr, startAngle: .degrees(-90),
-                       endAngle: .degrees(-90 + 360 * frac), clockwise: false)
-            ctx.stroke(arc, with: .color(hot), lineWidth: 3)
+            var pie = Path()
+            pie.move(to: center)
+            pie.addArc(center: center, radius: rr - 3, startAngle: .degrees(-90), endAngle: .degrees(-90 + 360 * frac), clockwise: false)
+            pie.closeSubpath()
+            ctx.fill(pie, with: .color(hot))
         }
-        text(&ctx, "\(Int(pic.timeLeft.rounded(.up)))", cx, cy - 7, 2, hot, .center)
+        inked(&ctx, dial, 3)
+        outlined(&ctx, "\(Int(pic.timeLeft.rounded(.up)))", lay.compact ? 15 : 17, fill: Ink.ink, edge: Ink.paperLight, width: 1.8, at: center)
 
-        // The answer box shakes when the answer is not on the list.
+        // The answer box shakes, and its outline turns red, when the answer is not on the list.
         let sx = pic.shake > 0 ? CGFloat((sin(pic.shake * 70) * 5 * (pic.shake / 0.35)).rounded()) : 0
-        let ix = lay.inX + sx, iy = lay.inY + off
-        rect(&ctx, ix, iy, lay.inW, lay.inH, pic.shake > 0 ? Ink.pink : Ink.cyan)
-        rect(&ctx, ix + 2, iy + 2, lay.inW - 4, lay.inH - 4, Ink.ink)
-        let room = Swift.max(1, Int(((lay.inW - 24) / 12).rounded(.down)))
+        let field = CGRect(x: lay.inX + sx, y: lay.inY + off, width: lay.inW, height: lay.inH)
+        card(&ctx, field, radius: 10, shadow: CGSize(width: 3, height: 4), line: 3)
+        if pic.shake > 0 { inked(&ctx, Path(roundedRect: field, cornerSize: CGSize(width: 10, height: 10)), 3, Ink.red) }
         let blink = (pic.clock * 2).truncatingRemainder(dividingBy: 2) < 1.2
+        let textSize: CGFloat = lay.compact ? 19 : 22
         if !pic.input.isEmpty {
+            let room = Swift.max(1, Int((lay.inW - 30) / (textSize * 0.72)))
             let visible = pic.input.count > room ? String(pic.input.suffix(room)) : pic.input
-            text(&ctx, visible, ix + 12, iy + lay.inH / 2 - 7, 2, Ink.white)
-            if blink { rect(&ctx, ix + 12 + Txt.width(visible, 2) + 3, iy + 12, 2, lay.inH - 24, Ink.pink) }
+            let words = ctx.resolve(type(visible, textSize, .black, .rounded, Ink.ink))
+            let w = words.measure(in: CGSize(width: 2000, height: 200)).width
+            ctx.draw(words, at: CGPoint(x: field.minX + 13, y: field.midY), anchor: .leading)
+            if blink { ctx.fill(Path(CGRect(x: field.minX + 15 + w, y: field.minY + 12, width: 2.5, height: field.height - 24)), with: .color(Ink.red)) }
         } else {
-            text(&ctx, room >= 15 ? "TYPE ONE ANSWER" : "ANSWER", ix + 12, iy + lay.inH / 2 - 7, 2, Ink.placeholder)
-            if blink { rect(&ctx, ix + 10, iy + 12, 2, lay.inH - 24, Ink.pink) }
+            let hint = lay.inW >= 180 ? "Type one answer" : "Answer"
+            label(&ctx, hint, lay.compact ? 16 : 17, .semibold, .serif, Ink.sepia.opacity(0.75),
+                  at: CGPoint(x: field.minX + 16, y: field.midY), anchor: .leading)
+            if blink { ctx.fill(Path(CGRect(x: field.minX + 11, y: field.minY + 12, width: 2.5, height: field.height - 24)), with: .color(Ink.red)) }
         }
-        rect(&ctx, lay.inX, iy + lay.inH + 4, lay.inW, 3, Ink.barBack)
-        rect(&ctx, lay.inX, iy + lay.inH + 4, (lay.inW * CGFloat(frac)).rounded(), 3, hot)
+        let bar = CGRect(x: lay.inX, y: field.maxY + 7, width: lay.inW, height: 5)
+        let barPath = Path(roundedRect: bar, cornerSize: CGSize(width: 2.5, height: 2.5))
+        ctx.fill(barPath, with: .color(Ink.paperShade))
+        ctx.fill(Path(roundedRect: CGRect(x: bar.minX, y: bar.minY, width: (bar.width * CGFloat(frac)).rounded(), height: bar.height),
+                      cornerSize: CGSize(width: 2.5, height: 2.5)), with: .color(hot))
+        ctx.stroke(barPath, with: .color(Ink.ink), lineWidth: 1.5)
 
-        let dive = lay.dive
+        // DIVE: a red button that sinks into its shadow when pressed.
+        let dive = lay.dive.offsetBy(dx: 0, dy: off)
         let divePressed = pic.pressKey == DeepEndRules.dive && pic.pressTime > 0
-        let diveTop = dive.minY + off + (divePressed ? 4 : 0)
-        rect(&ctx, dive.minX, dive.minY + off + 4, dive.width, dive.height - 4, Ink.diveBase)
-        rect(&ctx, dive.minX, diveTop, dive.width, dive.height - 4, Ink.diveTop)
-        text(&ctx, "DIVE", dive.midX, diveTop + (dive.height - 4) / 2 - 7, 2, Ink.diveText, .center, 2)
+        let face = CGRect(x: dive.minX, y: dive.minY + (divePressed ? 4 : 0), width: dive.width, height: dive.height - 4)
+        ctx.fill(Path(roundedRect: CGRect(x: dive.minX + 2, y: dive.minY + 4, width: dive.width, height: dive.height - 4),
+                      cornerSize: CGSize(width: 10, height: 10)), with: .color(Ink.ink))
+        let button = Path(roundedRect: face, cornerSize: CGSize(width: 10, height: 10))
+        ctx.fill(button, with: .color(Ink.red))
+        inked(&ctx, button, 3)
+        outlined(&ctx, "DIVE", 20, fill: Ink.paperLight, width: 2, at: CGPoint(x: face.midX, y: face.midY), tracking: 1.5)
 
-        // The keys: every edge in one fill and every cap in another.
-        var edges = Path()
-        var caps = Path()
-        var pressedCap: CGRect?
-        for code in 0...DeepEndRules.space {
-            let r = lay.keyRect(code)
-            let kx = r.minX.rounded(), ky = (r.minY + off).rounded()
-            let kw = r.maxX.rounded() - kx
-            edges.addRect(CGRect(x: kx, y: ky + 3, width: kw, height: r.height - 3))
-            if pic.pressKey == code && pic.pressTime > 0 {
-                pressedCap = CGRect(x: kx, y: ky + 3, width: kw, height: r.height - 3)
-            } else {
-                caps.addRect(CGRect(x: kx, y: ky, width: kw, height: r.height - 3))
-            }
+        drawKeys(&ctx, off: off)
+    }
+
+    /// Cream card keys with ink outlines and an offset ink shadow. A pressed key squashes down onto its shadow.
+    private func drawKeys(_ ctx: inout GraphicsContext, off: CGFloat) {
+        let kept = DeepEndCache.keys(for: lay)
+        var c = ctx
+        c.translateBy(x: 0, y: off)
+        c.fill(kept.shadows, with: .color(Ink.ink))
+        c.fill(kept.caps, with: .color(Ink.paperLight))
+        inked(&c, kept.caps, 2.2)
+        let pressed = pic.pressTime > 0 && pic.pressKey >= 0 && pic.pressKey <= DeepEndRules.space ? pic.pressKey : -1
+        if pressed >= 0 {
+            let r = lay.keyRect(pressed).insetBy(dx: 1, dy: 1)
+            c.fill(Path(r.insetBy(dx: -2, dy: -2).union(r.offsetBy(dx: 2, dy: 3).insetBy(dx: -2, dy: -2))), with: .color(Ink.paper))
+            let squashed = Path(roundedRect: CGRect(x: r.minX + 1, y: r.minY + 4, width: r.width + 1, height: r.height - 2),
+                                cornerSize: CGSize(width: 7, height: 7))
+            c.fill(squashed, with: .color(Ink.paperShade))
+            inked(&c, squashed, 2.2)
         }
-        ctx.fill(edges, with: .color(Ink.keyEdge))
-        ctx.fill(caps, with: .color(Ink.key))
-        if let pressedCap { ctx.fill(Path(pressedCap), with: .color(Ink.keyDown)) }
         for code in 0...DeepEndRules.space {
             let r = lay.keyRect(code)
-            let kx = r.minX.rounded(), kw = r.maxX.rounded() - kx
-            let down: CGFloat = pic.pressKey == code && pic.pressTime > 0 ? 3 : 0
-            let ky = (r.minY + off).rounded() + down
-            let isSpace = code == DeepEndRules.space
-            let s: CGFloat = isSpace ? 1 : 2
-            text(&ctx, DeepEndRules.keyLabels[code], kx + kw / 2, ky + (r.height - 3) / 2 - 3.5 * s, s, Ink.keyText, .center, isSpace ? 3 : 0)
+            let down: CGFloat = code == pressed ? 3.5 : 0
+            let mid = CGPoint(x: r.midX + (code == pressed ? 1 : 0), y: r.midY - 1 + down)
+            if code == DeepEndRules.space {
+                label(&c, "space", lay.compact ? 13 : 14, .semibold, .serif, Ink.sepia, at: mid, tracking: 1.5)
+            } else if code == DeepEndRules.back {
+                var arrow = Path()
+                arrow.move(to: CGPoint(x: mid.x - 11, y: mid.y))
+                arrow.addLine(to: CGPoint(x: mid.x - 4, y: mid.y - 7))
+                arrow.addLine(to: CGPoint(x: mid.x + 11, y: mid.y - 7))
+                arrow.addLine(to: CGPoint(x: mid.x + 11, y: mid.y + 7))
+                arrow.addLine(to: CGPoint(x: mid.x - 4, y: mid.y + 7))
+                arrow.closeSubpath()
+                arrow.move(to: CGPoint(x: mid.x - 1, y: mid.y - 3))
+                arrow.addLine(to: CGPoint(x: mid.x + 6, y: mid.y + 3))
+                arrow.move(to: CGPoint(x: mid.x + 6, y: mid.y - 3))
+                arrow.addLine(to: CGPoint(x: mid.x - 1, y: mid.y + 3))
+                inked(&c, arrow, 2)
+            } else {
+                label(&c, DeepEndRules.keyLabels[code], lay.compact ? 16 : 18, .black, .rounded, Ink.ink, at: mid)
+            }
         }
     }
 
+    // MARK: Ending
+
+    /// The iris closes on the krill.
+    private func drawIris(_ ctx: inout GraphicsContext) {
+        let k = pic.endTime
+        let close = k < 0.35 ? 0 : 1 - pow(1 - Swift.min(1, (k - 0.35) / 1.2), 3)
+        if close <= 0 { return }
+        let p = krillPoint
+        let far = (lay.w * lay.w + lay.h * lay.h).squareRoot()
+        let r = far + (82 - far) * CGFloat(close)
+        var shade = Path(CGRect(x: -10, y: -10, width: lay.w + 20, height: lay.h + 20))
+        shade.addEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
+        ctx.fill(shade, with: .color(Ink.ink), style: FillStyle(eoFill: true))
+        ctx.stroke(Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2)),
+                   with: .color(Ink.sepia.opacity(0.8)), lineWidth: 2)
+    }
+
     private func drawEnding(_ ctx: inout GraphicsContext) {
-        let W = lay.w
         let a = Swift.min(1, pic.endTime / 0.4)
         var c = ctx
         c.opacity = a
-        let lines = Txt.wrap(pic.headline, 2, W - 48)
-        let y = lay.cardY + 20 - CGFloat(1 - a) * 8
-        for (i, line) in lines.enumerated() { chroma(&c, line, W / 2, y + CGFloat(i) * 22, 2, .center, 2) }
+        let y = Swift.max(lay.cardY + 24, krillPoint.y - 150) - CGFloat(1 - a) * 8
+        outlined(&c, pic.headline, lay.compact ? 18 : 21, fill: Ink.paperLight, width: 2.5, shadow: 2,
+                 at: CGPoint(x: lay.w / 2, y: y), tracking: 1)
     }
 
     private func drawHint(_ ctx: inout GraphicsContext) {
         let W = lay.w
-        let y = lay.h - GameLayout.bottomInset - 76
-        let hint = "TAP TO DIVE"
-        let w = Txt.width(hint, 2, 3) + 40
-        panel(&ctx, (W / 2 - w / 2).rounded(), y, w.rounded(), 40, Ink.hintFill)
-        var c = ctx
-        c.opacity = 0.75 + sin(pic.clock * 3) * 0.25
-        text(&c, hint, W / 2, y + 13, 2, Ink.cyan, .center, 3)
+        let y = lay.h - GameLayout.bottomInset - 56
+        let words = type("TAP TO DIVE", 18, .black, .rounded, Ink.ink, tracking: 2.5)
+        let w = width(&ctx, words) + 44
+        let pulse = offBeat ? 2 : 0
+        let pill = CGRect(x: (W / 2 - w / 2).rounded(), y: y - 21 - CGFloat(pulse), width: w.rounded(), height: 42)
+        card(&ctx, pill, radius: 21, shadow: CGSize(width: 3, height: 4 + CGFloat(pulse)))
+        ctx.draw(words, at: CGPoint(x: pill.midX, y: pill.midY), anchor: .center)
     }
 
-    private func drawScanlines(_ ctx: inout GraphicsContext) {
-        let key = DeepEndScan.Key(w: Int(lay.w.rounded()), h: Int(lay.h.rounded()))
-        let lines: DeepEndScan.Lines
-        if let kept = DeepEndScan.kept[key] {
-            lines = kept
-        } else {
-            var light = Path(), dark = Path()
-            var y: CGFloat = 0
-            while y < lay.h {
-                light.addRect(CGRect(x: 0, y: y, width: lay.w, height: 1))
-                dark.addRect(CGRect(x: 0, y: y + 2, width: lay.w, height: 1))
-                y += 3
-            }
-            lines = DeepEndScan.Lines(light: light, dark: dark)
-            if DeepEndScan.kept.count >= 8 { DeepEndScan.kept.removeAll(keepingCapacity: true) }
-            DeepEndScan.kept[key] = lines
+    // MARK: Film
+
+    private func drawFilm(_ ctx: inout GraphicsContext) {
+        let W = lay.w, H = lay.h
+        let frame = Int(pic.clock * 18)
+        let screen = Path(CGRect(x: 0, y: 0, width: W, height: H))
+        let far = (W * W + H * H).squareRoot() / 2
+
+        // Grain that jumps every frame.
+        let grain = DeepEndCache.grain(for: lay)
+        var g = ctx
+        g.translateBy(x: -CGFloat(DeepEndRandom.hash(frame) * 64), y: -CGFloat(DeepEndRandom.hash(frame &+ 7919) * 64))
+        g.fill(grain.dark, with: .color(Ink.grainDark))
+        g.fill(grain.light, with: .color(Ink.grainLight))
+
+        // Now and then a faint scratch runs down the film.
+        let reel = frame / 5
+        if DeepEndRandom.hash(reel &* 31) < 0.3 {
+            let x = CGFloat(DeepEndRandom.hash(reel &* 31 &+ 1)) * W
+            var line = Path()
+            line.move(to: CGPoint(x: x, y: 0))
+            line.addQuadCurve(to: CGPoint(x: x + 3, y: H), control: CGPoint(x: x - 4, y: H * 0.5))
+            ctx.stroke(line, with: .color(Ink.scratch), lineWidth: 1)
         }
-        ctx.fill(lines.light, with: .color(Ink.scanLight))
-        ctx.fill(lines.dark, with: .color(Ink.scanDark))
-    }
-}
 
-/// The scanline paths for each canvas size drawn so far, kept between frames.
-enum DeepEndScan {
-    struct Key: Hashable {
-        let w: Int
-        let h: Int
+        // A little flicker and a soft vignette.
+        ctx.fill(screen, with: .color(Ink.ink.opacity(DeepEndRandom.hash(frame &* 3) * 0.035)))
+        ctx.fill(screen, with: .radialGradient(Ink.vignette, center: CGPoint(x: W / 2, y: H * 0.46), startRadius: 0, endRadius: far))
     }
-
-    struct Lines {
-        let light: Path
-        let dark: Path
-    }
-
-    static var kept: [Key: Lines] = [:]
 }
 
 // MARK: - The clip

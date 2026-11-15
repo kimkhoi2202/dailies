@@ -385,7 +385,7 @@ enum Mock {
                  caption: "eleven floors without touching red", length: "0:35", comments: "198", shares: "977"),
         (id: "c6", game: "gulp-city", player: "tofu",
                  caption: "swallowed the whole block with two seconds left", length: "0:29", comments: "88", shares: "412"),
-        (id: "c7", game: "block-party", player: "tofu",
+        (id: "c19", game: "block-party", player: "tofu",
                  caption: "cleared three lines with one L piece", length: "0:33", comments: "142", shares: "720"),
         (id: "c8", game: "slip-out", player: "juno",
                  caption: "forty arrows, not one bump", length: "0:28", comments: "64", shares: "310"),
