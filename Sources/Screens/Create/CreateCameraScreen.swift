@@ -365,6 +365,8 @@ struct CreateCameraScreen: View {
             if railOpen {
                 DLMediaButton(symbol: "arrow.triangle.2.circlepath.camera", size: 44)
                     .tap(flipCamera).accessibilityLabel("Flip camera")
+                DLMediaButton(symbol: "rotate.right", size: 44)
+                    .tap(rotateCamera).accessibilityLabel("Rotate camera")
                 DLMediaButton(symbol: flash ? "bolt.fill" : "bolt.slash.fill", size: 44)
                     .tap(toggleFlash).accessibilityLabel("Flash")
                 DLMediaButton(symbol: "timer", size: 44)
@@ -581,6 +583,11 @@ struct CreateCameraScreen: View {
         guard CreateCamera.hasHardware else { return say("Camera needs a real phone") }
         flash = false
         camera.flip()
+    }
+
+    private func rotateCamera() {
+        guard CreateCamera.hasHardware else { return say("Camera needs a real phone") }
+        camera.rotate()
     }
 
     private func toggleFlash() {
