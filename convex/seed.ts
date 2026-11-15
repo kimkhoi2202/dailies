@@ -99,6 +99,22 @@ const GAMES = [
     dislikes: 94,
     scores: [1980, 1650, 2410, 760, 1180, 420],
   },
+  {
+    slug: "short-stack",
+    title: "Short Stack",
+    studio: "Paper Lantern",
+    pitch: "Six seats. Three minutes.",
+    how: "Texas Hold'em with play chips. Fold, check, call or raise. Make the best five cards from your two and the five on the table. The chips you hold at the end are your score.",
+    minPlayers: 1,
+    maxPlayers: 6,
+    mode: "competitive" as const,
+    category: "Cards",
+    unit: "chips",
+    goldPerMinute: 1,
+    likes: 264,
+    dislikes: 21,
+    scores: [1840, 2460, 920, 1310, 640, 1120],
+  },
 ];
 
 const PLAYERS = [
@@ -117,6 +133,7 @@ const COMMENTS: Record<string, string[]> = {
   "gulp-city": ["swallowed the whole block with two seconds left", "started with a flower, ended with a bus"],
   inkland: ["took a fifth of the map in one loop", "got cut one step from home. again"],
   "lane-dash": ["the near miss at the end. I stopped breathing", "ramp into three gems into a barrier. classic"],
+  "short-stack": ["all in on the last hand with a pair of sevens. it held", "folded four hands, then took the whole table on the fifth"],
 };
 
 export const run = internalMutation({

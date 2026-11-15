@@ -10,6 +10,7 @@ import SwiftUI
 
 enum GameKind: String, CaseIterable {
     case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland
+    case shortStack
 }
 
 struct MockGame: Identifiable {
@@ -55,6 +56,7 @@ struct MockGame: Identifiable {
         case .laneDash: LaneDashScene(phase: moment, showHUD: showHUD)
         case .gulpCity: GulpCityScene(phase: moment, showHUD: showHUD)
         case .inkland: InklandScene(phase: moment, showHUD: showHUD)
+        case .shortStack: ShortStackScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -194,7 +196,14 @@ enum Mock {
         plays: "371K", likes: "40.3K", dislikes: "3.9K", approval: 91,
         bestScore: "87%", clipPhase: 0.85, tint: Color(red: 0.55, green: 0.80, blue: 0.70))
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity]
+    static let shortStack = MockGame(
+        id: "short-stack", kind: .shortStack, title: "Short Stack", tagline: "Six seats. Three minutes.",
+        category: "Cards", players: "1 to 6 players", mode: "Competitive", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 40s", seedEarned: 0,
+        plays: "238K", likes: "26.4K", dislikes: "2.1K", approval: 93,
+        bestScore: "2,460 chips", clipPhase: 0.89, tint: Color(red: 0.07, green: 0.56, blue: 0.48))
+
+    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, shortStack]
 
     // MARK: Videos
 
@@ -211,6 +220,8 @@ enum Mock {
                  caption: "eleven floors without touching red", length: "0:35", comments: "198", shares: "977"),
         MockClip(id: "c6", game: gulpCity, player: "tofu",
                  caption: "swallowed the whole block with two seconds left", length: "0:29", comments: "88", shares: "412"),
+        MockClip(id: "c7", game: shortStack, player: "kaz",
+                 caption: "two pair on the river and the whole table folded too late", length: "0:33", comments: "143", shares: "508"),
     ]
 
     // MARK: A finished round of Tippy Tower
