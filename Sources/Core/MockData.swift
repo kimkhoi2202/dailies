@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide, busRush
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide, busRush, cornerPocket
 }
 
 struct MockGame: Identifiable {
@@ -75,6 +75,7 @@ struct MockGame: Identifiable {
         case .deepEnd: DeepEndScene(phase: moment, showHUD: showHUD)
         case .jamSlide: JamSlideScene(phase: moment, showHUD: showHUD)
         case .busRush: BusRushScene(phase: moment, showHUD: showHUD)
+        case .cornerPocket: CornerPocketScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -308,6 +309,13 @@ enum Mock {
         plays: "188K", likes: "23.4K", dislikes: "1.9K", approval: 92,
         bestScore: "240 riders", clipPhase: 0.5, tint: Color(red: 0.23, green: 0.48, blue: 1.0)),
 
+      MockGame(
+        id: "corner-pocket", kind: .cornerPocket, title: "Corner Pocket", tagline: "Sink your group. Then the 8.",
+        category: "Sports", players: "1 or 2 players", mode: "Competitive", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "1m 30s", seedEarned: 0,
+        plays: "188K", likes: "23.4K", dislikes: "1.9K", approval: 92,
+        bestScore: "100 points", clipPhase: 0.42, tint: Color(red: 0.18, green: 0.56, blue: 0.44)),
+
     ]
 
     private static var counted: (version: Int, games: [MockGame], clips: [MockClip]) = (-1, [], [])
@@ -343,6 +351,7 @@ enum Mock {
     static var deepEnd: MockGame { games[13] }
     static var jamSlide: MockGame { games[14] }
     static var busRush: MockGame { games[15] }
+    static var cornerPocket: MockGame { games[16] }
 
     // MARK: Videos
 

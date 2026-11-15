@@ -259,6 +259,22 @@ const GAMES = [
     dislikes: 19,
     scores: [212, 168, 240, 131, 187, 95],
   },
+  {
+    slug: "corner-pocket",
+    title: "Corner Pocket",
+    studio: "Paper Lantern",
+    pitch: "Sink your group. Then the 8.",
+    how: "Drag on the table to aim, then pull the meter down and let go to shoot. Sink a ball to claim solids or stripes, clear your group, then sink the 8. Keep shooting while you sink your own balls.",
+    minPlayers: 1,
+    maxPlayers: 2,
+    mode: "competitive" as const,
+    category: "Sports",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 234,
+    dislikes: 19,
+    scores: [90, 100, 40, 60, 80, 30],
+  },
 ];
 
 const PLAYERS = [
@@ -287,6 +303,7 @@ const COMMENTS: Record<string, string[]> = {
   "deep-end": ["typed kakapo and sank straight past the titanic", "blanked on a cheese for twenty seconds and said cheddar"],
   "jam-slide": ["the blue gate said 1 and I used it on the wrong block", "watched the chest open six times in one round"],
   "bus-rush": ["five slots, five wrong colours. never again", "sent the blue bus out first and the whole queue just flowed"],
+  "corner-pocket": ["called the 8 off two rails and it dropped", "scratched on the break and still ran the table after"],
 };
 
 export const run = internalMutation({
