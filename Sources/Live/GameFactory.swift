@@ -13,6 +13,7 @@ enum GameFactory {
         case .slipOut: SlipOutGame(options: options, link: link)
         case .blockParty: BlockPartyGame(options: options, link: link)
         case .wildEights: WildEightsGame(options: options, link: link)
+        case .brickOut: BrickOutGame(options: options, link: link)
         }
     }
 }

@@ -147,6 +147,22 @@ const GAMES = [
     dislikes: 22,
     scores: [126, 168, 44, 72, 141, 97],
   },
+  {
+    slug: "brick-out",
+    title: "Brick Out",
+    studio: "Paper Lantern",
+    pitch: "Slide every brick out.",
+    how: "Drag a brick along its row or column. It leaves the board through a gate of its own colour. Clear the board before the clock runs out and before the moves are gone.",
+    minPlayers: 1,
+    maxPlayers: 1,
+    mode: "casual" as const,
+    category: "Puzzle",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 261,
+    dislikes: 22,
+    scores: [1240, 980, 1510, 640, 870, 1120],
+  },
 ];
 
 const PLAYERS = [
@@ -168,6 +184,7 @@ const COMMENTS: Record<string, string[]> = {
   "slip-out": ["tapped the one arrow that was blocked. three times", "level nine with two seconds left"],
   "block-party": ["three rows at once and the whole board lit up", "saved the 3x3 for the corner. no regrets"],
   "wild-eights": ["held my eight until the last card. nobody saw it coming", "drew six times in a row and still went out first"],
+  "brick-out": ["cleared four boards and lost on the fifth with one move left", "the yellow one was blocking everything the whole time"],
 };
 
 export const run = internalMutation({

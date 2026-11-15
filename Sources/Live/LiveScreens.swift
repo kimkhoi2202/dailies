@@ -41,6 +41,7 @@ enum LiveBoard {
         case .inkland: "share of the land"
         case .gulpCity: "share of the city"
         case .slipOut: "arrows"
+        case .brickOut: "points"
         }
     }
 
@@ -49,6 +50,7 @@ enum LiveBoard {
         switch game.kind {
         case .inkland: String(format: "%.1f%%", Double(score) / 10)
         case .gulpCity: "\(score)%"
+        case .brickOut: groupedNumber(score)
         default: groupedNumber(score)
         }
     }
@@ -62,6 +64,7 @@ enum LiveBoard {
         case .laneDash: return "\(groupedNumber(apart)) m"
         case .inkland, .gulpCity: return text(apart, game)
         case .slipOut: return apart == 1 ? "1 arrow" : "\(apart) arrows"
+        case .brickOut: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         }
     }
 

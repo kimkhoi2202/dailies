@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut
 }
 
 struct MockGame: Identifiable {
@@ -58,6 +58,7 @@ struct MockGame: Identifiable {
         case .slipOut: SlipOutScene(phase: moment, showHUD: showHUD)
         case .blockParty: BlockPartyScene(phase: moment, showHUD: showHUD)
         case .wildEights: WildEightsScene(phase: moment, showHUD: showHUD)
+        case .brickOut: BrickOutScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -218,7 +219,14 @@ enum Mock {
         plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
         bestScore: "168 points", clipPhase: 0.85, tint: Color(red: 0.16, green: 0.64, blue: 0.57))
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights]
+    static let brickOut = MockGame(
+        id: "brick-out", kind: .brickOut, title: "Brick Out", tagline: "Slide every brick out.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 30s", seedEarned: 0,
+        plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
+        bestScore: "1,240 points", clipPhase: 0.5, tint: Color(red: 0.42, green: 0.30, blue: 0.72))
+
+    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut]
 
     // MARK: Videos
 
