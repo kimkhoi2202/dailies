@@ -39,34 +39,27 @@ enum CreateLength: String, CaseIterable {
     var seconds: Double { self == .short ? 15 : 60 }
 }
 
-/// The frame around the camera when it is not a green screen. Tapping the shape key again moves to the next one.
+/// How the player sits on the game. Tapping yourself moves to the next one.
 enum CreateShape: CaseIterable {
-    case circle, square, tall, wide
+    case circle, square, tall, wide, greenScreen
 
     var title: String {
         switch self {
         case .circle: "Circle"
         case .square: "Square"
         case .tall: "Tall"
-        case .wide: "Wide"
+        case .wide: "Cam on top"
+        case .greenScreen: "Green screen"
         }
     }
 
-    var symbol: String {
-        switch self {
-        case .circle: "circle"
-        case .square: "square"
-        case .tall: "rectangle.portrait"
-        case .wide: "rectangle"
-        }
-    }
-
-    /// Wide is the band across the top, with no outline.
+    /// Cam on top is the band across the top, with no outline. Green screen cuts the player out of their background.
     var layout: CreateLayout {
         switch self {
         case .circle: .bubble
         case .square, .tall: .window
         case .wide: .top
+        case .greenScreen: .cutout
         }
     }
 
@@ -114,6 +107,7 @@ private struct CreateFaceView<Camera: View>: View {
     let size: CGSize
     let movable: Bool
     var square = false
+    var onTap: () -> Void = {}
     @ViewBuilder let camera: () -> Camera
 
     var body: some View {
@@ -128,6 +122,7 @@ private struct CreateFaceView<Camera: View>: View {
             }
             .contentShape(shape)
             .gesture(move)
+            .simultaneousGesture(TapGesture().onEnded { onTap() })
             .offset(face.drag)
             .position(x: rect.midX, y: rect.midY)
             // While recording every touch goes to the game.
@@ -184,8 +179,10 @@ struct CreateCameraScreen: View {
     @State private var centeredID: String?
     @State private var userPicked = false
     @State private var cleared = false
-    @State private var layout: CreateLayout = .bubble
     @State private var shape: CreateShape = .circle
+    /// How much of the card the camera band takes in Cam on top. Drag its edge or pinch to change it.
+    @State private var topBand: CGFloat = 0.26
+    @State private var bandStart: CGFloat?
     @State private var length: CreateLength = .long
     @State private var timer = 0
     @State private var flash = false
@@ -228,7 +225,7 @@ struct CreateCameraScreen: View {
         _userPicked = State(initialValue: startGameID != nil)
         // `-gameOn 1` opens with the game on and `-layout <name>` picks the layout, for checking the camera without tapping.
         _gameOn = State(initialValue: MockArgs.value("-gameOn").map { $0 == "1" } ?? true)
-        _layout = State(initialValue: MockArgs.value("-layout").flatMap(CreateLayout.init(rawValue:)) ?? .bubble)
+        _shape = State(initialValue: MockArgs.value("-layout").flatMap { name in CreateShape.allCases.first { $0.layout.rawValue == name } } ?? .circle)
     }
 
     private var selected: MockGame? {
@@ -237,6 +234,7 @@ struct CreateCameraScreen: View {
     }
 
     private var isRecording: Bool { phase == .recording || phase == .finishing }
+    private var layout: CreateLayout { shape.layout }
     /// Before a recording every control shows. From the countdown on only the game, the face and the stop button do.
     private var chromeShown: Bool { phase == .idle && !snapping }
 
@@ -303,19 +301,24 @@ struct CreateCameraScreen: View {
                 gameView.frame(width: w, height: h)
             } else if layout == .top {
                 VStack(spacing: 0) {
-                    cameraView(cutout: false).frame(width: w, height: h * 0.34).clipped()
-                    gameView.frame(width: w, height: h * 0.66).clipped()
+                    cameraView(cutout: false)
+                        .frame(width: w, height: h * topBand).clipped()
+                        .contentShape(Rectangle())
+                        .onTapGesture { if phase == .idle { nextShape() } }
+                        .overlay(alignment: .bottom) { if phase == .idle { bandHandle(height: h) } }
+                        .zIndex(1)
+                    gameView.frame(width: w, height: h * (1 - topBand)).clipped()
                 }
             } else {
                 gameView.frame(width: w, height: h)
-                CreateFaceView(face: face, layout: layout, size: size, movable: phase == .idle, square: shape == .square) {
+                CreateFaceView(face: face, layout: layout, size: size, movable: phase == .idle, square: shape == .square,
+                               onTap: nextShape) {
                     cameraView(cutout: layout == .cutout)
                 }
             }
         }
         .frame(width: w, height: h)
         .clipped()
-        .animation(.snappy(duration: 0.4), value: layout)
         .animation(.snappy(duration: 0.4), value: showsGame)
         .animation(.snappy(duration: 0.4), value: showsCamera)
         .animation(.snappy(duration: 0.4), value: shape)
@@ -325,16 +328,49 @@ struct CreateCameraScreen: View {
     private var showsGame: Bool { isRecording ? recordPlaying : gameOn }
     private var showsCamera: Bool { isRecording ? recordCamera : cameraOn }
 
-    /// Two fingers anywhere on the card size the player.
+    /// The edge between the camera band and the game, dragged up or down.
+    private func bandHandle(height: CGFloat) -> some View {
+        Capsule().fill(.white).frame(width: 44, height: 5)
+            .shadow(color: .black.opacity(0.4), radius: 3)
+            .frame(maxWidth: .infinity).frame(height: 30)
+            .contentShape(Rectangle())
+            .offset(y: 15)
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { value in
+                        let start = bandStart ?? topBand
+                        bandStart = start
+                        var still = Transaction()
+                        still.disablesAnimations = true
+                        withTransaction(still) { topBand = Self.band(start + value.translation.height / height) }
+                    }
+                    .onEnded { _ in bandStart = nil }
+            )
+            .accessibilityLabel("Camera size")
+    }
+
+    private static func band(_ value: CGFloat) -> CGFloat { min(0.6, max(0.15, value)) }
+
+    /// Two fingers anywhere on the card size the player, or the camera band in Cam on top.
     private var facePinch: some Gesture {
         MagnifyGesture(minimumScaleDelta: 0.01)
             .onChanged { value in
-                guard gameOn, cameraOn, layout.movable else { return }
+                guard gameOn, cameraOn else { return }
+                if layout == .top {
+                    let start = bandStart ?? topBand
+                    bandStart = start
+                    var still = Transaction()
+                    still.disablesAnimations = true
+                    withTransaction(still) { topBand = Self.band(start * value.magnification) }
+                    return
+                }
+                guard layout.movable else { return }
                 var still = Transaction()
                 still.disablesAnimations = true
                 withTransaction(still) { face.pinch = value.magnification }
             }
             .onEnded { value in
+                bandStart = nil
                 guard gameOn, cameraOn, layout.movable else { return }
                 var still = Transaction()
                 still.disablesAnimations = true
@@ -513,10 +549,6 @@ struct CreateCameraScreen: View {
             modeSwitch(symbol: "gamecontroller.fill", title: gameOn ? "Game on" : "Game off", on: gameOn, action: toggleGame)
             modeSwitch(symbol: cameraOn ? "video.fill" : "video.slash.fill", title: cameraOn ? "Camera on" : "Camera off",
                        on: cameraOn, action: toggleCamera)
-            if gameOn && cameraOn {
-                modePill(symbol: "person.fill", title: "Green screen", on: layout == .cutout, action: pickGreenScreen)
-                modePill(symbol: shape.symbol, title: shape.title, on: layout != .cutout, action: tapShape)
-            }
         }
         .animation(.snappy(duration: 0.3), value: gameOn)
         .animation(.snappy(duration: 0.3), value: cameraOn)
@@ -541,22 +573,6 @@ struct CreateCameraScreen: View {
         .onTapGesture(perform: action)
         .accessibilityLabel(title)
         .accessibilityAddTraits(.isButton)
-    }
-
-    private func modePill(symbol: String, title: String, on: Bool, action: @escaping () -> Void) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
-            Text(title).font(DL.label(11)).textCase(.uppercase)
-        }
-        .foregroundStyle(on ? Color.black : .white)
-        .padding(.horizontal, 11)
-        .frame(height: 32)
-        .background(Capsule().fill(on ? Color.white : .black.opacity(0.5)))
-        .contentShape(Capsule())
-        .onTapGesture(perform: action)
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
-        .transition(.move(edge: .leading).combined(with: .opacity))
     }
 
     private var lengths: some View {
@@ -812,6 +828,7 @@ struct CreateCameraScreen: View {
             if !cameraOn { gameOn = true }
         }
         syncCamera()
+        if cameraOn && gameOn { say("Tap yourself to change the shape") }
     }
 
     /// Runs the camera only while it is on, and cuts the player out only for the green screen.
@@ -825,24 +842,15 @@ struct CreateCameraScreen: View {
         }
     }
 
-    private func pickGreenScreen() {
-        guard layout != .cutout else { return }
-        setLayout(.cutout)
-    }
-
-    /// The first tap leaves the green screen for the shape. Each tap after that moves to the next shape.
-    private func tapShape() {
-        if layout != .cutout { shape = shape.next }
-        setLayout(shape.layout)
-        say(shape.title)
-    }
-
-    private func setLayout(_ option: CreateLayout) {
+    /// Tapping yourself moves to the next shape: circle, square, tall, cam on top, green screen.
+    private func nextShape() {
+        guard phase == .idle else { return }
         UISelectionFeedbackGenerator().selectionChanged()
         face.drag = .zero
         face.pinch = 1
-        layout = option
-        camera.cutout = option == .cutout
+        shape = shape.next
+        camera.cutout = gameOn && cameraOn && layout == .cutout
+        say(shape.title)
     }
 
     private func recordTapped() {
