@@ -114,7 +114,7 @@ struct MessagesWorkplaceScreen: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Image(systemName: "envelope.fill").foregroundStyle(DL.ink2)
-                TextField("you@stanford.edu", text: $email)
+                TextField(text: $email, prompt: Text(verbatim: "you@stanford.edu").foregroundStyle(DL.ink3)) { Text("Email") }
                     .font(DL.text(17)).foregroundStyle(DL.ink)
                     .keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
             }
