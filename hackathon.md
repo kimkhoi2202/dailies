@@ -6,7 +6,7 @@
 - **Live app:** not deployed
 - **Repo:** private
 - **Frontend:** not deployed
-- **Convex deployment:** https://blissful-labrador-581.convex.cloud
+- **Convex deployment:** https://blissful-jackal-368.convex.cloud
 - **Components:** none
 - **Convex features:** none yet
 - **Auth:** none
