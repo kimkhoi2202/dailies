@@ -16,7 +16,8 @@ struct MessagesInboxScreen: View {
         let chats = social.chats.sorted { $0.at > $1.at }.filter(matches)
         let direct = chats.filter { !$0.isGroup }
         let groups = chats.filter(\.isGroup)
-        DLPage(spacing: 14) {
+        // As a tab the floating tab bar sits over the bottom of the page, so the page keeps room under its last row.
+        DLPage(spacing: 14, bottomInset: showsBack ? 120 : 150) {
             HStack(spacing: 10) {
                 if showsBack { DLIconButton(symbol: "chevron.left").goesBack().accessibilityLabel("Back") }
                 Text("MESSAGES").font(DL.display(40)).foregroundStyle(DL.ink)
