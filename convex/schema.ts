@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { communityTables } from "./communitySchema";
 
 export default defineSchema({
   users: defineTable({
@@ -128,4 +129,6 @@ export default defineSchema({
     userId: v.id("users"),
     gameSlug: v.string(),
   }).index("by_user_and_gameSlug", ["userId", "gameSlug"]),
+
+  ...communityTables,
 });

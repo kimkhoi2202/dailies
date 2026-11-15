@@ -37,13 +37,21 @@ enum Route: Hashable {
     case join
     case startRoom
     case room(String)
+    // community
+    case notifications
+    case story(Int)
+    case rate(String)
 
     enum Style { case push, cover, sheet }
 
     var style: Style {
         switch self {
-        case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room:
+        case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room, .notifications:
             .push
+        case .story:
+            .cover
+        case .rate:
+            .sheet
         case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges, .create:
             .cover
         case .comments, .fairness, .spend, .streak, .saveGold, .notify, .join, .startRoom:
@@ -67,7 +75,7 @@ struct Layer: Identifiable, Equatable {
 final class LiveNav: ObservableObject {
     static let shared = LiveNav()
 
-    /// 0 Home, 1 Videos, 2 You (out of the bar, shown as the profile), 3 Messages, 4 Library
+    /// 0 Community (in place of Home), 1 Videos, 2 You (out of the bar, shown as the profile), 3 Messages, 4 Library
     @Published var tab = 0
     @Published var layers: [Layer] = []
     /// The clip on screen in Videos, as an index into its endless column.

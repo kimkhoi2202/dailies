@@ -9,6 +9,8 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as community from "../community.js";
+import type * as communitySchema from "../communitySchema.js";
 import type * as games from "../games.js";
 import type * as ledger from "../ledger.js";
 import type * as lib from "../lib.js";
@@ -16,6 +18,7 @@ import type * as library from "../library.js";
 import type * as rooms from "../rooms.js";
 import type * as rounds from "../rounds.js";
 import type * as seed from "../seed.js";
+import type * as seedCommunity from "../seedCommunity.js";
 import type * as shop from "../shop.js";
 import type * as social from "../social.js";
 import type * as users from "../users.js";
@@ -28,6 +31,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  community: typeof community;
+  communitySchema: typeof communitySchema;
   games: typeof games;
   ledger: typeof ledger;
   lib: typeof lib;
@@ -35,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   rooms: typeof rooms;
   rounds: typeof rounds;
   seed: typeof seed;
+  seedCommunity: typeof seedCommunity;
   shop: typeof shop;
   social: typeof social;
   users: typeof users;
