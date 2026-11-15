@@ -34,7 +34,37 @@ export default defineSchema({
     plays: v.number(),
     comments: v.number(),
     order: v.number(),
+    // Set on a game a player made in the studio. It plays on one of the built-in engines, named in kind.
+    creatorId: v.optional(v.id("users")),
+    kind: v.optional(v.string()),
+    tint: v.optional(v.string()),
   }).index("by_slug", ["slug"]),
+
+  // A game being made in the studio: the conversation that shapes it, then the game it became.
+  creations: defineTable({
+    userId: v.id("users"),
+    status: v.union(v.literal("talking"), v.literal("building"), v.literal("ready"), v.literal("failed")),
+    wish: v.string(),
+    // true while the studio is working on its next reply.
+    thinking: v.boolean(),
+    title: v.optional(v.string()),
+    pitch: v.optional(v.string()),
+    how: v.optional(v.string()),
+    category: v.optional(v.string()),
+    kind: v.optional(v.string()),
+    tint: v.optional(v.string()),
+    unit: v.optional(v.string()),
+    gameSlug: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
+
+  creationMessages: defineTable({
+    creationId: v.id("creations"),
+    role: v.union(v.literal("maker"), v.literal("studio")),
+    text: v.string(),
+    options: v.optional(v.array(v.string())),
+    ideas: v.optional(v.array(v.object({ title: v.string(), pitch: v.string() }))),
+  }).index("by_creation", ["creationId"]),
 
   rounds: defineTable({
     userId: v.id("users"),

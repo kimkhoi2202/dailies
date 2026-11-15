@@ -154,6 +154,75 @@ struct ConvexRoundFinish: Decodable {
     let changes: Double?
 }
 
+/// One row of `creations:mine`: a game being made in the studio, or made.
+struct ConvexCreation: Decodable, Equatable, Identifiable {
+    let id: String
+    /// talking, building, ready or failed.
+    let status: String
+    let wish: String
+    let thinking: Bool
+    let title: String?
+    let pitch: String?
+    let how: String?
+    let category: String?
+    let kind: String?
+    let tint: String?
+    let unit: String?
+    let gameSlug: String?
+    let error: String?
+    let at: Double
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case status, wish, thinking, title, pitch, how, category, kind, tint, unit, gameSlug, error, at
+    }
+}
+
+/// One line of the conversation in `creations:get`.
+struct ConvexCreationMessage: Decodable, Equatable, Identifiable {
+    struct Idea: Decodable, Equatable {
+        let title: String
+        let pitch: String
+    }
+
+    let id: String
+    /// maker or studio.
+    let role: String
+    let text: String
+    let options: [String]
+    let ideas: [Idea]
+    let at: Double
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case role, text, options, ideas, at
+    }
+}
+
+/// `creations:get`: the creation and its whole conversation.
+struct ConvexCreationDetail: Decodable, Equatable {
+    let id: String
+    let status: String
+    let wish: String
+    let thinking: Bool
+    let title: String?
+    let pitch: String?
+    let how: String?
+    let category: String?
+    let kind: String?
+    let tint: String?
+    let unit: String?
+    let gameSlug: String?
+    let error: String?
+    let at: Double
+    let messages: [ConvexCreationMessage]
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case status, wish, thinking, title, pitch, how, category, kind, tint, unit, gameSlug, error, at, messages
+    }
+}
+
 /// The answer to `shop:spend`.
 struct ConvexSpend: Decodable {
     let balance: Double

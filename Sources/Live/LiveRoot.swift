@@ -149,6 +149,12 @@ struct LayerView: View {
             G3ReviewResultScreen()
         case .reviewChanges:
             G3ReviewChangesScreen()
+        case .create:
+            G4CreateScreen()
+        case .createChat(let creationID):
+            G4CreateChatScreen(creationID: creationID)
+        case .createPreview(let creationID):
+            G4CreatePreviewScreen(creationID: creationID)
         }
     }
 }
@@ -441,9 +447,10 @@ struct LiveResultsScreen: View {
 ///   -video <n>          the clip showing in Videos
 ///   -play <game id>     open straight into a game (-solo 1 to play alone, -seed <n> for a fixed round)
 ///   -route <name>       open a screen: gold, history, streak, search, inbox, settings, saveGold, notify, studio,
-///                       reviewProgress, reviewResult, reviewChanges, or one that takes a value:
+///                       reviewProgress, reviewResult, reviewChanges, create, or one that takes a value:
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
-///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>
+///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
+///                       createChat:<creation id>, createPreview:<creation id>
 ///   -demo 1             games play themselves (-lose <seconds> has the scripted player lose after that long)
 ///   -gamescale <x>      draw games on a canvas x times smaller and scale it up, to measure drawing cost
 enum LiveLaunch {
@@ -487,6 +494,9 @@ enum LiveLaunch {
         case "reviewProgress": return .reviewProgress
         case "reviewResult": return .reviewResult
         case "reviewChanges": return .reviewChanges
+        case "create": return .create
+        case "createChat": return .createChat(value)
+        case "createPreview": return .createPreview(value)
         case "gameReady": return .gameReady(value)
         case "gameDetail": return .gameDetail(value)
         case "leaderboard": return .leaderboard(value)

@@ -31,14 +31,18 @@ enum Route: Hashable {
     case reviewProgress
     case reviewResult
     case reviewChanges
+    // making a game in the studio
+    case create
+    case createChat(String)
+    case createPreview(String)
 
     enum Style { case push, cover, sheet }
 
     var style: Style {
         switch self {
-        case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio:
+        case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .createChat, .createPreview:
             .push
-        case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges:
+        case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges, .create:
             .cover
         case .comments, .fairness, .spend, .streak, .saveGold, .notify:
             .sheet
@@ -47,7 +51,7 @@ enum Route: Hashable {
 
     fileprivate var isPublishing: Bool {
         switch self {
-        case .publish, .reviewProgress, .reviewResult, .reviewChanges: true
+        case .publish, .reviewProgress, .reviewResult, .reviewChanges, .create, .createChat, .createPreview: true
         default: false
         }
     }

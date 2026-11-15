@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
+import type * as creations from "../creations.js";
 import type * as games from "../games.js";
 import type * as ledger from "../ledger.js";
 import type * as lib from "../lib.js";
@@ -26,7 +28,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  ai: typeof ai;
   auth: typeof auth;
+  creations: typeof creations;
   games: typeof games;
   ledger: typeof ledger;
   lib: typeof lib;
