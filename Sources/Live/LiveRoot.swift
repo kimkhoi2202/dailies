@@ -3,7 +3,8 @@ import UIKit
 import UIKit.UIGestureRecognizerSubclass
 import Combine
 
-// The app itself: three tabs (Home, Videos, You), with every other screen stacked on top as a layer.
+// The app itself: the tabs (Home, Videos, Messages, Library) under our own tab bar, with every other
+// screen stacked on top as a layer.
 
 struct LiveRoot: View {
     @ObservedObject private var nav = LiveNav.shared
@@ -12,16 +13,15 @@ struct LiveRoot: View {
 
     var body: some View {
         ZStack {
+            // The system bar stays hidden. LiveTabBar draws the bar, with the Create key in its middle.
             TabView(selection: $nav.tab) {
-                Tab("", systemImage: "house.fill", value: 0) { HomeScreen() }
-                    .accessibilityLabel("Home")
-                Tab("", systemImage: "play.rectangle.on.rectangle.fill", value: 1) { LiveVideos() }
-                    .accessibilityLabel("Videos")
-                Tab("", systemImage: "person.fill", value: 2) { G2YouScreen() }
-                    .accessibilityLabel("You")
+                Tab("Home", systemImage: "house.fill", value: 0) { HomeScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("Reels", systemImage: "play.rectangle.on.rectangle.fill", value: 1) { LiveVideos().toolbar(.hidden, for: .tabBar) }
+                Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesTabScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().toolbar(.hidden, for: .tabBar) }
             }
-            // Videos is dark whatever the appearance, so its selected icon is white.
-            .tint(nav.tab == 1 ? Color.white : DL.ink)
+            .safeAreaInset(edge: .bottom, spacing: 0) { LiveTabBar() }
 
             ForEach(Array(nav.layers.enumerated()), id: \.element.id) { depth, layer in
                 LayerView(layer: layer)
@@ -149,6 +149,18 @@ struct LayerView: View {
             G3ReviewResultScreen()
         case .reviewChanges:
             G3ReviewChangesScreen()
+        case .create:
+            CreatePlaceholderScreen()
+        case .profile(let handle):
+            ProfileScreen(handle: handle)
+        case .shop(let focus):
+            ShopScreen(focus: focus)
+        case .join:
+            JoinRoomSheet()
+        case .startRoom:
+            StartRoomSheet()
+        case .room(let code):
+            RoomScreen(code: code)
         }
     }
 }
@@ -235,9 +247,10 @@ struct LivePlayScreen: View {
         self.game = game
         self.solo = solo
         let timeSeed = UInt64(Date().timeIntervalSince1970 * 1000) & 0xFFFF_FFFF
+        let roomSeed = LiveRoomRound.current.flatMap { $0.gameID == game.id ? $0.seed : nil }
         _options = State(initialValue: GameOptions(solo: solo, playerName: Mock.handle, friendNames: Mock.playFriends,
                                                    bestScore: LiveStore.shared.s.best[game.id] ?? 0,
-                                                   seed: LiveLaunch.seed ?? timeSeed))
+                                                   seed: roomSeed ?? LiveLaunch.seed ?? timeSeed))
     }
 
     var body: some View {
@@ -276,6 +289,7 @@ struct LivePlayScreen: View {
         if GameDemo.autopilot { clock.start() }
         link.onFinish = { result in
             TouchWatcher.remove()
+            LiveRoomRound.report(result.score)
             let summary = LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: result, solo: solo)
             if summary.gold > 0 { UINotificationFeedbackGenerator().notificationOccurred(.success) }
             LiveNav.shared.replaceTop(.results)
@@ -295,6 +309,7 @@ struct LivePlayScreen: View {
 
     /// Leaving early still keeps the gold from the time played. The round has no score.
     private func leave() {
+        LiveRoomRound.report(0)
         if clock.seconds > 0 {
             LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: GameResult(score: 0, unit: ""), solo: solo)
         }
@@ -437,13 +452,17 @@ struct LiveResultsScreen: View {
 /// Launch arguments, for testing and for recording the app. Normal use needs none of them.
 ///   -fresh 1            start over with a new account
 ///   -scheme light|dark  appearance
-///   -tab <0|1|2>        open on a tab
+///   -tab <0...4>        open on a tab: 0 Home, 1 Videos, 2 You, 3 Messages, 4 Library
 ///   -video <n>          the clip showing in Videos
 ///   -play <game id>     open straight into a game (-solo 1 to play alone, -seed <n> for a fixed round)
 ///   -route <name>       open a screen: gold, history, streak, search, inbox, settings, saveGold, notify, studio,
 ///                       reviewProgress, reviewResult, reviewChanges, or one that takes a value:
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
-///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>
+///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
+///                       create, join, startRoom, profile:<handle>, room:<code>,
+///                       shop, shop:closet, shop:<item id> (opens that item's sheet)
+///   -tryon <item id>    in the Shop, try an item on without opening its sheet
+///   -shopturn 1         in the Shop, turn the Dailie round to show its back
 ///   -demo 1             games play themselves (-lose <seconds> has the scripted player lose after that long)
 ///   -gamescale <x>      draw games on a canvas x times smaller and scale it up, to measure drawing cost
 enum LiveLaunch {
@@ -495,6 +514,12 @@ enum LiveLaunch {
         case "shareRun": return .shareRun(value)
         case "spend": return .spend(Int(value) ?? 1)
         case "publish": return .publish(Int(value) ?? 1)
+        case "create": return .create
+        case "join": return .join
+        case "startRoom": return .startRoom
+        case "profile": return .profile(value.isEmpty ? "me" : value)
+        case "room": return .room(value)
+        case "shop": return .shop(value.isEmpty ? nil : value)
         default: return nil
         }
     }
@@ -543,7 +568,7 @@ final class LiveHost: UIHostingController<LiveRoot> {
     override var preferredStatusBarStyle: UIStatusBarStyle {
         // A sheet leaves the screen under it showing, so the top screen that is not a sheet decides.
         switch LiveNav.shared.layers.last(where: { $0.route.style != .sheet })?.route {
-        case .gameReady, .play, .results, .gameDetail: .lightContent
+        case .gameReady, .play, .results, .gameDetail, .profile, .shop: .lightContent
         case nil: LiveNav.shared.tab == 1 ? .lightContent : .default
         default: .default
         }

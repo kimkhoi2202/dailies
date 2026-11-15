@@ -15,6 +15,17 @@ export default defineSchema({
     seeded: v.boolean(),
     // Counts every change to this player's gold, so a phone can tell when its own change has landed.
     changes: v.optional(v.number()),
+    // The Dailie this player wears: an item id per slot (convex/items.ts).
+    avatar: v.optional(
+      v.object({
+        body: v.string(),
+        face: v.string(),
+        hair: v.optional(v.string()),
+        hat: v.optional(v.string()),
+        outfit: v.optional(v.string()),
+        gadget: v.optional(v.string()),
+      }),
+    ),
   }).index("by_handle", ["handle"]),
 
   games: defineTable({
@@ -123,4 +134,16 @@ export default defineSchema({
     item: v.string(),
     price: v.number(),
   }).index("by_user_and_item", ["userId", "item"]),
+
+  // Avatar items a player bought. Free items are owned by everyone and have no row.
+  inventory: defineTable({
+    userId: v.id("users"),
+    itemId: v.string(),
+    price: v.number(),
+  }).index("by_user_and_item", ["userId", "itemId"]),
+
+  saved: defineTable({
+    userId: v.id("users"),
+    gameSlug: v.string(),
+  }).index("by_user_and_gameSlug", ["userId", "gameSlug"]),
 });

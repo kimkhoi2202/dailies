@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { currentUser, gameBySlug, requireUser } from "./lib";
+import { itemById } from "./items";
 
 /** What gold can be spent on. Prices are decided here, never by the phone. */
 const ITEMS = [
@@ -49,5 +50,34 @@ export const spend = mutation({
       gameSlug: game.slug,
     });
     return { balance: user.gold - item.price, changes: (user.changes ?? 0) + 1 };
+  },
+});
+
+/** Buys an avatar item for gold. The price comes from convex/items.ts, never from the phone. */
+export const buy = mutation({
+  args: { itemId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const item = itemById(args.itemId);
+    if (!item) throw new ConvexError("No such item");
+    if (item.price === 0) throw new ConvexError("That one is free");
+    const owned = await ctx.db
+      .query("inventory")
+      .withIndex("by_user_and_item", (q) => q.eq("userId", user._id).eq("itemId", item.id))
+      .unique();
+    if (owned !== null) throw new ConvexError("You already have that");
+    if (user.gold < item.price) throw new ConvexError("Not enough gold");
+    const balance = user.gold - item.price;
+    const changes = (user.changes ?? 0) + 1;
+    await ctx.db.patch("users", user._id, { gold: balance, changes });
+    await ctx.db.insert("inventory", { userId: user._id, itemId: item.id, price: item.price });
+    await ctx.db.insert("ledger", {
+      userId: user._id,
+      kind: "spend",
+      title: item.name,
+      detail: "Bought in the Shop",
+      amount: -item.price,
+    });
+    return { balance, changes };
   },
 });

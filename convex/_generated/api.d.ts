@@ -9,9 +9,12 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as avatar from "../avatar.js";
 import type * as games from "../games.js";
+import type * as items from "../items.js";
 import type * as ledger from "../ledger.js";
 import type * as lib from "../lib.js";
+import type * as library from "../library.js";
 import type * as rooms from "../rooms.js";
 import type * as rounds from "../rounds.js";
 import type * as seed from "../seed.js";
@@ -27,9 +30,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  avatar: typeof avatar;
   games: typeof games;
+  items: typeof items;
   ledger: typeof ledger;
   lib: typeof lib;
+  library: typeof library;
   rooms: typeof rooms;
   rounds: typeof rounds;
   seed: typeof seed;

@@ -108,3 +108,16 @@ draws the game's clip in Videos (`Sources/Games/ShortStackGame.swift`,
 reference for the rules and the feel of the table; the game was written again in
 Swift today. It is in the catalog and seeded in Convex with its friends' scores
 and comments (`Sources/Core/MockData.swift`, `convex/seed.ts`).
+
+### 2026-11-15 - 18d94c1
+Rebuilt the tab bar as our own floating frosted pill with five slots: Home,
+Reels, a raised gold Create key that opens the camera screen (a placeholder for
+now), Messages (a placeholder until chats land) and a new Library tab
+(`Sources/Live/LiveTabBar.swift`, `Sources/Live/LiveRoot.swift`). The Library
+shows the games you played lately from your round history, every game with your
+best and the gold it has left today, a bookmark to save games, and rooms you can
+start or join with a 4 letter code, with a live lobby that takes everyone into
+the same round (`Sources/Screens/LibraryScreen.swift`,
+`Sources/Screens/RoomScreens.swift`). Saved games live in Convex
+(`convex/library.ts`, a `saved` table in `convex/schema.ts`). Home gained the
+player's avatar at the top right, which opens the profile.

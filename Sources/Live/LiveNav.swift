@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-// How the app moves between screens. The three tabs are always underneath. Every other screen is
+// How the app moves between screens. The tabs are always underneath. Every other screen is
 // a layer stacked on top of them: a pushed page, a full-screen cover or a sheet.
 
 enum Route: Hashable {
@@ -31,16 +31,25 @@ enum Route: Hashable {
     case reviewProgress
     case reviewResult
     case reviewChanges
+    // the tab bar and the library
+    case create
+    case profile(String)
+    case join
+    case startRoom
+    case room(String)
+    // the avatar
+    /// An item id to open on its sheet, "closet" for the Closet, or nil.
+    case shop(String?)
 
     enum Style { case push, cover, sheet }
 
     var style: Style {
         switch self {
-        case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio:
+        case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room, .shop:
             .push
-        case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges:
+        case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges, .create:
             .cover
-        case .comments, .fairness, .spend, .streak, .saveGold, .notify:
+        case .comments, .fairness, .spend, .streak, .saveGold, .notify, .join, .startRoom:
             .sheet
         }
     }
@@ -61,7 +70,7 @@ struct Layer: Identifiable, Equatable {
 final class LiveNav: ObservableObject {
     static let shared = LiveNav()
 
-    /// 0 Home, 1 Videos, 2 You
+    /// 0 Home, 1 Videos, 2 You (out of the bar, shown as the profile), 3 Messages, 4 Library
     @Published var tab = 0
     @Published var layers: [Layer] = []
     /// The clip on screen in Videos, as an index into its endless column.
