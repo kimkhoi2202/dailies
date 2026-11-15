@@ -10,6 +10,7 @@ import SwiftUI
 
 enum GameKind: String, CaseIterable {
     case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland
+    case blockParty
 }
 
 struct MockGame: Identifiable {
@@ -55,6 +56,7 @@ struct MockGame: Identifiable {
         case .laneDash: LaneDashScene(phase: moment, showHUD: showHUD)
         case .gulpCity: GulpCityScene(phase: moment, showHUD: showHUD)
         case .inkland: InklandScene(phase: moment, showHUD: showHUD)
+        case .blockParty: BlockPartyScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -194,7 +196,15 @@ enum Mock {
         plays: "371K", likes: "40.3K", dislikes: "3.9K", approval: 91,
         bestScore: "87%", clipPhase: 0.85, tint: Color(red: 0.55, green: 0.80, blue: 0.70))
 
+    static let blockParty = MockGame(
+        id: "block-party", kind: .blockParty, title: "Block Party", tagline: "Fill a line. Watch it go.",
+        category: "Puzzle", players: "1 to 3 players", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "3m 00s", seedEarned: 0,
+        plays: "214K", likes: "26.1K", dislikes: "1.4K", approval: 95,
+        bestScore: "2,480 points", clipPhase: 0.45, tint: Color(red: 0.25, green: 0.28, blue: 0.72))
+
     static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity]
+        + [blockParty]
 
     // MARK: Videos
 

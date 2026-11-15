@@ -99,6 +99,22 @@ const GAMES = [
     dislikes: 94,
     scores: [1980, 1650, 2410, 760, 1180, 420],
   },
+  {
+    slug: "block-party",
+    title: "Block Party",
+    studio: "Paper Lantern",
+    pitch: "Fill a line. Watch it go.",
+    how: "Drag a block from the tray onto the board. Fill a whole row or column to clear it. Clear several at once, or one after another, for a combo. The round ends when none of your blocks fit.",
+    minPlayers: 1,
+    maxPlayers: 3,
+    mode: "casual" as const,
+    category: "Puzzle",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 261,
+    dislikes: 14,
+    scores: [1180, 2310, 1940, 860, 1520, 540],
+  },
 ];
 
 const PLAYERS = [
@@ -117,6 +133,7 @@ const COMMENTS: Record<string, string[]> = {
   "gulp-city": ["swallowed the whole block with two seconds left", "started with a flower, ended with a bus"],
   inkland: ["took a fifth of the map in one loop", "got cut one step from home. again"],
   "lane-dash": ["the near miss at the end. I stopped breathing", "ramp into three gems into a barrier. classic"],
+  "block-party": ["cleared three lines with one L and screamed", "one square away from a board clear"],
 };
 
 export const run = internalMutation({
