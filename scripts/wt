@@ -25,7 +25,7 @@ case "$cmd" in
     if git -C "$main" show-ref --verify --quiet "refs/heads/$branch"; then
       git -C "$main" worktree add "$dir" "$branch"
     else
-      git -C "$main" worktree add -b "$branch" "$dir" "${3:-origin/main}"
+      git -C "$main" worktree add --no-track -b "$branch" "$dir" "${3:-origin/main}"
     fi
     git -C "$main" ls-files --others --ignored --exclude-standard --directory |
       { grep -E '(^|/)\.env[^/]*$' || true; } |
