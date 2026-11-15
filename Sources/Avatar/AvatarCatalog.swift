@@ -142,7 +142,7 @@ enum AvatarCatalog {
 
         AvatarItem(id: "hat.party", slot: .hat, name: "Party Hat", price: 60, rarity: .common, detail: "Striped, with a gold pom."),
         AvatarItem(id: "hat.beanie", slot: .hat, name: "Beanie", price: 70, rarity: .common, detail: "A teal knit with a cream pom."),
-        AvatarItem(id: "hat.cap", slot: .hat, name: "Cap", price: 80, rarity: .common, detail: "An ink cap with a gold bill."),
+        AvatarItem(id: "hat.cap", slot: .hat, name: "Cap", price: 80, rarity: .common, detail: "A teal cap with a gold bill."),
         AvatarItem(id: "hat.catears", slot: .hat, name: "Cat Ears", price: 150, rarity: .rare, detail: "Ears that hear a combo coming."),
         AvatarItem(id: "hat.headset", slot: .hat, name: "Gamer Headset", price: 180, rarity: .rare, detail: "Gold cups and a mic for callouts."),
         AvatarItem(id: "hat.halo", slot: .hat, name: "Halo", price: 300, rarity: .epic, detail: "A floating gold ring. Very well behaved."),
