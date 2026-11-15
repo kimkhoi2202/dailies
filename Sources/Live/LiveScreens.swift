@@ -21,6 +21,7 @@ enum LiveBoard {
         "inkland": ["juno": 342, "kaz": 281, "devon.plays": 236, "tofu": 174, "noor.runs": 152, "wordnerd.sam": 96],
         "spiral-drop": ["kaz": 742, "devon.plays": 651, "wordnerd.sam": 518, "noor.runs": 434, "tofu": 371, "juno": 196],
         "gulp-city": ["tofu": 87, "juno": 74, "noor.runs": 61, "devon.plays": 52, "kaz": 38, "wordnerd.sam": 24],
+        "can-cannon": ["kaz": 1480, "devon.plays": 1210, "juno": 990, "noor.runs": 760, "tofu": 540, "wordnerd.sam": 310],
     ]
 
     /// Everyone on the board, best score first.
@@ -38,6 +39,7 @@ enum LiveBoard {
         case .laneDash: "metres"
         case .inkland: "share of the land"
         case .gulpCity: "share of the city"
+        case .canCannon: "points"
         }
     }
 
@@ -58,6 +60,7 @@ enum LiveBoard {
         case .fiveUp, .spiralDrop: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .laneDash: return "\(groupedNumber(apart)) m"
         case .inkland, .gulpCity: return text(apart, game)
+        case .canCannon: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         }
     }
 
