@@ -1393,8 +1393,8 @@ final class InklandModel {
 // MARK: - Drawing
 
 enum InklandInks {
-    static let amber = InklandSceneInk(top: 0xFFD08A, base: 0xFF9A3C, side: 0xC8641C, deep: 0x8F4310, tint: 0xFFEBCF)
-    static let mint = InklandSceneInk(top: 0x9CF7CF, base: 0x33D69A, side: 0x149A6C, deep: 0x0B7350, tint: 0xD9FDEE)
+    static let amber = InklandSceneInk(top: 0xFFD08A, base: 0xFF9A3C, side: 0xC8641C, deep: 0x8F4310, tint: 0xFFEBCF, blob: "inkland-blob-amber")
+    static let mint = InklandSceneInk(top: 0x9CF7CF, base: 0x33D69A, side: 0x149A6C, deep: 0x0B7350, tint: 0xD9FDEE, blob: "inkland-blob-mint")
     /// By blob id. 0 is the local player, coral as in the clip.
     static let all = [InklandScenePalette.coral, InklandScenePalette.cyan, InklandScenePalette.lime, InklandScenePalette.violet,
                       amber, mint]
