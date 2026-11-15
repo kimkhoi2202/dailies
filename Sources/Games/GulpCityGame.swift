@@ -830,7 +830,8 @@ struct GulpCityBoard: View {
             round.lock.lock()
             defer { round.lock.unlock() }
             let lens = GulpCityLens(size: size, eyeX: round.eyeX, eyeY: round.eyeY, span: Swift.max(1, round.span))
-            GulpCityArtist(lens: lens, town: round.town, rise: round.rise, edge: round.edge).drawRound(&context, round)
+            GulpCityArtist(lens: lens, town: round.town, rise: round.rise, edge: round.edge, art: GulpCityArt(context))
+                .drawRound(&context, round)
         }
     }
 }

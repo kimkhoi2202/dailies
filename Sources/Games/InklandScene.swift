@@ -52,20 +52,23 @@ struct InklandSceneRGB: Sendable {
     }
 }
 
-/// One player's ink: the lit top of a slab down to its darkest edge, plus a pale tint for highlights.
+/// One player's ink: the lit top of a slab down to its darkest edge, a pale tint for highlights and
+/// the painted blob that wears it.
 struct InklandSceneInk: Sendable {
     let top: InklandSceneRGB
     let base: InklandSceneRGB
     let side: InklandSceneRGB
     let deep: InklandSceneRGB
     let tint: InklandSceneRGB
+    let blob: String
 
-    init(top: UInt32, base: UInt32, side: UInt32, deep: UInt32, tint: UInt32) {
+    init(top: UInt32, base: UInt32, side: UInt32, deep: UInt32, tint: UInt32, blob: String) {
         self.top = InklandSceneRGB(top)
         self.base = InklandSceneRGB(base)
         self.side = InklandSceneRGB(side)
         self.deep = InklandSceneRGB(deep)
         self.tint = InklandSceneRGB(tint)
+        self.blob = blob
     }
 }
 
@@ -79,12 +82,11 @@ enum InklandScenePalette {
     static let panel = InklandSceneRGB(0x0C1136)
     static let warn = InklandSceneRGB(0xFFDD4A)
     static let warnDeep = InklandSceneRGB(0xC98A10)
-    static let crown = InklandSceneRGB(0xFFD75A)
 
-    static let coral = InklandSceneInk(top: 0xFF8FA0, base: 0xFF4C77, side: 0xC2235A, deep: 0x8A1245, tint: 0xFFD3DC)
-    static let cyan = InklandSceneInk(top: 0x86F0FF, base: 0x22C8EE, side: 0x0D8AB6, deep: 0x08668F, tint: 0xD6FAFF)
-    static let lime = InklandSceneInk(top: 0xDDFB78, base: 0xA6DE36, side: 0x6A9C19, deep: 0x4C7610, tint: 0xF2FEC8)
-    static let violet = InklandSceneInk(top: 0xCDB4FF, base: 0x9B79FA, side: 0x6442C8, deep: 0x482D9F, tint: 0xECE2FF)
+    static let coral = InklandSceneInk(top: 0xFF8FA0, base: 0xFF4C77, side: 0xC2235A, deep: 0x8A1245, tint: 0xFFD3DC, blob: "inkland-blob-coral")
+    static let cyan = InklandSceneInk(top: 0x86F0FF, base: 0x22C8EE, side: 0x0D8AB6, deep: 0x08668F, tint: 0xD6FAFF, blob: "inkland-blob-cyan")
+    static let lime = InklandSceneInk(top: 0xDDFB78, base: 0xA6DE36, side: 0x6A9C19, deep: 0x4C7610, tint: 0xF2FEC8, blob: "inkland-blob-lime")
+    static let violet = InklandSceneInk(top: 0xCDB4FF, base: 0x9B79FA, side: 0x6442C8, deep: 0x482D9F, tint: 0xECE2FF, blob: "inkland-blob-violet")
 }
 
 // MARK: - Seeded random
@@ -244,18 +246,6 @@ enum InklandSceneGeo {
         return path
     }
 
-    static func crown(_ c: CGPoint, width w: CGFloat) -> Path {
-        let h = w * 0.70
-        let left = c.x - w / 2
-        let top = c.y - h / 2
-        // Corners as fractions of the box: base left, three spikes with two dips, base right.
-        let shape: [(CGFloat, CGFloat)] = [(0.06, 1), (-0.04, 0.20), (0.27, 0.56), (0.5, 0), (0.73, 0.56), (1.04, 0.20), (0.94, 1)]
-        var path = Path()
-        path.addLines(shape.map { CGPoint(x: left + w * $0.0, y: top + h * $0.1) })
-        path.closeSubpath()
-        return path
-    }
-
     /// "18.3" for 18.26.
     static func oneDecimal(_ value: Double) -> String {
         let tenths = Int((max(value, 0) * 10).rounded())
@@ -404,10 +394,18 @@ enum InklandScenePaint {
 
     static func board(_ g: inout GraphicsContext, visible: CGRect, glowCenter: CGPoint = CGPoint(x: 185, y: 410)) {
         let rect = visible.insetBy(dx: -6, dy: -6)
+        // painted felt in tiles lined up with the world, so it does not slide as the camera moves
+        let felt = g.resolve(Image("inkland-board"))
+        let tile: CGFloat = 320
+        for y in stride(from: (rect.minY / tile).rounded(.down) * tile, to: rect.maxY, by: tile) {
+            for x in stride(from: (rect.minX / tile).rounded(.down) * tile, to: rect.maxX, by: tile) {
+                g.draw(felt, in: CGRect(x: x, y: y, width: tile, height: tile))
+            }
+        }
         let glow = Gradient(stops: [
-            .init(color: Pal.boardGlow.color(), location: 0),
-            .init(color: Pal.boardMid.color(), location: 0.52),
-            .init(color: Pal.boardDeep.color(), location: 1),
+            .init(color: Pal.boardGlow.color(0.62), location: 0),
+            .init(color: Pal.boardMid.color(0.2), location: 0.52),
+            .init(color: Pal.boardDeep.color(0.6), location: 1),
         ])
         g.fill(Path(rect), with: .radialGradient(glow, center: glowCenter, startRadius: 10, endRadius: 600))
         let grid = InklandBoardDots.shared.paths(covering: rect)
@@ -624,24 +622,19 @@ enum InklandScenePaint {
             }
         }
 
-        g.fill(face.offsetBy(dx: 4, dy: depth + 7), with: .color(Pal.night.color(0.26)))
-        g.fill(face.offsetBy(dx: 2, dy: depth + 3), with: .color(Pal.night.color(0.24)))
+        g.fill(face.offsetBy(dx: 3, dy: depth), with: .color(Pal.night.color(0.26)))
+        g.fill(face.offsetBy(dx: 1.5, dy: depth * 0.5), with: .color(Pal.night.color(0.24)))
 
-        g.fill(face.offsetBy(dx: 0, dy: depth), with: .color(ink.deep.color()))
-        for drop in stride(from: depth - 1.4, to: 0, by: -1.6) {
-            g.fill(face.offsetBy(dx: 0, dy: drop), with: .color(ink.side.color()))
-        }
+        var body = g
+        body.concatenate(place)
+        body.draw(g.resolve(Image(ink.blob)), in: CGRect(x: -1.12 * long, y: -1.12 * wide, width: 2.24 * long, height: 2.24 * wide))
+    }
 
-        g.fill(face, with: .linearGradient(Gradient(colors: [Pal.white.mix(ink.tint, 0.55).color(), ink.top.color()]),
-                                           startPoint: CGPoint(x: c.x - half, y: c.y - half),
-                                           endPoint: CGPoint(x: c.x + half, y: c.y + half)))
-        g.stroke(face, with: .color(local ? Pal.white.color() : Pal.white.mix(ink.tint, 0.4).color()), lineWidth: local ? 2.6 : 1.8)
-
-        for side in [-1.0, 1.0] as [CGFloat] {
-            let eye = CGPoint(x: long * 0.36, y: side * wide * 0.42).applying(place)
-            g.fill(Geo.circle(eye, 3.0), with: .color(Pal.night.color()))
-            g.fill(Geo.circle(CGPoint(x: eye.x - 0.9, y: eye.y - 1.0), 1.05), with: .color(Pal.white.color()))
-        }
+    /// The leader's crown, painted, centred on a point.
+    static func crown(_ g: inout GraphicsContext, center c: CGPoint, width w: CGFloat) {
+        let image = g.resolve(Image("inkland-crown"))
+        let h = w * image.size.height / max(1, image.size.width)
+        g.draw(image, in: CGRect(x: c.x - w / 2, y: c.y - h / 2, width: w, height: h))
     }
 
     /// The name tag over a blob. below hangs it under the blob instead, for use near the top wall.
@@ -678,9 +671,7 @@ enum InklandScenePaint {
         }
 
         if crowned {
-            let crown = Geo.crown(CGPoint(x: rect.minX + padX + crownW / 2 - 1, y: midY - 0.5), width: crownW - 2)
-            g.stroke(crown, with: .color(Pal.crown.color()), style: StrokeStyle(lineWidth: 1.6, lineJoin: .round))
-            g.fill(crown, with: .color(Pal.crown.color()))
+            crown(&g, center: CGPoint(x: rect.minX + padX + crownW / 2 - 1, y: midY - 0.5), width: crownW)
         }
         g.draw(text, at: CGPoint(x: c.x + crownRoom / 2, y: midY), anchor: .center)
     }
@@ -861,9 +852,7 @@ enum InklandScenePaint {
             // The top row wears a crown after its name.
             if row.rank < 0.5 {
                 let nameW = name.measure(in: CGSize(width: 200 * u, height: 40 * u)).width
-                let crown = Geo.crown(CGPoint(x: nameX + nameW + 9 * u, y: midY - 0.5 * u), width: 9.5 * u)
-                ctx.stroke(crown, with: .color(Pal.crown.color()), style: StrokeStyle(lineWidth: 1.4 * u, lineJoin: .round))
-                ctx.fill(crown, with: .color(Pal.crown.color()))
+                crown(&ctx, center: CGPoint(x: nameX + nameW + 9 * u, y: midY - 0.5 * u), width: 11 * u)
             }
 
             ctx.draw(Text(Geo.oneDecimal(row.share) + "%").font(.system(size: 10.5 * u, weight: .heavy, design: .rounded))
