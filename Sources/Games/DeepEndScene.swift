@@ -4,8 +4,9 @@ import SwiftUI
 //
 // Drawn like an old rubber-hose cartoon by DeepEndPainter from a DeepEndPicture: cream paper, ink
 // outlines, flat 1930s colours and a little film wear. The playable game fills the picture from its
-// model; the clip in the video feed builds one from a phase (0...1) and a fixed script. No assets,
-// any frame size.
+// model; the clip in the video feed builds one from a phase (0...1) and a fixed script. The krill,
+// fish, kelp, sun, clouds, boat and seabed are painted pictures in Resources/GameArt; the rest is
+// drawn in code at any frame size.
 
 public struct DeepEndScene: View {
     public var phase: Double
@@ -148,19 +149,10 @@ enum DeepEndInk {
     static let ink = hex(0x1E1712)
     static let red = hex(0xC8453A)
     static let mustard = hex(0xD9A441)
-    static let sun = hex(0xF0C45A)
-    static let rays = hex(0xF4D58A)
-    static let kelp = hex(0x6B7D45)
-    static let rock = hex(0x4A3B2C)
-    static let seabed = hex(0x231B14)
+    static let seabed = hex(0x30201A)
     static let glove = hex(0xFFFBF0)
-    static let krill = hex(0xD8604A)
-    static let cheek = hex(0xF29A86, 0.8)
-    static let tongue = hex(0xE0705E)
-    static let boat = hex(0xB5503F)
     static let tiers: [Color] = [0xD9E6CF, 0xA9CDB4, 0x5E9E98, 0x8C7BB0, 0xC8453A, 0xD9A441].map { hex($0) }
     static let missed = hex(0x9C8C74)
-    static let fish: [Color] = [0xD9A441, 0xC9684F, 0x7F9BB0, 0xA9CDB4, 0xB88BA0].map { hex($0) }
 
     static let ruler = hex(0xF3E6C8, 0.3)
     static let rulerShallow = hex(0x1E1712, 0.35)
@@ -540,20 +532,12 @@ struct DeepEndPainter {
         inked(&ctx, p, 2.5)
     }
 
-    /// A pie-cut eye: a white oval, a black pupil with a wedge cut out of it.
-    private func pieEye(_ ctx: inout GraphicsContext, _ c: CGPoint, _ w: CGFloat, _ h: CGFloat, look: CGFloat) {
-        let white = Path(ellipseIn: CGRect(x: c.x - w / 2, y: c.y - h / 2, width: w, height: h))
-        ctx.fill(white, with: .color(Ink.glove))
-        inked(&ctx, white, 1.6)
-        let pw = w * 0.56, ph = h * 0.62
-        let pc = CGPoint(x: c.x + look * w * 0.16, y: c.y + h * 0.1)
-        ctx.fill(Path(ellipseIn: CGRect(x: pc.x - pw / 2, y: pc.y - ph / 2, width: pw, height: ph)), with: .color(Ink.ink))
-        var wedge = Path()
-        wedge.move(to: CGPoint(x: pc.x + pw * 0.05, y: pc.y - ph * 0.05))
-        wedge.addLine(to: CGPoint(x: pc.x + pw * 0.48, y: pc.y - ph * 0.42))
-        wedge.addLine(to: CGPoint(x: pc.x + pw * 0.05, y: pc.y - ph * 0.55))
-        wedge.closeSubpath()
-        ctx.fill(wedge, with: .color(Ink.glove))
+    /// Where a picture goes, kept to its own proportions, from its centre and its width or height.
+    private func artRect(_ art: GraphicsContext.ResolvedImage, center c: CGPoint, width: CGFloat? = nil, height: CGFloat? = nil) -> CGRect {
+        let aspect = art.size.height > 0 ? art.size.width / art.size.height : 1
+        let w = width ?? (height ?? 0) * aspect
+        let h = height ?? w / aspect
+        return CGRect(x: c.x - w / 2, y: c.y - h / 2, width: w, height: h)
     }
 
     /// Colour for small words over the water at a depth: ink near the pale top, cream below.
@@ -569,41 +553,19 @@ struct DeepEndPainter {
         ctx.fill(Path(CGRect(x: 0, y: 0, width: W, height: sy)),
                  with: .linearGradient(Ink.sky, startPoint: .zero, endPoint: CGPoint(x: 0, y: sy)))
 
-        // A sun with a face, low on the horizon, turning its rays.
-        let sun = CGPoint(x: (W * 0.86).rounded(), y: sy - 24 - (offBeat ? 2 : 0))
-        var rays = Path()
-        for i in 0..<12 {
-            let a = Double(i) / 12 * 2 * .pi + t * 0.25
-            let reach: Double = i % 2 == 0 ? 47 : 40
-            rays.move(to: CGPoint(x: sun.x + CGFloat(cos(a - 0.11) * 29), y: sun.y + CGFloat(sin(a - 0.11) * 29)))
-            rays.addLine(to: CGPoint(x: sun.x + CGFloat(cos(a) * reach), y: sun.y + CGFloat(sin(a) * reach)))
-            rays.addLine(to: CGPoint(x: sun.x + CGFloat(cos(a + 0.11) * 29), y: sun.y + CGFloat(sin(a + 0.11) * 29)))
-            rays.closeSubpath()
-        }
-        ctx.fill(rays, with: .color(Ink.rays))
-        inked(&ctx, rays, 2)
-        let disc = Path(ellipseIn: CGRect(x: sun.x - 27, y: sun.y - 27, width: 54, height: 54))
-        ctx.fill(disc, with: .color(Ink.sun))
-        inked(&ctx, disc, 3)
-        pieEye(&ctx, CGPoint(x: sun.x - 8, y: sun.y - 6), 9, 13, look: -0.6)
-        pieEye(&ctx, CGPoint(x: sun.x + 6, y: sun.y - 6), 9, 13, look: -0.6)
-        var smile = Path()
-        smile.move(to: CGPoint(x: sun.x - 11, y: sun.y + 6))
-        smile.addQuadCurve(to: CGPoint(x: sun.x + 9, y: sun.y + 6), control: CGPoint(x: sun.x - 1, y: sun.y + 17))
-        inked(&ctx, smile, 2.2)
+        // A sun with a face, low on the horizon, rocking on the beat.
+        var sun = ctx
+        sun.translateBy(x: (W * 0.86).rounded(), y: sy - 24 - (offBeat ? 2 : 0))
+        sun.rotate(by: .radians(sin(t * 0.8) * 0.12))
+        let face = sun.resolve(Image("deep-end-sun"))
+        sun.draw(face, in: artRect(face, center: .zero, height: 100))
 
-        // Clouds: every puff stroked thick, then filled, so only the outer outline stays.
-        var puffs = Path()
-        for cloud in pic.clouds {
-            let s = CGFloat(cloud.s)
-            let x = CGFloat(cloud.x), y = sy - 12 - CGFloat(cloud.y) * 0.3 - 10 * s
-            for (dx, dy, r) in [(0.0, 6.0, 12.0), (16, -4, 16), (36, -1, 14), (52, 6, 10), (24, 9, 12)] {
-                let rr = CGFloat(r) * s
-                puffs.addEllipse(in: CGRect(x: x + CGFloat(dx) * s - rr, y: y + CGFloat(dy) * s - rr, width: rr * 2, height: rr * 2))
-            }
+        let cloud = ctx.resolve(Image("deep-end-cloud"))
+        for puff in pic.clouds {
+            let s = CGFloat(puff.s)
+            let center = CGPoint(x: CGFloat(puff.x) + 26 * s, y: sy - 12 - CGFloat(puff.y) * 0.3 - 8 * s)
+            ctx.draw(cloud, in: artRect(cloud, center: center, width: 84 * s))
         }
-        ctx.stroke(puffs, with: .color(Ink.ink), lineWidth: 5.5)
-        ctx.fill(puffs, with: .color(Ink.paperLight))
     }
 
     private func drawSurface(_ ctx: inout GraphicsContext, _ sy: CGFloat) {
@@ -653,31 +615,9 @@ struct DeepEndPainter {
         // The boat, bobbing on the beat.
         let bx = (W * 0.26).rounded()
         let by = wave(bx) - 3 - (offBeat ? 2 : 0)
-        var mast = Path()
-        mast.move(to: CGPoint(x: bx - 2, y: by - 4))
-        mast.addLine(to: CGPoint(x: bx - 2, y: by - 34))
-        inked(&ctx, mast, 2.5)
-        var flag = Path()
-        flag.move(to: CGPoint(x: bx - 1, y: by - 34))
-        flag.addLine(to: CGPoint(x: bx + 15, y: by - 29 + (offBeat ? 2 : 0)))
-        flag.addLine(to: CGPoint(x: bx - 1, y: by - 24))
-        flag.closeSubpath()
-        ctx.fill(flag, with: .color(Ink.mustard))
-        inked(&ctx, flag, 2)
-        var hull = Path()
-        hull.move(to: CGPoint(x: bx - 24, y: by - 8))
-        hull.addLine(to: CGPoint(x: bx + 24, y: by - 8))
-        hull.addQuadCurve(to: CGPoint(x: bx + 14, y: by + 5), control: CGPoint(x: bx + 21, y: by + 2))
-        hull.addLine(to: CGPoint(x: bx - 14, y: by + 5))
-        hull.addQuadCurve(to: CGPoint(x: bx - 24, y: by - 8), control: CGPoint(x: bx - 21, y: by + 2))
-        hull.closeSubpath()
-        ctx.fill(hull, with: .color(Ink.boat))
-        inked(&ctx, hull, 2.5)
-        for k in 0..<3 {
-            let porthole = Path(ellipseIn: CGRect(x: bx - 13 + CGFloat(k) * 10, y: by - 5, width: 5, height: 5))
-            ctx.fill(porthole, with: .color(Ink.paperLight))
-            inked(&ctx, porthole, 1.2)
-        }
+        let boat = ctx.resolve(Image("deep-end-boat"))
+        let hull = artRect(boat, center: .zero, width: 60)
+        ctx.draw(boat, in: hull.offsetBy(dx: bx, dy: by + 8 - hull.maxY))
     }
 
     // MARK: Water
@@ -744,59 +684,28 @@ struct DeepEndPainter {
         let base = screenY(330)
         guard base > -10, base - 240 < lay.h else { return }
         let t = pic.clock
-        var kelp = Path()
+        let kelp = ctx.resolve(Image("deep-end-kelp"))
         let roots: [CGFloat] = [14, 38, 62, lay.w - 62, lay.w - 36]
-        var left: [CGPoint] = []
-        var right: [CGPoint] = []
-        left.reserveCapacity(25)
-        right.reserveCapacity(25)
         for (s, root) in roots.enumerated() {
-            left.removeAll(keepingCapacity: true)
-            right.removeAll(keepingCapacity: true)
-            let tall = 20 + (s * 7) % 5
-            for i in 0...tall {
-                let k = Double(i)
-                let sway = sin(t * 1.1 + k * 0.45 + Double(s) * 1.7) * k * 0.55
-                let x = root + CGFloat(sway)
-                let y = base - CGFloat(k * 9.5)
-                let half = CGFloat((1 - k / Double(tall + 2)) * 5.5 + 1.2 + sin(k * 1.3 + Double(s)) * 1.4)
-                left.append(CGPoint(x: x - half, y: y))
-                right.append(CGPoint(x: x + half, y: y))
-            }
-            kelp.move(to: left[0])
-            for p in left.dropFirst() { kelp.addLine(to: p) }
-            kelp.addQuadCurve(to: right[right.count - 1], control: CGPoint(x: (left[left.count - 1].x + right[right.count - 1].x) / 2,
-                                                                         y: left[left.count - 1].y - 8))
-            for p in right.reversed().dropFirst() { kelp.addLine(to: p) }
-            kelp.closeSubpath()
+            // Each stalk leans from its root, so the tip sways and the base stays put.
+            let tall = CGFloat(20 + (s * 7) % 5) * 9.5 + 12
+            let lean = CGFloat(sin(t * 1.1 + Double(s) * 1.7) * 0.07)
+            var c = ctx
+            c.concatenate(CGAffineTransform(a: s % 2 == 0 ? 1 : -1, b: 0, c: lean, d: 1, tx: root - lean * base, ty: 0))
+            let wide = kelp.size.height > 0 ? tall * kelp.size.width / kelp.size.height * 0.75 : 0
+            c.draw(kelp, in: CGRect(x: -wide / 2, y: base + 4 - tall, width: wide, height: tall))
         }
-        ctx.fill(kelp, with: .color(Ink.kelp))
-        inked(&ctx, kelp, 2.5)
     }
 
     private func drawFloor(_ ctx: inout GraphicsContext) {
         let floorY = screenY(7000)
         guard floorY < lay.h + 20 else { return }
-        let W = lay.w
-        var ground = Path()
-        ground.move(to: CGPoint(x: -5, y: lay.h + 5))
-        ground.addLine(to: CGPoint(x: -5, y: floorY))
-        var x: CGFloat = 0
-        while x <= W + 20 {
-            ground.addQuadCurve(to: CGPoint(x: x + 20, y: floorY + CGFloat(Int(x * 37) % 7) - 3),
-                                control: CGPoint(x: x + 10, y: floorY - 6))
-            x += 20
-        }
-        ground.addLine(to: CGPoint(x: W + 25, y: lay.h + 5))
-        ground.closeSubpath()
-        ctx.fill(ground, with: .color(Ink.seabed))
-        inked(&ctx, ground, 3)
-        var rocks = Path()
-        for (rx, w, h) in [(0.06, 46.0, 26.0), (0.24, 30, 18), (0.46, 58, 30), (0.7, 36, 20), (0.88, 50, 28)] {
-            rocks.addEllipse(in: CGRect(x: W * CGFloat(rx) - CGFloat(w) / 2, y: floorY - CGFloat(h) * 0.55, width: CGFloat(w), height: CGFloat(h)))
-        }
-        ctx.fill(rocks, with: .color(Ink.rock))
-        inked(&ctx, rocks, 3)
+        let ground = ctx.resolve(Image("deep-end-seabed"))
+        let size = artRect(ground, center: .zero, width: lay.w)
+        // The top of the dirt sits at 62 percent of the picture; the boulders rise above the floor line.
+        let r = size.offsetBy(dx: lay.w / 2, dy: floorY - size.minY - size.height * 0.62)
+        ctx.fill(Path(CGRect(x: 0, y: r.maxY - 2, width: lay.w, height: Swift.max(0, lay.h - r.maxY + 4))), with: .color(Ink.seabed))
+        ctx.draw(ground, in: r)
     }
 
     private func drawRuler(_ ctx: inout GraphicsContext, _ sy: CGFloat) {
@@ -854,35 +763,22 @@ struct DeepEndPainter {
     }
 
     private func drawFish(_ ctx: inout GraphicsContext) {
+        let kinds = [ctx.resolve(Image("deep-end-fish-gold")), ctx.resolve(Image("deep-end-fish-red")),
+                     ctx.resolve(Image("deep-end-fish-blue"))]
         for (i, fish) in pic.fish.enumerated() where fish.depth > 10 {
             let fy = screenY(fish.depth)
             if fy < -24 || fy > lay.h + 24 { continue }
-            let dir: CGFloat = fish.vx > 0 ? 1 : -1
-            let c = CGPoint(x: CGFloat(fish.x), y: fy - ((i % 2 == 0) == offBeat ? 2.5 : 0))
-            var shape = Path()
-            shape.addEllipse(in: CGRect(x: c.x - 14, y: c.y - 8, width: 28, height: 16))
-            shape.move(to: CGPoint(x: c.x - 10 * dir, y: c.y))
-            shape.addLine(to: CGPoint(x: c.x - 22 * dir, y: c.y - 8 + (offBeat ? 2 : 0)))
-            shape.addLine(to: CGPoint(x: c.x - 21 * dir, y: c.y + 8 + (offBeat ? 2 : 0)))
-            shape.closeSubpath()
-            ctx.stroke(shape, with: .color(Ink.ink), style: StrokeStyle(lineWidth: 4.5, lineJoin: .round))
-            ctx.fill(shape, with: .color(Ink.fish[i % Ink.fish.count]))
-            var fin = Path()
-            fin.move(to: CGPoint(x: c.x - 3 * dir, y: c.y + 1))
-            fin.addQuadCurve(to: CGPoint(x: c.x - 3 * dir, y: c.y + 6), control: CGPoint(x: c.x - 9 * dir, y: c.y + 2))
-            var mouth = Path()
-            mouth.move(to: CGPoint(x: c.x + 8 * dir, y: c.y + 3))
-            mouth.addQuadCurve(to: CGPoint(x: c.x + 12 * dir, y: c.y + 2), control: CGPoint(x: c.x + 10 * dir, y: c.y + 5))
-            fin.addPath(mouth)
-            inked(&ctx, fin, 1.6)
-            pieEye(&ctx, CGPoint(x: c.x + 6 * dir, y: c.y - 2), 7, 9, look: dir)
+            let art = kinds[i % kinds.count]
+            var c = ctx
+            c.translateBy(x: CGFloat(fish.x), y: fy - ((i % 2 == 0) == offBeat ? 2.5 : 0))
+            if fish.vx < 0 { c.scaleBy(x: -1, y: 1) }
+            c.draw(art, in: artRect(art, center: .zero, width: i % kinds.count == 2 ? 48 : 36))
         }
     }
 
     // MARK: The krill
 
     private func drawKrill(_ ctx: inout GraphicsContext) {
-        let t = pic.clock
         let p = krillPoint
         let dark = pic.cam > 900
         if dark {
@@ -906,86 +802,9 @@ struct DeepEndPainter {
         c.scaleBy(x: sx, y: sy)
         c.translateBy(x: 0, y: -18)
 
-        // Legs with little shoes, kicking on the beat.
-        var legs = Path()
-        let kick: CGFloat = offBeat ? 3 : -2
-        legs.move(to: CGPoint(x: -6, y: 15))
-        legs.addQuadCurve(to: CGPoint(x: -9 - kick, y: 27), control: CGPoint(x: -4, y: 23))
-        legs.move(to: CGPoint(x: 6, y: 15))
-        legs.addQuadCurve(to: CGPoint(x: 9 + kick, y: 27), control: CGPoint(x: 4, y: 23))
-        inked(&c, legs, 3.2)
-        var shoes = Path()
-        shoes.addEllipse(in: CGRect(x: -15 - kick, y: 25, width: 10, height: 6))
-        shoes.addEllipse(in: CGRect(x: 5 + kick, y: 25, width: 10, height: 6))
-        c.fill(shoes, with: .color(Ink.ink))
-
-        // Body and curled tail, outlined as one shape.
-        var body = Path()
-        body.addEllipse(in: CGRect(x: -19, y: -19, width: 38, height: 37))
-        body.addEllipse(in: CGRect(x: -31, y: 1, width: 17, height: 16))
-        body.addEllipse(in: CGRect(x: -40, y: 8, width: 13, height: 12))
-        body.addEllipse(in: CGRect(x: -47, y: 13, width: 9, height: 9))
-        c.stroke(body, with: .color(Ink.ink), lineWidth: 6)
-        c.fill(body, with: .color(Ink.krill))
-        var bands = Path()
-        bands.move(to: CGPoint(x: -24, y: 3))
-        bands.addQuadCurve(to: CGPoint(x: -20, y: 15), control: CGPoint(x: -26, y: 10))
-        bands.move(to: CGPoint(x: -34, y: 10))
-        bands.addQuadCurve(to: CGPoint(x: -31, y: 19), control: CGPoint(x: -36, y: 15))
-        inked(&c, bands, 1.5)
-        c.fill(Path(ellipseIn: CGRect(x: -12, y: -15, width: 9, height: 6)), with: .color(Ink.glove.opacity(0.7)))
-
-        // Antennae with bobbles.
-        var feelers = Path()
-        let sway = CGFloat(sin(t * 3.1) * 3)
-        feelers.move(to: CGPoint(x: -6, y: -17))
-        feelers.addQuadCurve(to: CGPoint(x: -15 + sway, y: -38), control: CGPoint(x: -14, y: -24))
-        feelers.move(to: CGPoint(x: 6, y: -17))
-        feelers.addQuadCurve(to: CGPoint(x: 15 + sway, y: -40), control: CGPoint(x: 15, y: -26))
-        inked(&c, feelers, 2.2)
-        var bobbles = Path()
-        bobbles.addEllipse(in: CGRect(x: -19 + sway, y: -43, width: 8, height: 8))
-        bobbles.addEllipse(in: CGRect(x: 11 + sway, y: -45, width: 8, height: 8))
-        c.fill(bobbles, with: .color(Ink.krill))
-        inked(&c, bobbles, 1.8)
-
-        // Rubber hose arms out to white gloves, waving in turn.
-        let wave = CGFloat(sin(t * 5) * 5)
-        var arms = Path()
-        arms.move(to: CGPoint(x: -17, y: 3))
-        arms.addQuadCurve(to: CGPoint(x: -33, y: -8 + wave), control: CGPoint(x: -31, y: 12))
-        arms.move(to: CGPoint(x: 17, y: 3))
-        arms.addQuadCurve(to: CGPoint(x: 33, y: -10 - wave), control: CGPoint(x: 32, y: 12))
-        inked(&c, arms, 3.2)
-        for (gx, gy) in [(CGFloat(-33), -8 + wave), (CGFloat(33), -10 - wave)] {
-            var glove = Path()
-            glove.addEllipse(in: CGRect(x: gx - 7, y: gy - 8, width: 14, height: 13))
-            glove.addEllipse(in: CGRect(x: gx + (gx < 0 ? 3 : -8), y: gy - 4, width: 5, height: 6))
-            c.stroke(glove, with: .color(Ink.ink), lineWidth: 4)
-            c.fill(glove, with: .color(Ink.glove))
-            var fingers = Path()
-            for k in 0..<2 {
-                let fx = gx - 2 + CGFloat(k) * 4
-                fingers.move(to: CGPoint(x: fx, y: gy - 7))
-                fingers.addLine(to: CGPoint(x: fx, y: gy - 3))
-            }
-            fingers.move(to: CGPoint(x: gx - 6, y: gy + 4))
-            fingers.addLine(to: CGPoint(x: gx + 6, y: gy + 4))
-            inked(&c, fingers, 1.2)
-        }
-
-        // Face: pie eyes, rosy cheeks and a big grin.
-        pieEye(&c, CGPoint(x: -6.5, y: -5), 10, 14, look: 0.5)
-        pieEye(&c, CGPoint(x: 6.5, y: -5), 10, 14, look: 0.5)
-        c.fill(Path(ellipseIn: CGRect(x: -16, y: 3, width: 6, height: 4)), with: .color(Ink.cheek))
-        c.fill(Path(ellipseIn: CGRect(x: 10, y: 3, width: 6, height: 4)), with: .color(Ink.cheek))
-        var grin = Path()
-        grin.move(to: CGPoint(x: -9, y: 4))
-        grin.addQuadCurve(to: CGPoint(x: 9, y: 4), control: CGPoint(x: 0, y: 7))
-        grin.addQuadCurve(to: CGPoint(x: -9, y: 4), control: CGPoint(x: 0, y: 19))
-        grin.closeSubpath()
-        c.fill(grin, with: .color(Ink.ink))
-        c.fill(Path(ellipseIn: CGRect(x: -3.5, y: 8.5, width: 7, height: 3.5)), with: .color(Ink.tongue))
+        // Two poses, swapped on the beat like an old cartoon cycle.
+        let krill = c.resolve(Image(offBeat ? "deep-end-krill-b" : "deep-end-krill"))
+        c.draw(krill, in: artRect(krill, center: CGPoint(x: -4, y: -4), height: 98))
     }
 
     private func drawBubbles(_ ctx: inout GraphicsContext, _ sy: CGFloat) {

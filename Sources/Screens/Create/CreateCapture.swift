@@ -29,6 +29,11 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published private(set) var access: Access = .unknown
     @Published private(set) var front = true
     @Published private(set) var torch = false
+    /// Quarter turns clockwise applied to the camera's frames, kept between launches. 0 is upright on an iPhone 17 Pro.
+    @Published private(set) var turns = UserDefaults.standard.integer(forKey: CreateCamera.turnsKey)
+    private static let turnsKey = "dailies.create.cameraTurns"
+    /// The angle the camera queue applies. Touched only on the camera queue.
+    private var angle = Double(UserDefaults.standard.integer(forKey: CreateCamera.turnsKey) % 4) * 90
 
     let display = AVSampleBufferDisplayLayer()
     /// The person alone, on a clear background.
@@ -113,6 +118,17 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         }
     }
 
+    /// Turns the picture a quarter turn clockwise.
+    func rotate() {
+        turns = (turns + 1) % 4
+        UserDefaults.standard.set(turns, forKey: Self.turnsKey)
+        let next = Double(turns) * 90
+        queue.async {
+            self.angle = next
+            self.orient()
+        }
+    }
+
     /// The flash is the back camera's torch. Returns false when the camera in use has none.
     @discardableResult
     func setFlash(_ on: Bool) -> Bool {
@@ -155,10 +171,10 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         session.commitConfiguration()
     }
 
-    /// Upright frames, mirrored for the front camera like a mirror.
+    /// Frames turned by `angle`, mirrored for the front camera like a mirror.
     private func orient() {
         guard let connection = videoOut.connection(with: .video) else { return }
-        if connection.isVideoRotationAngleSupported(90) { connection.videoRotationAngle = 90 }
+        if connection.isVideoRotationAngleSupported(angle) { connection.videoRotationAngle = angle }
         if connection.isVideoMirroringSupported {
             connection.automaticallyAdjustsVideoMirroring = false
             connection.isVideoMirrored = front
