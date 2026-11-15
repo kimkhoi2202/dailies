@@ -64,7 +64,7 @@ struct CreateReplayStage<Camera: View>: View {
                 Color.black
                 scene.frame(width: w, height: h)
                 switch layout {
-                case .cutout:
+                case .cutout, .window:
                     // A camera-only recording still has its background, so it sits as a card low on the game.
                     camera()
                         .frame(width: w * 0.42, height: w * 0.42 * 16 / 9)
@@ -76,6 +76,10 @@ struct CreateReplayStage<Camera: View>: View {
                         .clipShape(Circle())
                         .overlay(Circle().strokeBorder(.white.opacity(0.8), lineWidth: 2))
                         .position(x: w - 76, y: 140)
+                case .top:
+                    camera()
+                        .frame(width: w, height: h * 0.34)
+                        .clipped()
                 }
             }
         }

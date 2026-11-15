@@ -459,6 +459,8 @@ struct WhopSendSheet: View {
 
 /// On your own profile, under Clips: what your clips brought in, the way to the studio, and the clips.
 struct WhopProfileClips: View {
+    /// false when the profile shows the clips itself, as a grid above the earnings.
+    var showsClips = true
     @ObservedObject private var whop = WhopStore.shared
 
     var body: some View {
@@ -493,7 +495,9 @@ struct WhopProfileClips: View {
             }
             .dlCard(padding: 14)
             .opens(.studio)
-            if clips.isEmpty {
+            if !showsClips {
+                EmptyView()
+            } else if clips.isEmpty {
                 Text("Clips you post show up here.")
                     .font(DL.text(15))
                     .foregroundStyle(DL.ink2)

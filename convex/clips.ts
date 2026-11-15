@@ -18,7 +18,7 @@ export const create = mutation({
     storageId: v.optional(v.id("_storage")),
     roundId: v.optional(v.id("rounds")),
     caption: v.string(),
-    layout: v.union(v.literal("cutout"), v.literal("bubble"), v.literal("window")),
+    layout: v.union(v.literal("cutout"), v.literal("bubble"), v.literal("window"), v.literal("top")),
     durationMs: v.number(),
     visibility: v.union(v.literal("friends"), v.literal("everyone")),
   },

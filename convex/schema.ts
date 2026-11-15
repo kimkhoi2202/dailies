@@ -177,7 +177,7 @@ export default defineSchema({
     score: v.optional(v.number()),
     seed: v.optional(v.number()),
     caption: v.string(),
-    layout: v.union(v.literal("cutout"), v.literal("bubble"), v.literal("window")),
+    layout: v.union(v.literal("cutout"), v.literal("bubble"), v.literal("window"), v.literal("top")),
     durationMs: v.number(),
     visibility: v.union(v.literal("friends"), v.literal("everyone")),
     likes: v.number(),
