@@ -179,6 +179,22 @@ const GAMES = [
     dislikes: 14,
     scores: [544, 812, 160, 305, 418, 690],
   },
+  {
+    slug: "letter-rush",
+    title: "Letter Rush",
+    studio: "Paper Lantern",
+    pitch: "Drag a word. Beat the clock.",
+    how: "Drag through touching letters to spell a word, diagonals too, then lift to submit. Longer words score more. Same board for both players, 80 seconds.",
+    minPlayers: 2,
+    maxPlayers: 2,
+    mode: "competitive" as const,
+    category: "Word",
+    unit: "points",
+    goldPerMinute: 1.1,
+    likes: 275,
+    dislikes: 18,
+    scores: [2600, 3500, 1900, 1200, 2100, 2900],
+  },
 ];
 
 const PLAYERS = [
@@ -202,6 +218,7 @@ const COMMENTS: Record<string, string[]> = {
   "wild-eights": ["held my eight until the last card. nobody saw it coming", "drew six times in a row and still went out first"],
   "brick-out": ["cleared four boards and lost on the fifth with one move left", "the yellow one was blocking everything the whole time"],
   "daily-grid": ["five boards in three minutes and not one wrong crown", "the lilac region got me twice"],
+  "letter-rush": ["found a six letter word with two seconds left", "we had the same board and still found different words"],
 };
 
 export const run = internalMutation({

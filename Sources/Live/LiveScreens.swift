@@ -24,6 +24,7 @@ enum LiveBoard {
         "slip-out": ["kaz": 71, "wordnerd.sam": 64, "juno": 55, "devon.plays": 47, "noor.runs": 39, "tofu": 26],
         "wild-eights": ["kaz": 168, "juno": 141, "devon.plays": 126, "wordnerd.sam": 97, "tofu": 72, "noor.runs": 44],
         "daily-grid": ["kaz": 812, "wordnerd.sam": 690, "devon.plays": 544, "juno": 418, "tofu": 305, "noor.runs": 160],
+        "letter-rush": ["wordnerd.sam": 3500, "kaz": 2900, "devon.plays": 2600, "juno": 2100, "noor.runs": 1900, "tofu": 1200],
     ]
 
     /// Everyone on the board, best score first.
@@ -37,7 +38,7 @@ enum LiveBoard {
     static func unit(for game: MockGame) -> String {
         switch game.kind {
         case .tippyTower: "floors"
-        case .fiveUp, .spiralDrop, .blockParty, .wildEights: "points"
+        case .fiveUp, .spiralDrop, .blockParty, .wildEights, .letterRush: "points"
         case .laneDash: "metres"
         case .inkland: "share of the land"
         case .gulpCity: "share of the city"
@@ -63,7 +64,7 @@ enum LiveBoard {
         let apart = abs(a - b)
         switch game.kind {
         case .tippyTower: return apart == 1 ? "1 floor" : "\(apart) floors"
-        case .fiveUp, .spiralDrop, .blockParty, .wildEights: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .fiveUp, .spiralDrop, .blockParty, .wildEights, .letterRush: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .laneDash: return "\(groupedNumber(apart)) m"
         case .inkland, .gulpCity: return text(apart, game)
         case .slipOut: return apart == 1 ? "1 arrow" : "\(apart) arrows"

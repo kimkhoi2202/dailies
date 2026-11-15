@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush
 }
 
 struct MockGame: Identifiable {
@@ -60,6 +60,7 @@ struct MockGame: Identifiable {
         case .wildEights: WildEightsScene(phase: moment, showHUD: showHUD)
         case .brickOut: BrickOutScene(phase: moment, showHUD: showHUD)
         case .dailyGrid: DailyGridScene(phase: moment, showHUD: showHUD)
+        case .letterRush: LetterRushScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -234,7 +235,14 @@ enum Mock {
         plays: "214K", likes: "28.6K", dislikes: "1.4K", approval: 95,
         bestScore: "640 points", clipPhase: 0.85, tint: Color(red: 0.85, green: 0.66, blue: 0.80))
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut, dailyGrid]
+    static let letterRush = MockGame(
+        id: "letter-rush", kind: .letterRush, title: "Letter Rush", tagline: "Drag a word. Beat the clock.",
+        category: "Word", players: "2 players", mode: "Competitive", studio: "Paper Lantern",
+        goldPerMinute: 1.1, avgSession: "1m 40s", seedEarned: 0,
+        plays: "214K", likes: "27.5K", dislikes: "1.8K", approval: 94,
+        bestScore: "3,500 points", clipPhase: 0.85, tint: Color(red: 0.96, green: 0.70, blue: 0.0))
+
+    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush]
 
     // MARK: Videos
 

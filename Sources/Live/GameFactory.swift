@@ -15,6 +15,7 @@ enum GameFactory {
         case .wildEights: WildEightsGame(options: options, link: link)
         case .brickOut: BrickOutGame(options: options, link: link)
         case .dailyGrid: DailyGridGame(options: options, link: link)
+        case .letterRush: LetterRushGame(options: options, link: link)
         }
     }
 }
