@@ -3,11 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { api } from '@/convex/_generated/api';
 
+import { catalog } from './catalog';
 import { useDay } from './day';
 
 const KEY = 'dailies.device';
@@ -83,9 +84,11 @@ export function useMe() {
   return useQuery(api.users.me, { day });
 }
 
+/** The games on the server that this build of the app carries. */
 export function useGames() {
   const day = useDay();
-  return useQuery(api.games.list, { day });
+  const games = useQuery(api.games.list, { day });
+  return useMemo(() => games?.filter((game) => game.slug in catalog), [games]);
 }
 
 export function useGame(slug: string) {
