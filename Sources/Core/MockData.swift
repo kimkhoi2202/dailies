@@ -38,6 +38,16 @@ struct MockGame: Identifiable {
     /// The main colour of the game's art.
     let tint: Color
 
+    /// This game with the server's counts in place of the sample ones.
+    func counting(_ row: ConvexGame) -> MockGame {
+        let votes = row.likes + row.dislikes
+        return MockGame(id: id, kind: kind, title: title, tagline: tagline, category: category, players: players, mode: mode,
+                        studio: studio, goldPerMinute: row.goldPerMinute, avgSession: avgSession, seedEarned: seedEarned,
+                        plays: Mock.compact(row.plays), likes: Mock.compact(row.likes), dislikes: Mock.compact(row.dislikes),
+                        approval: votes > 0 ? Int((row.likes * 100 / votes).rounded()) : approval,
+                        bestScore: bestScore, clipPhase: clipPhase, tint: tint)
+    }
+
     var capToday: Int { Mock.perGameDailyCap }
     var earnedToday: Int { LiveStore.shared.earnedToday(id) }
     /// Gold this game can still give today, after the game's limit and its studio's.
@@ -109,18 +119,40 @@ struct MockNotification: Identifiable {
 enum Mock {
     // MARK: The player
 
-    static let handle = "mira"
-    static let displayName = "Mira Okafor"
+    /// The signed-in player's name. Mira stands in until the server answers.
+    static var handle: String { LiveStore.shared.me?.handle ?? "mira" }
+    static var displayName: String { LiveStore.shared.me?.name ?? "Mira Okafor" }
+
+    /// "1.2M", "148K", "9.6K", "812".
+    static func compact(_ count: Double) -> String {
+        let n = max(0, count)
+        func short(_ value: Double, _ suffix: String) -> String {
+            let text = String(format: value >= 100 ? "%.0f" : "%.1f", value)
+            return (text.hasSuffix(".0") ? String(text.dropLast(2)) : text) + suffix
+        }
+        if n >= 999_950 { return short(n / 1_000_000, "M") }
+        if n >= 1000 { return short(n / 1000, "K") }
+        return String(Int(n.rounded()))
+    }
     static var balance: Int { LiveStore.shared.s.balance }
     static var earnedToday: Int { LiveStore.shared.earnedTodayTotal }
     /// The near goal, shown as "today's gold".
     static let dailyGoal = 10
     static var streakDays: Int { LiveStore.shared.s.streak }
-    /// Sunday to Saturday.
-    static let streakWeek = [false, true, true, true, true, true, true]
-    static let weekInitials = ["S", "M", "T", "W", "T", "F", "S"]
+    /// The last seven days, today last: the ones inside the current streak.
+    static var streakWeek: [Bool] {
+        let saved = LiveStore.shared.s
+        // The streak ends today if a round gave gold today, otherwise yesterday.
+        let last = saved.lastPlayDay == saved.day ? 6 : 5
+        return (0..<7).map { $0 <= last && $0 > last - saved.streak }
+    }
+    /// The initials of the last seven days, today last.
+    static var weekInitials: [String] {
+        let today = Calendar.current.component(.weekday, from: Date()) - 1
+        return (1...7).map { ["S", "M", "T", "W", "T", "F", "S"][(today + $0) % 7] }
+    }
     static let restDaysLeft = 2
-    static var gamesPlayed: Int { 38 + LiveStore.shared.s.rounds }
+    static var gamesPlayed: Int { LiveStore.shared.s.rounds }
     static let minutesThisWeek = 212
     static var resetIn: String { LiveStore.shared.resetIn }
     static let dateLine = "Saturday 14 November"
@@ -131,11 +163,11 @@ enum Mock {
     static let friendsOnline = 3
     /// The friends who join a round, in the order they join.
     static let playFriends = ["kaz", "devon.plays", "noor.runs", "tofu", "juno"]
-    static let continuePlaying: [(game: MockGame, note: String)] = [
+    static var continuePlaying: [(game: MockGame, note: String)] { [
         (tippyTower, "Your best: 41 floors"),
         (fiveUp, "Your turn against kaz"),
         (laneDash, "devon.plays wants a rematch"),
-    ]
+    ] }
     static let playerFilters = ["All", "2 players", "4 players", "6 players", "Casual", "Competitive"]
 
     // MARK: Gold rules
@@ -152,70 +184,97 @@ enum Mock {
 
     // MARK: Games
 
-    static let tippyTower = MockGame(
+    // The six games as the app ships them. Their counts are samples, shown until the server's first answer.
+    private static let sampleGames = [
+      MockGame(
         id: "tippy-tower", kind: .tippyTower, title: "Tippy Tower", tagline: "Stack it. Don't blink.",
         category: "Arcade", players: "1 to 4 players", mode: "Casual", studio: "Wobble Works",
         goldPerMinute: 1.0, avgSession: "1m 35s", seedEarned: 12,
         plays: "1.2M", likes: "148K", dislikes: "9.6K", approval: 94,
-        bestScore: "41 floors", clipPhase: 0.85, tint: Color(red: 0.36, green: 0.80, blue: 0.62))
+        bestScore: "41 floors", clipPhase: 0.85, tint: Color(red: 0.36, green: 0.80, blue: 0.62)),
 
-    static let fiveUp = MockGame(
+      MockGame(
         id: "five-up", kind: .fiveUp, title: "Five Up", tagline: "Six tries. One word.",
         category: "Word", players: "2 players", mode: "Competitive", studio: "Paper Lantern",
         goldPerMinute: 1.1, avgSession: "3m 10s", seedEarned: 4,
         plays: "482K", likes: "61.2K", dislikes: "2.9K", approval: 95,
-        bestScore: "3 tries", clipPhase: 0.85, tint: Color(red: 0.11, green: 0.62, blue: 0.58))
+        bestScore: "3 tries", clipPhase: 0.85, tint: Color(red: 0.11, green: 0.62, blue: 0.58)),
 
-    static let laneDash = MockGame(
+      MockGame(
         id: "lane-dash", kind: .laneDash, title: "Lane Dash", tagline: "Three lanes. No brakes.",
         category: "Runner", players: "2 to 6 players", mode: "Competitive", studio: "Second Wind",
         goldPerMinute: 1.0, avgSession: "2m 20s", seedEarned: 100,
         plays: "655K", likes: "72.9K", dislikes: "9.4K", approval: 89,
-        bestScore: "2,840 m", clipPhase: 0.5, tint: Color(red: 0.98, green: 0.45, blue: 0.42))
+        bestScore: "2,840 m", clipPhase: 0.5, tint: Color(red: 0.98, green: 0.45, blue: 0.42)),
 
-    static let inkland = MockGame(
+      MockGame(
         id: "inkland", kind: .inkland, title: "Inkland", tagline: "Draw a loop. Keep the land.",
         category: "Multiplayer", players: "4 to 6 players", mode: "Competitive", studio: "Nine Lives",
         goldPerMinute: 1.2, avgSession: "3m 30s", seedEarned: 0,
         plays: "268K", likes: "33.8K", dislikes: "7.6K", approval: 82,
-        bestScore: "34.2%", clipPhase: 0.85, tint: Color(red: 0.96, green: 0.45, blue: 0.60))
+        bestScore: "34.2%", clipPhase: 0.85, tint: Color(red: 0.96, green: 0.45, blue: 0.60)),
 
-    static let spiralDrop = MockGame(
+      MockGame(
         id: "spiral-drop", kind: .spiralDrop, title: "Spiral Drop", tagline: "Fall with style.",
         category: "Arcade", players: "1 or 2 players", mode: "Casual", studio: "Wobble Works",
         goldPerMinute: 0.9, avgSession: "2m 00s", seedEarned: 0,
         plays: "903K", likes: "97.4K", dislikes: "8.1K", approval: 92,
-        bestScore: "Level 23", clipPhase: 0.5, tint: Color(red: 0.10, green: 0.55, blue: 0.70))
+        bestScore: "Level 23", clipPhase: 0.5, tint: Color(red: 0.10, green: 0.55, blue: 0.70)),
 
-    static let gulpCity = MockGame(
+      MockGame(
         id: "gulp-city", kind: .gulpCity, title: "Gulp City", tagline: "Eat the block.",
         category: "Casual", players: "2 to 4 players", mode: "Casual", studio: "Nine Lives",
         goldPerMinute: 1.0, avgSession: "2m 00s", seedEarned: 0,
         plays: "371K", likes: "40.3K", dislikes: "3.9K", approval: 91,
-        bestScore: "87%", clipPhase: 0.85, tint: Color(red: 0.55, green: 0.80, blue: 0.70))
+        bestScore: "87%", clipPhase: 0.85, tint: Color(red: 0.55, green: 0.80, blue: 0.70)),
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity]
+    ]
+
+    private static var counted: (version: Int, games: [MockGame], clips: [MockClip]) = (-1, [], [])
+
+    /// Rebuilds the games and clips when the server's catalog has changed since they were last built.
+    private static func refresh() {
+        let store = LiveStore.shared
+        guard counted.version != store.catalogVersion else { return }
+        let games = sampleGames.map { game in store.catalog.first { $0.slug == game.id }.map(game.counting) ?? game }
+        let clips = sampleClips.map { clip in
+            // Comments belong to the game, so a clip shows its game's count once the server has it.
+            let posted = store.catalog.first { $0.slug == clip.game }.map { Mock.compact($0.comments) }
+            return MockClip(id: clip.id, game: games.first { $0.id == clip.game } ?? games[0], player: clip.player,
+                            caption: clip.caption, length: clip.length, comments: posted ?? clip.comments, shares: clip.shares)
+        }
+        counted = (store.catalogVersion, games, clips)
+    }
+
+    static var games: [MockGame] { refresh(); return counted.games }
+    static var tippyTower: MockGame { games[0] }
+    static var fiveUp: MockGame { games[1] }
+    static var laneDash: MockGame { games[2] }
+    static var inkland: MockGame { games[3] }
+    static var spiralDrop: MockGame { games[4] }
+    static var gulpCity: MockGame { games[5] }
 
     // MARK: Videos
 
-    static let clips = [
-        MockClip(id: "c1", game: tippyTower, player: "devon.plays",
+    private static let sampleClips: [(id: String, game: String, player: String, caption: String, length: String, comments: String, shares: String)] = [
+        (id: "c1", game: "tippy-tower", player: "devon.plays",
                  caption: "nine perfect drops in a row, then this", length: "0:42", comments: "312", shares: "1.9K"),
-        MockClip(id: "c2", game: fiveUp, player: "wordnerd.sam",
+        (id: "c2", game: "five-up", player: "wordnerd.sam",
                  caption: "got it in five. my group chat is furious", length: "0:31", comments: "540", shares: "2.2K"),
-        MockClip(id: "c3", game: laneDash, player: "noor.runs",
+        (id: "c3", game: "lane-dash", player: "noor.runs",
                  caption: "the near miss at the end. I stopped breathing", length: "0:38", comments: "121", shares: "640"),
-        MockClip(id: "c4", game: inkland, player: "juno",
+        (id: "c4", game: "inkland", player: "juno",
                  caption: "took a fifth of the map in one loop", length: "0:27", comments: "76", shares: "305"),
-        MockClip(id: "c5", game: spiralDrop, player: "kaz",
+        (id: "c5", game: "spiral-drop", player: "kaz",
                  caption: "eleven floors without touching red", length: "0:35", comments: "198", shares: "977"),
-        MockClip(id: "c6", game: gulpCity, player: "tofu",
+        (id: "c6", game: "gulp-city", player: "tofu",
                  caption: "swallowed the whole block with two seconds left", length: "0:29", comments: "88", shares: "412"),
     ]
+    static var clips: [MockClip] { refresh(); return counted.clips }
 
     // MARK: A finished round of Tippy Tower
 
-    static let roundGame = tippyTower
+    static var roundGame: MockGame { tippyTower }
     static let roundScore = "41"
     static let roundScoreLabel = "floors"
     static let roundLength = "2m 48s"
@@ -225,7 +284,7 @@ enum Mock {
 
     // MARK: A round that reaches the daily limit, in Lane Dash
 
-    static let capGame = laneDash
+    static var capGame: MockGame { laneDash }
     static let capRoundGold = 2
     static let capBalanceAfter = 400
     static var capOtherGamesWithGold: Int { games.filter { !$0.isFullToday }.count }
@@ -258,21 +317,12 @@ enum Mock {
     static let savingPrice = 500
     static let savingEta = "About two more days"
 
-    /// Everything collected or spent, newest first: the player's own rounds, then the story so far.
-    /// The story's rows add up to the starting numbers (Lane Dash 98, Tippy Tower 12, Five Up 4).
+    /// Everything the player collected or spent, newest first, from the server's ledger.
     static var transactions: [MockTransaction] {
-        let own = LiveStore.shared.s.txns.map { entry in
+        LiveStore.shared.s.txns.map { entry in
             MockTransaction(title: entry.title, detail: entry.detail, amount: entry.amount,
                             time: LiveStore.timeText(entry.date), game: games.first { $0.id == entry.gameID }?.kind)
         }
-        return own + [
-            MockTransaction(title: "Extra guess", detail: "Spent in Five Up", amount: -5, time: "11:20", game: .fiveUp),
-            MockTransaction(title: "Five Up", detail: "4m played", amount: 4, time: "11:18", game: .fiveUp),
-            MockTransaction(title: "Lane Dash", detail: "1h 38m played", amount: 98, time: "10:02", game: .laneDash),
-            MockTransaction(title: "Tippy Tower", detail: "12m played", amount: 12, time: "08:40", game: .tippyTower),
-            MockTransaction(title: "Comet trail", detail: "Spent in Lane Dash", amount: -40, time: "Yesterday", game: .laneDash),
-            MockTransaction(title: "Spiral Drop", detail: "8m played", amount: 7, time: "Yesterday", game: .spiralDrop),
-        ]
     }
 
     // MARK: Spending
@@ -310,7 +360,7 @@ enum Mock {
     static let studioPlaysByDay = [5.2, 6.1, 5.8, 7.9, 9.4, 11.0, 12.4]
 
     // The review of a submitted game
-    static let reviewGame = spiralDrop
+    static var reviewGame: MockGame { spiralDrop }
     static let reviewSessions = 240
     static let reviewMedianSession = "2m 04s"
     static let reviewRate = "0.9"
