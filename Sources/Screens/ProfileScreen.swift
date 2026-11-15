@@ -190,13 +190,13 @@ struct ProfileScreen: View {
             if isMe {
                 DLMediaButton(symbol: "pencil", size: 40).opens(.shop("closet")).accessibilityLabel("Edit your Dailie")
                 DLMediaButton(symbol: "square.and.arrow.up", size: 40)
-                    .tap { LiveNav.shared.share("Come and see my Dailie. I am @\(Mock.handle) on Dailies.") }
+                    .tap { LiveNav.shared.share("Come and see my Dailie. I am @\(Mock.handle) on DEGEN.") }
                     .accessibilityLabel("Share")
                 DLMediaButton(symbol: "gearshape.fill", size: 40).opens(.settings).accessibilityLabel("Settings")
                 ShopPill().opens(.shop(nil))
             } else {
                 DLMediaButton(symbol: "square.and.arrow.up", size: 40)
-                    .tap { LiveNav.shared.share("Come and play with @\(handle) on Dailies.") }
+                    .tap { LiveNav.shared.share("Come and play with @\(handle) on DEGEN.") }
                     .accessibilityLabel("Share")
             }
         }
