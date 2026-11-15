@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-11-15T18:02:39Z
-- **Last updated:** 2026-11-15T21:13:57Z
+- **Last updated:** 2026-11-15T22:37:19Z
 
 ## Log
 
@@ -108,3 +108,30 @@ draws the game's clip in Videos (`Sources/Games/ShortStackGame.swift`,
 reference for the rules and the feel of the table; the game was written again in
 Swift today. It is in the catalog and seeded in Convex with its friends' scores
 and comments (`Sources/Core/MockData.swift`, `convex/seed.ts`).
+
+### 2026-11-15 - b72b9a1
+Tuned Short Stack. A sitting is seven hands. The other seats now stay in against
+a raise of any size once their hand is strong enough, so going all in on every
+hand stops working, and they take a little longer to act. Every seat has the same
+plate, and the seat to act wears a gold ring that runs down with its time. The
+game's clip in Videos is timed to the feed and lights the keys while the table
+waits for the player (`Sources/Games/ShortStackGame.swift`,
+`Sources/Games/ShortStackScene.swift`). The results screen has one Again key
+(`Sources/Screens/GameScreens.swift`).
+
+### 2026-11-15 - 271209b
+Renamed the app to DEGEN wherever a person reads the name: under the icon, in
+share text, in Settings and in accessibility labels. The logo on Home is drawn in
+code, the D mark followed by EGEN, in place of two lockup images
+(`Sources/DS/Components.swift`, `project.yml`). The repository, the Xcode
+target, the bundle id and the Convex project keep the name Dailies. Replaced the
+app icon with one 1024 px image
+(`Resources/Assets.xcassets/AppIcon.appiconset`). Prepared the app for App Store
+Connect: version 1.0.0, the games category, the export compliance answer, iPhone
+as the only device, and a privacy manifest that declares UserDefaults, no
+tracking and no collected data (`project.yml`, `Resources/PrivacyInfo.xcprivacy`).
+An archive of this commit, signed for the team's App Store Connect account under
+its own bundle id, was uploaded to TestFlight as 1.0.0 (3). It is available to
+the team's internal testers and is waiting for Apple's beta review, which the
+public TestFlight link needs before it opens. After the merge, `main` was built
+on Revyl and opened on a cloud iPhone, where Home loaded with all seven games.
