@@ -227,7 +227,7 @@ struct CreateCameraScreen: View {
         _centeredID = State(initialValue: startGameID ?? Mock.games.first?.id)
         _userPicked = State(initialValue: startGameID != nil)
         // `-gameOn 1` opens with the game on and `-layout <name>` picks the layout, for checking the camera without tapping.
-        _gameOn = State(initialValue: MockArgs.value("-gameOn") == "1")
+        _gameOn = State(initialValue: MockArgs.value("-gameOn").map { $0 == "1" } ?? true)
         _layout = State(initialValue: MockArgs.value("-layout").flatMap(CreateLayout.init(rawValue:)) ?? .cutout)
     }
 
