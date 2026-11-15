@@ -325,6 +325,15 @@ final class JamSlideModel {
         if movesLeft <= 0 { end("Out of moves") }
     }
 
+    /// The touch was taken away (the app paused the game, the system cancelled it). The block
+    /// eases back to its cell, nothing goes through a gate and no move is spent.
+    func cancelDrag() {
+        guard let d = drag else { return }
+        drag = nil
+        guard d.axis >= 0, d.index < blocks.count else { return }
+        glides.append(JamSlideGlide(id: blocks[d.index].id, axis: d.axis, offset: d.shift, age: 0))
+    }
+
     /// One of the three buttons at the bottom: freeze the clock, break a block, a new board.
     func useBooster(_ k: Int) {
         guard stage == .ready || stage == .playing, k >= 0, k < 3 else { return }
@@ -825,6 +834,8 @@ final class JamSlideRunner: ObservableObject {
     private var reported = false
     /// Made the first time it is needed, which is only when GameDemo.autopilot is on.
     private var pilot: JamSlidePilot?
+    /// A finger is down and its gesture has not ended normally yet.
+    private var fingerDown = false
 
     init(options: GameOptions) {
         model = JamSlideModel(options: options)
@@ -861,6 +872,9 @@ final class JamSlideRunner: ObservableObject {
 
     func down(at p: CGPoint, in size: CGSize, link: GameLink) {
         if link.paused || link.isFinished || GameDemo.autopilot { return }
+        // A touch the system cancelled never reached up(), so its drag may still be held.
+        model.cancelDrag()
+        fingerDown = true
         let lay = layout(size)
         let k = lay.booster(at: p)
         if k >= 0 {
@@ -881,7 +895,25 @@ final class JamSlideRunner: ObservableObject {
 
     func up(link: GameLink) {
         if GameDemo.autopilot { return }
+        fingerDown = false
         model.touchUp()
+        settle(link)
+    }
+
+    /// The touch flag went back to false. When the gesture did not end normally (the system took
+    /// the touch away), the block goes back instead of being dropped. Checked on the next pass so a
+    /// normal end has had its say first.
+    func released(link: GameLink) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.fingerDown else { return }
+            self.cancel(link: link)
+        }
+    }
+
+    /// The app paused the game, or the touch was cancelled.
+    func cancel(link: GameLink) {
+        fingerDown = false
+        model.cancelDrag()
         settle(link)
     }
 
@@ -923,7 +955,7 @@ public struct JamSlideGame: View {
 private struct JamSlideRound: View {
     @ObservedObject var link: GameLink
     @StateObject private var runner: JamSlideRunner
-    @State private var isDown = false
+    @GestureState private var touching = false
 
     init(options: GameOptions, link: GameLink) {
         self.link = link
@@ -937,25 +969,26 @@ private struct JamSlideRound: View {
             }
             .contentShape(Rectangle())
             .gesture(
+                // The flag clears itself when the touch ends or is cancelled, so a new touch always
+                // starts with down().
                 DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                    .onChanged { value in
-                        if !isDown {
-                            isDown = true
+                    .updating($touching) { value, down, _ in
+                        if !down {
+                            down = true
                             runner.down(at: value.startLocation, in: geo.size, link: link)
                         }
                         runner.move(to: value.location, in: geo.size, link: link)
                     }
                     .onEnded { _ in
-                        isDown = false
                         runner.up(link: link)
                     }
             )
         }
+        .onChange(of: touching) { _, down in
+            if !down { runner.released(link: link) }
+        }
         .onChange(of: link.paused) { _, paused in
-            if paused {
-                isDown = false
-                runner.up(link: link)
-            }
+            if paused { runner.cancel(link: link) }
         }
         .ignoresSafeArea()
         .accessibilityElement()

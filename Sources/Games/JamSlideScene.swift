@@ -429,6 +429,9 @@ struct JamSlideLayout {
     let W: Double
     let H: Double
     let u: Double
+    /// The scale of the HUD and the boosters. It follows the width alone, so text stays readable
+    /// on short phones, where u shrinks with the height.
+    let ui: Double
     let cols: Int
     let rows: Int
     let cell: Double
@@ -440,10 +443,11 @@ struct JamSlideLayout {
         W = Double(size.width)
         H = Double(size.height)
         u = Swift.min(W / 402, H / 874)
+        ui = Self.hudScale(width: W)
         self.cols = Swift.max(1, cols)
         self.rows = Swift.max(1, rows)
-        let top = Double(GameLayout.topBand) + 8 + 38 * u + 22 * u
-        let bottom = H - Double(GameLayout.bottomInset) - 112 * u
+        let top = Double(GameLayout.topBand) + 8 + 38 * ui + 22 * u
+        let bottom = H - Double(GameLayout.bottomInset) - 112 * ui
         let band = Self.frameBand * u
         let wide = (W - 48 * u - 2 * band) / Double(self.cols)
         let tall = (bottom - top - 2 * band - 24 * u) / Double(self.rows)
@@ -451,6 +455,8 @@ struct JamSlideLayout {
         originX = (W - cell * Double(self.cols)) / 2
         originY = (top + bottom - cell * Double(self.rows)) / 2
     }
+
+    static func hudScale(width: Double) -> Double { Swift.min(width / 402, 1.08) }
 
     var band: Double { Self.frameBand * u }
 
@@ -472,31 +478,31 @@ struct JamSlideLayout {
 
     /// The clock, between the app's two corners and under the status bar.
     var timerRect: CGRect {
-        CGRect(x: W / 2 - 66 * u, y: Double(GameLayout.statusBarHeight) + 2, width: 132 * u, height: 40 * u)
+        CGRect(x: W / 2 - 66 * ui, y: Double(GameLayout.statusBarHeight) + 2, width: 132 * ui, height: 40 * ui)
     }
 
     /// The row under the app's band: level on the left, moves in the middle, points on the right.
     var rowY: Double { Double(GameLayout.topBand) + 8 }
 
-    var levelRect: CGRect { CGRect(x: 16 * u, y: rowY, width: 108 * u, height: 38 * u) }
+    var levelRect: CGRect { CGRect(x: 16 * ui, y: rowY, width: 108 * ui, height: 38 * ui) }
 
-    var scoreRect: CGRect { CGRect(x: W - 140 * u, y: rowY, width: 124 * u, height: 38 * u) }
+    var scoreRect: CGRect { CGRect(x: W - 140 * ui, y: rowY, width: 124 * ui, height: 38 * ui) }
 
-    var scoreIcon: CGPoint { CGPoint(x: scoreRect.minX + 20 * u, y: scoreRect.midY) }
+    var scoreIcon: CGPoint { CGPoint(x: scoreRect.minX + 20 * ui, y: scoreRect.midY) }
 
     var chestCenter: CGPoint { CGPoint(x: board.midX, y: board.midY + 34 * u) }
 
-    var boosterY: Double { H - Double(GameLayout.bottomInset) - 44 * u }
+    var boosterY: Double { H - Double(GameLayout.bottomInset) - 44 * ui }
 
     func boosterRect(_ k: Int) -> CGRect {
-        let s = Self.boosterSize * u
-        let cx = W / 2 + Double(k - 1) * Self.boosterGap * u
+        let s = Self.boosterSize * ui
+        let cx = W / 2 + Double(k - 1) * Self.boosterGap * ui
         return CGRect(x: cx - s / 2, y: boosterY - s / 2, width: s, height: s)
     }
 
     /// The booster under a touch, or -1.
     func booster(at p: CGPoint) -> Int {
-        for k in 0..<3 where boosterRect(k).insetBy(dx: -8 * u, dy: -8 * u).contains(p) { return k }
+        for k in 0..<3 where boosterRect(k).insetBy(dx: -8 * ui, dy: -8 * ui).contains(p) { return k }
         return -1
     }
 }
@@ -510,11 +516,14 @@ struct JamSlidePainter {
     let W: Double
     let H: Double
     let u: Double
+    /// The HUD's own scale, from JamSlideLayout.
+    let ui: Double
 
     init(size: CGSize) {
         W = Double(size.width)
         H = Double(size.height)
         u = Swift.min(W / 402, H / 874)
+        ui = JamSlideLayout.hudScale(width: W)
     }
 
     func draw(_ ctx: inout GraphicsContext, _ f: JamSlideFrame) {
@@ -556,6 +565,10 @@ struct JamSlidePainter {
 
     private func font(_ size: Double, _ weight: Font.Weight = .heavy) -> Font {
         .system(size: size * u, weight: weight, design: .rounded)
+    }
+
+    private func hudFont(_ size: Double, _ weight: Font.Weight = .heavy) -> Font {
+        .system(size: size * ui, weight: weight, design: .rounded)
     }
 
     /// A four-pointed spark in a block color with a white heart. angle turns it.
@@ -917,6 +930,7 @@ struct JamSlidePainter {
     // MARK: HUD
 
     private func drawHUD(_ ctx: inout GraphicsContext, _ lay: JamSlideLayout, _ f: JamSlideFrame) {
+        let u = ui
         // The clock, between the app's corners.
         let pill = lay.timerRect
         let r = Double(pill.height) / 2
@@ -929,7 +943,7 @@ struct JamSlidePainter {
         let whole = Swift.max(0, Int(f.timeLeft.rounded(.up)))
         let clock = String(format: "%d:%02d", whole / 60, whole % 60)
         let ink = f.frozen ? P.ice : (low ? P.alarm : P.ink)
-        let clockText = Text(clock).font(font(22, .heavy)).monospacedDigit()
+        let clockText = Text(clock).font(hudFont(22, .heavy)).monospacedDigit()
         ctx.draw(clockText.foregroundColor(ink.color()), at: CGPoint(x: Double(pill.midX) + 11 * u, y: Double(pill.midY)), anchor: .center)
         let iconC = CGPoint(x: Double(pill.minX) + 22 * u, y: Double(pill.midY))
         if f.frozen {
@@ -956,12 +970,12 @@ struct JamSlidePainter {
         ctx.fill(rounded(badge, br), with: .color(P.badge.color()))
         let sheen = CGRect(x: Double(badge.minX) + 10 * u, y: Double(badge.minY) + 4 * u, width: Double(badge.width) - 20 * u, height: 9 * u)
         ctx.fill(rounded(sheen, 4.5 * u), with: .color(Color.white.opacity(0.18)))
-        let levelText = Text("LEVEL \(f.level)").font(font(16, .black)).kerning(0.8 * u)
+        let levelText = Text("LEVEL \(f.level)").font(hudFont(16, .black)).kerning(0.8 * u)
         ctx.draw(levelText.foregroundColor(.white), at: CGPoint(x: badge.midX, y: badge.midY), anchor: .center)
 
         // Moves left, between the two.
         let left = Swift.max(0, f.movesLeft)
-        let movesText = Text(left == 1 ? "1 move" : "\(left) moves").font(font(15, .heavy))
+        let movesText = Text(left == 1 ? "1 move" : "\(left) moves").font(hudFont(15, .heavy))
         let movesInk = left <= 2 ? P.alarm.color(0.75 + 0.25 * sin(f.ambient * 8)) : P.ink.color(0.62)
         ctx.draw(movesText.foregroundColor(movesInk), at: CGPoint(x: W / 2, y: Double(badge.midY)), anchor: .center)
 
@@ -972,13 +986,14 @@ struct JamSlidePainter {
         ctx.fill(rounded(purse.offsetBy(dx: 0, dy: 3 * u), cr), with: .color(P.shadow.color(0.16)))
         ctx.fill(rounded(purse, cr), with: .color(.white))
         drawSpark(&ctx, lay.scoreIcon, 15 * u * pop, tint: P.badge)
-        let number = Text("\(f.score)").font(font(21 * pop, .heavy)).monospacedDigit()
+        let number = Text("\(f.score)").font(hudFont(21 * pop, .heavy)).monospacedDigit()
         ctx.draw(number.foregroundColor(P.ink.color()), at: CGPoint(x: Double(purse.maxX) - 14 * u, y: Double(purse.midY)), anchor: .trailing)
     }
 
     // MARK: Boosters
 
     private func drawBoosters(_ ctx: inout GraphicsContext, _ lay: JamSlideLayout, _ f: JamSlideFrame) {
+        let u = ui
         for k in 0..<3 {
             let rect = lay.boosterRect(k)
             let left = k < f.boosters.count ? f.boosters[k] : 0
@@ -1034,7 +1049,7 @@ struct JamSlidePainter {
 
             let dot = CGRect(x: Double(rect.maxX) - 15 * u, y: Double(rect.minY) - 6 * u, width: 22 * u, height: 22 * u)
             ctx.fill(Path(ellipseIn: dot), with: .color(alive ? P.badge.color() : P.frameSide.color()))
-            ctx.draw(Text("\(left)").font(font(12, .heavy)).foregroundColor(.white), at: CGPoint(x: dot.midX, y: dot.midY), anchor: .center)
+            ctx.draw(Text("\(left)").font(hudFont(12, .heavy)).foregroundColor(.white), at: CGPoint(x: dot.midX, y: dot.midY), anchor: .center)
         }
     }
 }
