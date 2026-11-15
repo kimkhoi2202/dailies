@@ -151,6 +151,8 @@ struct RoomScreen: View {
     @State private var watching: AnyCancellable?
     /// The last round this phone opened, so each round opens once.
     @State private var openedRound = -1
+    /// Film the player's face and the round together when the round starts.
+    @AppStorage(CreateFilm.wantedKey) private var film = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -181,7 +183,10 @@ struct RoomScreen: View {
             }
             .scrollIndicators(.hidden)
 
-            if let room { startKey(room).padding(.horizontal, DL.margin).padding(.bottom, 8) }
+            if let room {
+                filmRow.padding(.horizontal, DL.margin).padding(.bottom, 10)
+                startKey(room).padding(.horizontal, DL.margin).padding(.bottom, 8)
+            }
         }
         .onAppear {
             watching = ConvexLink.shared.watch("rooms:get", ["code": code], as: ConvexRoom?.self) { value in
@@ -222,6 +227,23 @@ struct RoomScreen: View {
             }
         }
         .dlCard(padding: 14)
+    }
+
+    private var filmRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "video.fill").font(.system(size: 17, weight: .semibold)).foregroundStyle(DL.ink)
+                .frame(width: 40, height: 40)
+                .background(DL.body, in: Circle())
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Film me while I play").font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
+                Text("Your face and the round, ready to post").font(DL.text(13)).foregroundStyle(DL.ink2)
+            }
+            Spacer(minLength: 8)
+            G2Switch(isOn: film)
+        }
+        .dlCard(padding: 12, radius: 22)
+        .tap { film.toggle() }
+        .accessibilityLabel(film ? "Filming is on" : "Filming is off")
     }
 
     @ViewBuilder private func startKey(_ room: ConvexRoom) -> some View {

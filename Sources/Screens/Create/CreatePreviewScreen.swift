@@ -163,7 +163,7 @@ private struct CreatePreviewContent: View {
         VStack(spacing: 6) {
             HStack {
                 DLMediaButton(symbol: "xmark", size: 40)
-                    .tap { LiveNav.shared.closeAll() }
+                    .tap { LiveNav.shared.back() }
                     .accessibilityLabel("Close")
                 Spacer()
                 if take.videoURL != nil && take.photo == nil {

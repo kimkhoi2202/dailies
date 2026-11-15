@@ -29,11 +29,11 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published private(set) var access: Access = .unknown
     @Published private(set) var front = true
     @Published private(set) var torch = false
-    /// Quarter turns clockwise applied to the camera's frames, kept between launches. 0 is upright on an iPhone 17 Pro.
-    @Published private(set) var turns = UserDefaults.standard.integer(forKey: CreateCamera.turnsKey)
-    private static let turnsKey = "dailies.create.cameraTurns"
-    /// The angle the camera queue applies. Touched only on the camera queue.
-    private var angle = Double(UserDefaults.standard.integer(forKey: CreateCamera.turnsKey) % 4) * 90
+    /// Extra quarter turns the player chose with the rotate button, one count per camera, kept between launches.
+    /// The upright angle itself comes from the system for each camera, since front and back sensors sit differently.
+    private static func turnsKey(front: Bool) -> String { front ? "dailies.create.turns.front" : "dailies.create.turns.back" }
+    /// Touched only on the camera queue.
+    private var usingFront = true
 
     let display = AVSampleBufferDisplayLayer()
     /// The person alone, on a clear background.
@@ -113,18 +113,17 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 }
             }
             if let input = Self.input(front: toFront), self.session.canAddInput(input) { self.session.addInput(input) }
+            self.usingFront = toFront
             self.orient()
             self.session.commitConfiguration()
         }
     }
 
-    /// Turns the picture a quarter turn clockwise.
+    /// Turns the picture of the camera in use a quarter turn clockwise.
     func rotate() {
-        turns = (turns + 1) % 4
-        UserDefaults.standard.set(turns, forKey: Self.turnsKey)
-        let next = Double(turns) * 90
         queue.async {
-            self.angle = next
+            let key = Self.turnsKey(front: self.usingFront)
+            UserDefaults.standard.set((UserDefaults.standard.integer(forKey: key) + 1) % 4, forKey: key)
             self.orient()
         }
     }
@@ -171,9 +170,15 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         session.commitConfiguration()
     }
 
-    /// Frames turned by `angle`, mirrored for the front camera like a mirror.
+    /// Upright frames for the camera in use, mirrored for the front camera like a mirror and never for the back.
+    /// The system knows how each camera's sensor is mounted, so it gives the upright angle; the player's
+    /// own quarter turns go on top.
     private func orient() {
         guard let connection = videoOut.connection(with: .video) else { return }
+        let device = session.inputs.compactMap { ($0 as? AVCaptureDeviceInput)?.device }.first { $0.hasMediaType(.video) }
+        let upright = device.map { AVCaptureDevice.RotationCoordinator(device: $0, previewLayer: nil).videoRotationAngleForHorizonLevelCapture } ?? 90
+        let turns = UserDefaults.standard.integer(forKey: Self.turnsKey(front: usingFront))
+        let angle = (upright + CGFloat(turns) * 90).truncatingRemainder(dividingBy: 360)
         if connection.isVideoRotationAngleSupported(angle) { connection.videoRotationAngle = angle }
         if connection.isVideoMirroringSupported {
             connection.automaticallyAdjustsVideoMirroring = false
