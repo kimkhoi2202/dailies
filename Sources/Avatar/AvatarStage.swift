@@ -213,7 +213,7 @@ final class AvatarStageCoordinator: NSObject, UIGestureRecognizerDelegate {
         back.light?.type = .directional
         back.light?.intensity = 380
         back.light?.color = UIColor(red: 1, green: 0.8, blue: 0.4, alpha: 1)
-        back.eulerAngles = SCNVector3(-0.3, .pi * 0.85, 0)
+        back.eulerAngles = SCNVector3(-0.3, Float.pi * 0.85, 0)
         scene.rootNode.addChildNode(back)
 
         // camera: always looks at the middle of the Dailie

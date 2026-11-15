@@ -57,6 +57,12 @@ struct ShopScreen: View {
         }
     }
 
+    /// In the Closet, a slot that can be left empty gets a None card first.
+    private var removableSlot: AvatarSlot? {
+        guard segment == 1, case .slot(let slot) = shelf, slot.removable else { return nil }
+        return slot
+    }
+
     private var previewLook: AvatarLook {
         guard let selected else { return avatars.look }
         return avatars.look.wearing(selected)
@@ -172,7 +178,7 @@ struct ShopScreen: View {
             }
             ScrollView {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
-                    if segment == 1, case .slot(let slot) = shelf, slot.removable {
+                    if let slot = removableSlot {
                         noneCard(slot)
                     }
                     ForEach(shelfItems) { item in card(item) }
