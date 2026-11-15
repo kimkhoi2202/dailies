@@ -114,15 +114,11 @@ struct WildEightsTint {
 }
 
 enum WildEightsPalette {
-    static let feltCenter = WildEightsTint(hex: 0x236A54)
-    static let feltEdge = WildEightsTint(hex: 0x123529)
     static let card = WildEightsTint(hex: 0xF8F6F1)
     static let cardDim = WildEightsTint(hex: 0xC9CFC9)
     static let ink = WildEightsTint(hex: 0x151412)
     static let red = WildEightsTint(hex: 0xC93A2E)
     static let gold = WildEightsTint(hex: 0xF5B301)
-    static let back = WildEightsTint(hex: 0x2AA392)
-    static let backStripe = WildEightsTint(hex: 0x44BBAA)
     static let pill = WildEightsTint(hex: 0x0E2A22)
     static let sheet = WildEightsTint(hex: 0xF8F6F1)
     static let sheetText = WildEightsTint(hex: 0x8A8780)
@@ -258,6 +254,29 @@ struct WildEightsFrame {
     var bannerAge: Double = 0
     /// Scenery clock, for pulses.
     var time: Double = 0
+}
+
+// MARK: - Pictures
+
+/// The pictures in Resources/GameArt, resolved once for each frame.
+struct WildEightsArt {
+    let felt: GraphicsContext.ResolvedImage
+    let back: GraphicsContext.ResolvedImage
+    let face: GraphicsContext.ResolvedImage
+    /// The face every eight wears.
+    let wild: GraphicsContext.ResolvedImage
+    /// In WildEightsSuit order.
+    let suits: [GraphicsContext.ResolvedImage]
+
+    init(_ ctx: GraphicsContext) {
+        felt = ctx.resolve(Image("wild-eights-felt"))
+        back = ctx.resolve(Image("wild-eights-card-back"))
+        face = ctx.resolve(Image("wild-eights-card-face"))
+        wild = ctx.resolve(Image("wild-eights-card-eight"))
+        suits = ["spade", "heart", "diamond", "club"].map { ctx.resolve(Image("wild-eights-suit-\($0)")) }
+    }
+
+    func suit(_ suit: WildEightsSuit) -> GraphicsContext.ResolvedImage { suits[suit.rawValue] }
 }
 
 // MARK: - Painter
@@ -398,13 +417,14 @@ struct WildEightsPainter {
     // MARK: Drawing
 
     func draw(_ frame: WildEightsFrame, _ ctx: inout GraphicsContext) {
-        drawFelt(&ctx)
+        let art = WildEightsArt(ctx)
+        drawFelt(&ctx, art)
         drawSeats(&ctx, frame)
-        drawDeck(&ctx, count: frame.deckCount, pass: frame.deckPass)
-        drawPile(&ctx, frame)
+        drawDeck(&ctx, art, count: frame.deckCount, pass: frame.deckPass)
+        drawPile(&ctx, art, frame)
         drawPill(&ctx, frame)
-        drawHand(&ctx, frame)
-        for flight in frame.flights { drawFlight(&ctx, flight, seats: frame.seats.count) }
+        drawHand(&ctx, art, frame)
+        for flight in frame.flights { drawFlight(&ctx, art, flight, seats: frame.seats.count) }
         if frame.showHUD {
             drawScore(&ctx, frame)
             for note in frame.notes { drawNote(&ctx, note) }
@@ -414,14 +434,14 @@ struct WildEightsPainter {
             ctx.fill(Path(CGRect(x: 0, y: 0, width: W, height: H)), with: .color(P.black.color(0.42 * frame.dim)))
         }
         if let banner = frame.banner { drawBanner(&ctx, banner, age: frame.bannerAge) }
-        if frame.sheet > 0.001 { drawSheet(&ctx, frame) }
+        if frame.sheet > 0.001 { drawSheet(&ctx, art, frame) }
     }
 
-    private func drawFelt(_ ctx: inout GraphicsContext) {
-        let rect = CGRect(x: 0, y: 0, width: W, height: H)
-        ctx.fill(Path(rect), with: .radialGradient(
-            Gradient(colors: [P.feltCenter.color(), P.feltEdge.color()]),
-            center: CGPoint(x: W / 2, y: H * 0.46), startRadius: 20 * u, endRadius: H * 0.78))
+    private func drawFelt(_ ctx: inout GraphicsContext, _ art: WildEightsArt) {
+        let fill = Swift.max(W / Double(art.felt.size.width), H / Double(art.felt.size.height))
+        let feltW = Double(art.felt.size.width) * fill
+        let feltH = Double(art.felt.size.height) * fill
+        ctx.draw(art.felt, in: CGRect(x: (W - feltW) / 2, y: (H - feltH) / 2, width: feltW, height: feltH))
         // A soft lighter patch where the cards go, like a lamp over the table.
         ctx.fill(Path(ellipseIn: CGRect(x: W / 2 - 190 * u, y: pileCenter.y - 170 * u, width: 380 * u, height: 340 * u)),
                  with: .radialGradient(Gradient(colors: [P.white.color(0.07), P.white.color(0)]),
@@ -459,7 +479,7 @@ struct WildEightsPainter {
         }
     }
 
-    private func drawDeck(_ ctx: inout GraphicsContext, count: Int, pass: Bool) {
+    private func drawDeck(_ ctx: inout GraphicsContext, _ art: WildEightsArt, count: Int, pass: Bool) {
         if count <= 0 {
             let rect = CGRect(x: deckCenter.x - cardW / 2, y: deckCenter.y - cardH / 2, width: cardW, height: cardH)
             let dash: [CGFloat] = [CGFloat(6 * u), CGFloat(6 * u)]
@@ -472,7 +492,7 @@ struct WildEightsPainter {
         var k = layers - 1
         while k >= 0 {
             let c = CGPoint(x: deckCenter.x - Double(k) * 2.5 * u, y: deckCenter.y - Double(k) * 2.5 * u)
-            drawBack(&ctx, center: c, w: cardW, h: cardH, angle: 0, alpha: 1, squeeze: 1)
+            drawBack(&ctx, art, center: c, w: cardW, h: cardH, angle: 0, alpha: 1, squeeze: 1)
             k -= 1
         }
         if pass { drawPassTag(&ctx) }
@@ -487,22 +507,21 @@ struct WildEightsPainter {
                  at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
     }
 
-    private func drawPile(_ ctx: inout GraphicsContext, _ frame: WildEightsFrame) {
+    private func drawPile(_ ctx: inout GraphicsContext, _ art: WildEightsArt, _ frame: WildEightsFrame) {
         let shown = frame.pile.suffix(3)
         let first = frame.pile.count - shown.count
         for (j, card) in shown.enumerated() {
             let order = first + j
             // Earlier cards lie a little askew under the top one, each at its own fixed tilt.
             let tilt = order == frame.pile.count - 1 ? 0 : Double((order * 7) % 11) - 5
-            drawFace(&ctx, card, center: pileCenter, w: cardW, h: cardH, angle: tilt, alpha: 1, dim: false)
+            drawFace(&ctx, art, card, center: pileCenter, w: cardW, h: cardH, angle: tilt, alpha: 1, dim: false)
         }
         guard let suit = frame.wildSuit else { return }
         let r = 17 * u
         let c = CGPoint(x: pileCenter.x + cardW / 2 - 2 * u, y: pileCenter.y - cardH / 2 + 2 * u)
         ctx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r + 2 * u, width: 2 * r, height: 2 * r)), with: .color(P.black.color(0.3)))
         ctx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)), with: .color(P.gold.color()))
-        ctx.draw(Text(suit.symbol).font(.system(size: 19 * u, weight: .heavy)).foregroundColor(suit.isRed ? P.red.color() : P.ink.color()),
-                 at: CGPoint(x: c.x, y: c.y - 0.5 * u), anchor: .center)
+        ctx.draw(art.suit(suit), in: CGRect(x: c.x - 10 * u, y: c.y - 10 * u, width: 20 * u, height: 20 * u))
     }
 
     private func drawPill(_ ctx: inout GraphicsContext, _ frame: WildEightsFrame) {
@@ -520,7 +539,7 @@ struct WildEightsPainter {
         ctx.draw(resolved, at: CGPoint(x: W / 2, y: pillY), anchor: .center)
     }
 
-    private func drawHand(_ ctx: inout GraphicsContext, _ frame: WildEightsFrame) {
+    private func drawHand(_ ctx: inout GraphicsContext, _ art: WildEightsArt, _ frame: WildEightsFrame) {
         let n = frame.hand.count
         for (i, slot) in frame.hand.enumerated() where !slot.hidden {
             var c = handCenter(i, n, lift: slot.lift)
@@ -529,11 +548,11 @@ struct WildEightsPainter {
             let dragging = slot.dragX != 0 || slot.dragY != 0
             let angle = dragging ? handAngle(i, n) * 0.3 : handAngle(i, n)
             let dim = !slot.playable && frame.pillHot
-            drawFace(&ctx, slot.card, center: c, w: handW, h: handH, angle: angle, alpha: dim ? 0.55 : 1, dim: dim)
+            drawFace(&ctx, art, slot.card, center: c, w: handW, h: handH, angle: angle, alpha: dim ? 0.55 : 1, dim: dim)
         }
     }
 
-    private func drawFlight(_ ctx: inout GraphicsContext, _ flight: WildEightsFlight, seats: Int) {
+    private func drawFlight(_ ctx: inout GraphicsContext, _ art: WildEightsArt, _ flight: WildEightsFlight, seats: Int) {
         let from = placeIn(flight.from, seats: seats)
         let to = placeIn(flight.to, seats: seats)
         let k = M.easeInOut(flight.progress)
@@ -545,15 +564,15 @@ struct WildEightsPainter {
         let w = cardW * scale
         let h = cardH * scale
         if !flight.faceUp {
-            drawBack(&ctx, center: c, w: w, h: h, angle: angle, alpha: 1, squeeze: 1)
+            drawBack(&ctx, art, center: c, w: w, h: h, angle: angle, alpha: 1, squeeze: 1)
             return
         }
         // Turns over on the way: the back narrows to nothing, then the face opens.
         let turn = cos(k * Double.pi)
         if turn > 0 {
-            drawBack(&ctx, center: c, w: w, h: h, angle: angle, alpha: 1, squeeze: Swift.max(0.02, turn))
+            drawBack(&ctx, art, center: c, w: w, h: h, angle: angle, alpha: 1, squeeze: Swift.max(0.02, turn))
         } else {
-            drawFace(&ctx, flight.card, center: c, w: w, h: h, angle: angle, alpha: 1, dim: false, squeeze: Swift.max(0.02, -turn))
+            drawFace(&ctx, art, flight.card, center: c, w: w, h: h, angle: angle, alpha: 1, dim: false, squeeze: Swift.max(0.02, -turn))
         }
     }
 
@@ -595,7 +614,7 @@ struct WildEightsPainter {
         ctx.draw(text.foregroundColor(P.white.color(arrive)), at: p, anchor: .center)
     }
 
-    private func drawSheet(_ ctx: inout GraphicsContext, _ frame: WildEightsFrame) {
+    private func drawSheet(_ ctx: inout GraphicsContext, _ art: WildEightsArt, _ frame: WildEightsFrame) {
         let openness = M.clamp(frame.sheet)
         ctx.fill(Path(CGRect(x: 0, y: 0, width: W, height: H)), with: .color(P.black.color(0.45 * openness)))
         let top = sheetTop(openness)
@@ -605,7 +624,7 @@ struct WildEightsPainter {
                  with: .color(P.sheetText.color(0.45)))
 
         if let card = frame.sheetCard {
-            drawFace(&ctx, card, center: CGPoint(x: 56 * u, y: top + 98 * u), w: 60 * u, h: 84 * u, angle: 0, alpha: 1, dim: false)
+            drawFace(&ctx, art, card, center: CGPoint(x: 56 * u, y: top + 98 * u), w: 60 * u, h: 84 * u, angle: 0, alpha: 1, dim: false)
         }
         ctx.draw(Text("WILD EIGHT").font(.system(size: 32 * u, weight: .heavy, design: .rounded)).foregroundColor(P.ink.color()),
                  at: CGPoint(x: 104 * u, y: top + 84 * u), anchor: .leading)
@@ -618,14 +637,13 @@ struct WildEightsPainter {
             let shape = Path(roundedRect: rect, cornerRadius: 20 * u, style: .continuous)
             ctx.fill(Path(roundedRect: rect.offsetBy(dx: 0, dy: 4 * u), cornerRadius: 20 * u, style: .continuous), with: .color(P.black.color(0.08)))
             ctx.fill(shape, with: .color(pressed ? P.gold.color() : P.white.color()))
-            ctx.draw(Text(suit.symbol).font(.system(size: 54 * u, weight: .heavy)).foregroundColor(suit.isRed ? P.red.color() : P.ink.color()),
-                     at: CGPoint(x: rect.midX, y: rect.midY - 2 * u), anchor: .center)
+            ctx.draw(art.suit(suit), in: CGRect(x: rect.midX - 27 * u, y: rect.midY - 29 * u, width: 54 * u, height: 54 * u))
         }
     }
 
     // MARK: One card
 
-    func drawFace(_ ctx: inout GraphicsContext, _ card: WildEightsCard, center: CGPoint, w: Double, h: Double,
+    func drawFace(_ ctx: inout GraphicsContext, _ art: WildEightsArt, _ card: WildEightsCard, center: CGPoint, w: Double, h: Double,
                   angle: Double, alpha: Double, dim: Bool, squeeze: Double = 1) {
         ctx.drawLayer { layer in
             layer.opacity = alpha
@@ -636,23 +654,24 @@ struct WildEightsPainter {
             let radius = w * 0.12
             layer.fill(Path(roundedRect: rect.offsetBy(dx: 0, dy: 3 * u), cornerRadius: radius, style: .continuous),
                        with: .color(P.black.color(0.28)))
-            layer.fill(Path(roundedRect: rect, cornerRadius: radius, style: .continuous),
-                       with: .color(dim ? P.cardDim.color() : P.card.color()))
-            layer.stroke(Path(roundedRect: rect, cornerRadius: radius, style: .continuous),
-                         with: .color(P.black.color(0.08)), lineWidth: Swift.max(1, 1 * u))
+            layer.draw(card.isEight ? art.wild : art.face, in: rect)
+            if dim {
+                layer.fill(Path(roundedRect: rect, cornerRadius: radius, style: .continuous), with: .color(P.cardDim.color(0.55)))
+            }
             let ink = card.suit.isRed ? P.red : P.ink
             let paint = dim ? ink.mix(P.cardDim, 0.35).color() : ink.color()
             let corner = CGPoint(x: -w / 2 + w * 0.16, y: -h / 2 + h * 0.15)
             layer.draw(Text(card.label).font(.system(size: w * 0.28, weight: .heavy, design: .rounded)).foregroundColor(paint),
                        at: corner, anchor: .center)
-            layer.draw(Text(card.suit.symbol).font(.system(size: w * 0.2, weight: .heavy)).foregroundColor(paint),
-                       at: CGPoint(x: corner.x, y: corner.y + h * 0.17), anchor: .center)
-            layer.draw(Text(card.suit.symbol).font(.system(size: w * 0.38, weight: .heavy)).foregroundColor(paint),
-                       at: CGPoint(x: w * 0.2, y: h * 0.24), anchor: .center)
+            var pip = layer
+            if dim { pip.opacity = 0.65 }
+            let suit = art.suit(card.suit)
+            pip.draw(suit, in: CGRect(x: corner.x - w * 0.08, y: corner.y + h * 0.17 - w * 0.08, width: w * 0.16, height: w * 0.16))
+            pip.draw(suit, in: CGRect(x: w * 0.2 - w * 0.16, y: h * 0.24 - w * 0.16, width: w * 0.32, height: w * 0.32))
         }
     }
 
-    func drawBack(_ ctx: inout GraphicsContext, center: CGPoint, w: Double, h: Double, angle: Double, alpha: Double, squeeze: Double) {
+    func drawBack(_ ctx: inout GraphicsContext, _ art: WildEightsArt, center: CGPoint, w: Double, h: Double, angle: Double, alpha: Double, squeeze: Double) {
         ctx.drawLayer { layer in
             layer.opacity = alpha
             layer.translateBy(x: center.x, y: center.y)
@@ -660,25 +679,9 @@ struct WildEightsPainter {
             if squeeze != 1 { layer.scaleBy(x: squeeze, y: 1) }
             let rect = CGRect(x: -w / 2, y: -h / 2, width: w, height: h)
             let radius = w * 0.12
-            let shape = Path(roundedRect: rect, cornerRadius: radius, style: .continuous)
             layer.fill(Path(roundedRect: rect.offsetBy(dx: 0, dy: 3 * u), cornerRadius: radius, style: .continuous),
                        with: .color(P.black.color(0.28)))
-            layer.fill(shape, with: .color(P.white.color()))
-            let inner = rect.insetBy(dx: w * 0.055, dy: w * 0.055)
-            let innerShape = Path(roundedRect: inner, cornerRadius: radius * 0.6, style: .continuous)
-            layer.fill(innerShape, with: .color(P.back.color()))
-            layer.drawLayer { stripes in
-                stripes.clip(to: innerShape)
-                var lines = Path()
-                let step = w * 0.2
-                var x = -w - h
-                while x < w + h {
-                    lines.move(to: CGPoint(x: x, y: h))
-                    lines.addLine(to: CGPoint(x: x + h * 2, y: -h))
-                    x += step
-                }
-                stripes.stroke(lines, with: .color(P.backStripe.color()), lineWidth: w * 0.085)
-            }
+            layer.draw(art.back, in: rect)
         }
     }
 }
