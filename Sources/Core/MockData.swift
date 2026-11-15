@@ -388,6 +388,8 @@ enum Mock {
                  caption: "the blue gate said 1 and I made it count", length: "0:31", comments: "58", shares: "287"),
         (id: "c16", game: "bus-rush", player: "tofu",
                  caption: "every bus left full and the lot was empty", length: "0:35", comments: "91", shares: "448"),
+        (id: "c17", game: "corner-pocket", player: "devon.plays",
+                 caption: "called the corner and sank the eight off two rails", length: "0:33", comments: "109", shares: "512"),
     ]
     static var clips: [MockClip] { refresh(); return counted.clips }
 
