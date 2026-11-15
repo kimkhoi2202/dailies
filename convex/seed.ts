@@ -99,6 +99,22 @@ const GAMES = [
     dislikes: 94,
     scores: [1980, 1650, 2410, 760, 1180, 420],
   },
+  {
+    slug: "slip-out",
+    title: "Slip Out",
+    studio: "Paper Lantern",
+    pitch: "Tap the arrow. Mind the way out.",
+    how: "Tap an arrow and it slides off the board the way its head points. If another arrow is in the way it bumps back and costs a heart. Clear the board to move up a level before the clock runs out.",
+    minPlayers: 1,
+    maxPlayers: 1,
+    mode: "casual" as const,
+    category: "Puzzle",
+    unit: "arrows",
+    goldPerMinute: 1,
+    likes: 275,
+    dislikes: 21,
+    scores: [47, 71, 39, 26, 55, 64],
+  },
 ];
 
 const PLAYERS = [
@@ -117,6 +133,7 @@ const COMMENTS: Record<string, string[]> = {
   "gulp-city": ["swallowed the whole block with two seconds left", "started with a flower, ended with a bus"],
   inkland: ["took a fifth of the map in one loop", "got cut one step from home. again"],
   "lane-dash": ["the near miss at the end. I stopped breathing", "ramp into three gems into a barrier. classic"],
+  "slip-out": ["tapped the one arrow that was blocked. three times", "level nine with two seconds left"],
 };
 
 export const run = internalMutation({
