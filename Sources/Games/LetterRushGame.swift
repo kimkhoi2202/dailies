@@ -741,6 +741,11 @@ final class LetterRushModel {
         clearPath()
     }
 
+    /// The path is dropped without being submitted, as when the app pauses the game mid-drag.
+    func cancel() {
+        clearPath()
+    }
+
     private func clearPath() {
         for cell in path { joinedAt[cell] = -100 }
         path.removeAll(keepingCapacity: true)
@@ -982,7 +987,10 @@ final class LetterRushRunner: ObservableObject {
     func advance(to date: Date, link: GameLink) -> Int {
         if link.paused {
             lastDate = nil
-            if dragging { lift(link: link) }
+            if dragging || !model.path.isEmpty {
+                dragging = false
+                model.cancel()
+            }
             return frame
         }
         defer { lastDate = date }
@@ -1019,6 +1027,10 @@ final class LetterRushRunner: ObservableObject {
     /// The finger lifted.
     func lift(link: GameLink) {
         dragging = false
+        if link.paused || link.isFinished {
+            model.cancel()
+            return
+        }
         model.release()
         settle(link)
     }
