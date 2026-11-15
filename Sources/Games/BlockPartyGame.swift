@@ -198,10 +198,23 @@ final class BlockPartyModel {
             ghostLines = 0
             return true
         }
+        sendBack(shape, slot: slot)
+        return false
+    }
+
+    /// The held piece goes back to its tray slot without being placed, as when the game pauses.
+    func cancelDrag() {
+        guard let slot = dragSlot else { return }
+        dragSlot = nil
+        ghostValid = false
+        ghostLines = 0
+        if let shape = tray[slot] { sendBack(shape, slot: slot) }
+    }
+
+    private func sendBack(_ shape: BlockPartyShape, slot: Int) {
         returnShape = shape
         returnSlot = slot
         returnAge = 0
-        return false
     }
 
     // MARK: Rules
@@ -569,6 +582,13 @@ final class BlockPartyRunner: ObservableObject {
         settle(link)
     }
 
+    /// The app paused the game: a piece in the air goes back to the tray instead of landing.
+    func cancel() {
+        guard model.dragSlot != nil else { return }
+        returnFrom = heldCenter()
+        model.cancelDrag()
+    }
+
     private func heldCenter() -> CGPoint {
         let k = BlockPartyMath.smooth(0, BlockPartyModel.liftLength, model.dragAge)
         return cachedLayout.heldCenter(finger: finger, lift: k)
@@ -691,7 +711,7 @@ private struct BlockPartyRound: View {
             )
         }
         .onChange(of: link.paused) { _, paused in
-            if paused { runner.release(link: link) }
+            if paused { runner.cancel() }
         }
         .ignoresSafeArea()
         .accessibilityElement()
