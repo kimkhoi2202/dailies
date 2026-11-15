@@ -4,7 +4,7 @@ import SwiftUI
 //
 // Everything is painted into one Canvas by BlockPartyPainter from a BlockPartyFrame. The clip in the
 // video feed builds a frame from a phase (0...1) and a fixed script; the playable game builds one
-// from its live state. No assets, any frame size.
+// from its live state. The pictures are the block-party-* images in Resources/GameArt; any frame size.
 
 public struct BlockPartyScene: View {
     public var phase: Double
@@ -108,10 +108,6 @@ struct BlockPartyTint {
         BlockPartyTint(r + (other.r - r) * k, g + (other.g - g) * k, b + (other.b - b) * k)
     }
 
-    func scaled(_ k: Double) -> BlockPartyTint {
-        BlockPartyTint(Swift.min(1, r * k), Swift.min(1, g * k), Swift.min(1, b * k))
-    }
-
     func color(_ alpha: Double = 1) -> Color { Color(.sRGB, red: r, green: g, blue: b, opacity: alpha) }
 }
 
@@ -121,13 +117,8 @@ enum BlockPartyPalette {
         0x000000, 0xFF6B6B, 0xFFA23A, 0xFFD93D, 0x7BE27A, 0x3DD6C0, 0x4FB6FF, 0xA06BFF, 0xFF6FB5
     ].map { BlockPartyTint(hex: $0) }
 
-    static let skyTop = BlockPartyTint(hex: 0x3A2C72)
-    static let skyBottom = BlockPartyTint(hex: 0x1C1540)
-    static let board = BlockPartyTint(hex: 0x15102F)
-    static let cell = BlockPartyTint(hex: 0x231B4C)
     static let shadow = BlockPartyTint(hex: 0x0C0820)
     static let gold = BlockPartyTint(hex: 0xF5B301)
-    static let grey = BlockPartyTint(hex: 0x6B6683)
 
     static func block(_ index: Int) -> BlockPartyTint {
         blocks[Swift.max(0, Swift.min(blocks.count - 1, index))]
@@ -454,6 +445,32 @@ enum BlockPartyClip {
     }
 }
 
+// MARK: - Pictures
+
+/// The images, resolved once per frame.
+struct BlockPartyArt {
+    let backdrop: GraphicsContext.ResolvedImage
+    let board: GraphicsContext.ResolvedImage
+    let cell: GraphicsContext.ResolvedImage
+    let crown: GraphicsContext.ResolvedImage
+    /// One per palette index, 1 based like the palette: index 0 is unused.
+    let blocks: [GraphicsContext.ResolvedImage]
+    let grey: GraphicsContext.ResolvedImage
+
+    init(_ ctx: GraphicsContext) {
+        backdrop = ctx.resolve(Image("block-party-backdrop"))
+        board = ctx.resolve(Image("block-party-board"))
+        cell = ctx.resolve(Image("block-party-cell"))
+        crown = ctx.resolve(Image("block-party-crown"))
+        blocks = (0..<BlockPartyPalette.blocks.count).map { ctx.resolve(Image("block-party-block-\(Swift.max(1, $0))")) }
+        grey = ctx.resolve(Image("block-party-block-grey"))
+    }
+
+    func block(_ index: Int) -> GraphicsContext.ResolvedImage {
+        blocks[Swift.max(1, Swift.min(blocks.count - 1, index))]
+    }
+}
+
 // MARK: - Painter
 
 struct BlockPartyPainter {
@@ -471,26 +488,72 @@ struct BlockPartyPainter {
     }
 
     func draw(_ ctx: inout GraphicsContext) {
-        drawBackground(&ctx)
-        drawBoard(&ctx)
-        drawGhost(&ctx)
-        drawBlocks(&ctx)
+        let art = BlockPartyArt(ctx)
+        drawBackground(&ctx, art)
+        drawBoard(&ctx, art)
+        drawGhost(&ctx, art)
+        drawBlocks(&ctx, art)
         drawFlashes(&ctx)
         drawBursts(&ctx)
-        drawTray(&ctx)
-        drawReturning(&ctx)
-        drawHeld(&ctx)
+        drawTray(&ctx, art)
+        drawReturning(&ctx, art)
+        drawHeld(&ctx, art)
         drawFloats(&ctx)
-        if f.showHUD { drawHUD(&ctx) }
+        if f.showHUD { drawHUD(&ctx, art) }
+    }
+
+    /// An image at a rect, faded by alpha.
+    private func image(_ ctx: inout GraphicsContext, _ art: GraphicsContext.ResolvedImage, in rect: CGRect, alpha: Double = 1) {
+        if alpha <= 0.001 { return }
+        if alpha >= 0.999 {
+            ctx.draw(art, in: rect)
+            return
+        }
+        let before = ctx.opacity
+        ctx.opacity = before * alpha
+        ctx.draw(art, in: rect)
+        ctx.opacity = before
     }
 
     // MARK: Background and board
 
-    private func drawBackground(_ ctx: inout GraphicsContext) {
-        let whole = CGRect(x: 0, y: 0, width: L.W, height: L.H)
-        ctx.fill(Path(whole), with: .linearGradient(
-            Gradient(colors: [P.skyTop.color(), P.skyBottom.color()]),
-            startPoint: CGPoint(x: 0, y: 0), endPoint: CGPoint(x: 0, y: L.H)))
+    /// Stretches an image over a rect the nine-slice way: the outer `cap` share of the image on
+    /// each side keeps its proportions at `edge` points, only the middle stretches.
+    private func sliced(_ ctx: inout GraphicsContext, _ art: GraphicsContext.ResolvedImage, in rect: CGRect,
+                        cap: Double, edge: Double) {
+        let iw = Double(art.size.width)
+        let ih = Double(art.size.height)
+        if iw < 1 || ih < 1 { return }
+        let e = Swift.min(edge, Double(rect.width) / 2, Double(rect.height) / 2)
+        let sx = [0, cap * iw, iw - cap * iw, iw]
+        let sy = [0, cap * ih, ih - cap * ih, ih]
+        let dx = [Double(rect.minX), Double(rect.minX) + e, Double(rect.maxX) - e, Double(rect.maxX)]
+        let dy = [Double(rect.minY), Double(rect.minY) + e, Double(rect.maxY) - e, Double(rect.maxY)]
+        // Pieces overlap by a hair so no seam shows between them.
+        let hair = 0.3
+        for i in 0..<3 {
+            if dx[i + 1] - dx[i] <= 0.01 { continue }
+            let scaleX = (dx[i + 1] - dx[i]) / (sx[i + 1] - sx[i])
+            for j in 0..<3 {
+                if dy[j + 1] - dy[j] <= 0.01 { continue }
+                let scaleY = (dy[j + 1] - dy[j]) / (sy[j + 1] - sy[j])
+                var piece = ctx
+                piece.clip(to: Path(CGRect(x: dx[i] - (i > 0 ? hair : 0), y: dy[j] - (j > 0 ? hair : 0),
+                                           width: dx[i + 1] - dx[i] + (i > 0 ? hair : 0),
+                                           height: dy[j + 1] - dy[j] + (j > 0 ? hair : 0))))
+                piece.draw(art, in: CGRect(x: dx[i] - sx[i] * scaleX, y: dy[j] - sy[j] * scaleY,
+                                           width: iw * scaleX, height: ih * scaleY))
+            }
+        }
+    }
+
+    private func drawBackground(_ ctx: inout GraphicsContext, _ art: BlockPartyArt) {
+        // The backdrop fills the screen, cropped at the sides or the ends.
+        let size = art.backdrop.size
+        let fill = Swift.max(L.W / Swift.max(1, Double(size.width)), L.H / Swift.max(1, Double(size.height)))
+        let w = Double(size.width) * fill
+        let h = Double(size.height) * fill
+        ctx.draw(art.backdrop, in: CGRect(x: (L.W - w) / 2, y: (L.H - h) / 2, width: w, height: h))
 
         // Faint tiles drift up behind everything, so the screen is never still.
         let tile = 46 * u
@@ -509,18 +572,17 @@ struct BlockPartyPainter {
         }
     }
 
-    private func drawBoard(_ ctx: inout GraphicsContext) {
+    private func drawBoard(_ ctx: inout GraphicsContext, _ art: BlockPartyArt) {
         let board = L.boardRect.insetBy(dx: -10 * u, dy: -10 * u)
         let shadow = board.offsetBy(dx: 0, dy: 6 * u)
         ctx.fill(Path(roundedRect: shadow, cornerRadius: 16 * u), with: .color(P.shadow.color(0.55)))
-        ctx.fill(Path(roundedRect: board, cornerRadius: 16 * u), with: .color(P.board.color()))
-        ctx.stroke(Path(roundedRect: board, cornerRadius: 16 * u), with: .color(Color.white.opacity(0.07)), lineWidth: 1.2 * u)
+        // The panel's rim is a little under a tenth of the picture: keep it 10 points wide around the cells.
+        sliced(&ctx, art.board, in: board, cap: 0.1, edge: 14.3 * u)
 
         let gap = Swift.max(1, 1.4 * u)
         for r in 0..<8 {
             for c in 0..<8 {
-                let rect = cellRect(c, r).insetBy(dx: gap, dy: gap)
-                ctx.fill(Path(roundedRect: rect, cornerRadius: 3 * u), with: .color(P.cell.color()))
+                ctx.draw(art.cell, in: cellRect(c, r).insetBy(dx: gap, dy: gap))
             }
         }
     }
@@ -531,29 +593,23 @@ struct BlockPartyPainter {
 
     // MARK: Blocks
 
-    /// A chunky block: a dark base, a lit body and a glossy strip along the top.
-    private func drawBlock(_ ctx: inout GraphicsContext, _ rect: CGRect, tint: BlockPartyTint, alpha: Double = 1) {
-        let side = Double(rect.width)
-        let inset = Swift.max(0.8, side * 0.045)
+    /// One block of a palette colour. grey 0...1 turns it to stone.
+    private func drawBlock(_ ctx: inout GraphicsContext, _ art: BlockPartyArt, _ rect: CGRect, color: Int,
+                           grey: Double = 0, alpha: Double = 1) {
+        let inset = Swift.max(0.8, Double(rect.width) * 0.045)
         let outer = rect.insetBy(dx: inset, dy: inset)
-        let radius = side * 0.17
-        ctx.fill(Path(roundedRect: outer, cornerRadius: radius), with: .color(tint.scaled(0.52).color(alpha)))
-        var body = outer
-        body.size.height -= side * 0.14
-        ctx.fill(Path(roundedRect: body, cornerRadius: radius), with: .color(tint.color(alpha)))
-        let gloss = CGRect(x: Double(body.minX) + side * 0.13, y: Double(body.minY) + side * 0.09,
-                           width: Double(body.width) - side * 0.26, height: side * 0.2)
-        ctx.fill(Path(roundedRect: gloss, cornerRadius: side * 0.08), with: .color(Color.white.opacity(0.32 * alpha)))
+        if grey < 0.999 { image(&ctx, art.block(color), in: outer, alpha: alpha) }
+        if grey > 0.001 { image(&ctx, art.grey, in: outer, alpha: alpha * grey) }
     }
 
-    private func drawBlocks(_ ctx: inout GraphicsContext) {
+    private func drawBlocks(_ ctx: inout GraphicsContext, _ art: BlockPartyArt) {
         let ending = f.endClock >= 0
         for r in 0..<8 {
             for c in 0..<8 {
                 let k = r * 8 + c
                 let color = f.grid[k]
                 if color == 0 { continue }
-                var tint = P.block(color)
+                var grey = 0.0
                 var rect = cellRect(c, r)
                 let age = f.placedAge[k]
                 if age < 0.3 {
@@ -565,14 +621,14 @@ struct BlockPartyPainter {
                 if ending {
                     // The board goes grey in a wave from the top left when there is no room left.
                     let wave = Double(r + c) * 0.055
-                    tint = tint.mix(P.grey, M.smooth(wave, wave + 0.35, f.endClock))
+                    grey = M.smooth(wave, wave + 0.35, f.endClock)
                 }
-                drawBlock(&ctx, rect, tint: tint)
+                drawBlock(&ctx, art, rect, color: color, grey: grey)
             }
         }
     }
 
-    private func drawGhost(_ ctx: inout GraphicsContext) {
+    private func drawGhost(_ ctx: inout GraphicsContext, _ art: BlockPartyArt) {
         guard f.ghostValid, let shape = f.dragShape else { return }
         let tint = P.block(shape.color)
         // Rows and columns that would fill light up in the piece's colour.
@@ -590,7 +646,7 @@ struct BlockPartyPainter {
         }
         for c in shape.cells {
             let rect = cellRect(f.ghostCol + c.x, f.ghostRow + c.y).insetBy(dx: 2 * u, dy: 2 * u)
-            ctx.fill(Path(roundedRect: rect, cornerRadius: 4 * u), with: .color(tint.color(0.38)))
+            image(&ctx, art.block(shape.color), in: rect, alpha: 0.42)
             ctx.stroke(Path(roundedRect: rect, cornerRadius: 4 * u), with: .color(tint.mix(.white, 0.5).color(0.7)), lineWidth: 1.5 * u)
         }
     }
@@ -632,12 +688,11 @@ struct BlockPartyPainter {
     // MARK: Pieces in the air and the tray
 
     /// A piece drawn at a centre and a scale, with a soft shadow under it when it is lifted.
-    private func drawShape(_ ctx: inout GraphicsContext, _ shape: BlockPartyShape, center: CGPoint, scale: Double,
-                           shadow: Double, alpha: Double = 1) {
+    private func drawShape(_ ctx: inout GraphicsContext, _ art: BlockPartyArt, _ shape: BlockPartyShape, center: CGPoint,
+                           scale: Double, shadow: Double, alpha: Double = 1) {
         let side = cell * scale
         let x0 = Double(center.x) - Double(shape.w) * side / 2
         let y0 = Double(center.y) - Double(shape.h) * side / 2
-        let tint = P.block(shape.color)
         if shadow > 0.01 {
             for c in shape.cells {
                 let rect = CGRect(x: x0 + Double(c.x) * side, y: y0 + Double(c.y) * side + 14 * u * shadow,
@@ -647,11 +702,11 @@ struct BlockPartyPainter {
         }
         for c in shape.cells {
             let rect = CGRect(x: x0 + Double(c.x) * side, y: y0 + Double(c.y) * side, width: side, height: side)
-            drawBlock(&ctx, rect, tint: tint, alpha: alpha)
+            drawBlock(&ctx, art, rect, color: shape.color, alpha: alpha)
         }
     }
 
-    private func drawTray(_ ctx: inout GraphicsContext) {
+    private func drawTray(_ ctx: inout GraphicsContext, _ art: BlockPartyArt) {
         for slot in 0..<3 {
             guard let shape = f.tray[slot] else { continue }
             if f.dragSlot == slot { continue }
@@ -665,11 +720,11 @@ struct BlockPartyPainter {
                 fade = 1 - 0.55 * M.smooth(0.2, 0.8, f.endClock)
                 scale *= 1 - 0.1 * M.smooth(0.2, 0.8, f.endClock)
             }
-            drawShape(&ctx, shape, center: L.slotCenter(slot), scale: scale, shadow: 0.25, alpha: fade)
+            drawShape(&ctx, art, shape, center: L.slotCenter(slot), scale: scale, shadow: 0.25, alpha: fade)
         }
     }
 
-    private func drawReturning(_ ctx: inout GraphicsContext) {
+    private func drawReturning(_ ctx: inout GraphicsContext, _ art: BlockPartyArt) {
         guard let shape = f.returnShape else { return }
         let k = M.easeOut(M.clamp(f.returnAge / 0.2))
         if k >= 1 { return }
@@ -677,14 +732,14 @@ struct BlockPartyPainter {
         let center = CGPoint(x: M.lerp(Double(f.returnFrom.x), Double(to.x), k),
                              y: M.lerp(Double(f.returnFrom.y), Double(to.y), k))
         let scale = M.lerp(1, BlockPartyLayout.trayScale, k)
-        drawShape(&ctx, shape, center: center, scale: scale, shadow: 1 - k)
+        drawShape(&ctx, art, shape, center: center, scale: scale, shadow: 1 - k)
     }
 
-    private func drawHeld(_ ctx: inout GraphicsContext) {
+    private func drawHeld(_ ctx: inout GraphicsContext, _ art: BlockPartyArt) {
         guard let shape = f.dragShape, f.dragSlot != nil else { return }
         let k = f.dragLift
         let scale = M.lerp(BlockPartyLayout.trayScale, 1.04, k)
-        drawShape(&ctx, shape, center: f.dragCenter, scale: scale, shadow: 0.25 + 0.75 * k)
+        drawShape(&ctx, art, shape, center: f.dragCenter, scale: scale, shadow: 0.25 + 0.75 * k)
     }
 
     // MARK: Words
@@ -704,7 +759,7 @@ struct BlockPartyPainter {
         }
     }
 
-    private func drawHUD(_ ctx: inout GraphicsContext) {
+    private func drawHUD(_ ctx: inout GraphicsContext, _ art: BlockPartyArt) {
         let cx = L.W / 2
 
         // Best, with a small crown, between the app's two corner controls.
@@ -712,9 +767,10 @@ struct BlockPartyPainter {
         if best > 0 {
             let label = Text("\(best)").font(.system(size: 15 * u, weight: .heavy, design: .rounded))
             let width = Double(ctx.resolve(label).measure(in: CGSize(width: 400, height: 100)).width)
-            let crownW = 16 * u
+            let crownW = 18 * u
             let left = cx - (width + crownW + 5 * u) / 2
-            drawCrown(&ctx, at: CGPoint(x: left + crownW / 2, y: L.bestY), width: crownW)
+            let crownH = crownW * Double(art.crown.size.height) / Swift.max(1, Double(art.crown.size.width))
+            ctx.draw(art.crown, in: CGRect(x: left, y: L.bestY - crownH / 2 - 1 * u, width: crownW, height: crownH))
             ctx.draw(label.foregroundColor(P.gold.color()), at: CGPoint(x: left + crownW + 5 * u, y: L.bestY), anchor: .leading)
         }
 
@@ -762,22 +818,5 @@ struct BlockPartyPainter {
                 ctx.draw(text.foregroundColor(Color.white.opacity(alpha)), at: CGPoint(x: cx, y: midY), anchor: .center)
             }
         }
-    }
-
-    private func drawCrown(_ ctx: inout GraphicsContext, at p: CGPoint, width: Double) {
-        let w = width
-        let h = width * 0.78
-        let x0 = Double(p.x) - w / 2
-        let y0 = Double(p.y) - h / 2
-        var crown = Path()
-        crown.move(to: CGPoint(x: x0, y: y0 + h))
-        crown.addLine(to: CGPoint(x: x0, y: y0 + h * 0.3))
-        crown.addLine(to: CGPoint(x: x0 + w * 0.27, y: y0 + h * 0.58))
-        crown.addLine(to: CGPoint(x: x0 + w * 0.5, y: y0))
-        crown.addLine(to: CGPoint(x: x0 + w * 0.73, y: y0 + h * 0.58))
-        crown.addLine(to: CGPoint(x: x0 + w, y: y0 + h * 0.3))
-        crown.addLine(to: CGPoint(x: x0 + w, y: y0 + h))
-        crown.closeSubpath()
-        ctx.fill(crown, with: .color(P.gold.color()))
     }
 }
