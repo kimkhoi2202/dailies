@@ -8,11 +8,13 @@
 - **Frontend:** not deployed
 - **Convex deployment:** https://blissful-jackal-368.convex.cloud
 - **Components:** @convex-dev/auth (auth, authPassword, authUsername)
-- **Convex features:** schema, tables, indexes, queries, mutations, actions, scheduler, environment variables, realtime queries
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions, scheduler, environment variables, realtime queries
 - **Auth:** Convex Auth
 - **AI models:** gpt-6-luna (OpenAI Responses API, from a Convex action)
 - **Started:** 2026-11-15T18:02:39Z
 - **Last updated:** 2026-11-15T21:13:57Z
+
+- **Last updated:** 2026-11-15T22:57:48Z
 
 ## Log
 
@@ -162,6 +164,7 @@ and repeat buys, and equipping only owned items. An earlier voxel version and an
 image-model turnaround were tried first and replaced after owner feedback.
 
 
+
 ### 2026-11-15 - b72b9a1
 Tuned Short Stack. A sitting is seven hands. The other seats now stay in against
 a raise of any size once their hand is strong enough, so going all in on every
@@ -207,3 +210,23 @@ Play key, plus the list of made games in the studio (`Sources/Screens/G4_Create.
 talk was run against the deployment from the CLI: a wish for inspiration got
 four moods, a mood got three ideas, and picking one built a game on the Spiral
 Drop engine within ten seconds.
+
+### 2026-11-15 - 3c0aa23
+Added money through Whop, on the `whop-money` branch, in three parts. A player
+buys a gold pack: a Convex action opens an order and a Whop checkout, the app
+shows the checkout in the system browser, and gold is credited only when Whop's
+signed `payment.succeeded` webhook reaches the HTTP action at `/whop`
+(`convex/whop.ts`, `convex/http.ts`). A studio funds a creator program for one
+of its games the same way, choosing what it pays for 1,000 views and a budget.
+A clip of that game then earns its maker money for each new viewer, counted
+once per viewer and never for the maker, until the budget runs out
+(`convex/creators.ts`, new `orders`, `programs`, `clipViews` and `transfers`
+tables in `convex/schema.ts`). A creator sends what they have collected to a
+Whop account by username. Prices and credits are decided in Convex; the app
+holds no Whop key (`Sources/Screens/WhopMoney.swift`). Run against Whop's
+sandbox on the dev deployment: a gold pack paid with a test card from a cloud
+iPhone on Revyl landed as 500 gold on the phone, a funded program paid a test
+creator $1.00 for 20 viewers, and Whop refused the transfer out because the
+sandbox key lacks the transfer scope, which the app records and shows without
+taking the creator's money. Convex features: HTTP actions, actions, mutations,
+queries, indexes, environment variables.

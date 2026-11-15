@@ -18,6 +18,7 @@ struct TodayScreen: View {
                     .frame(height: 104)
                     Text("+\(Mock.earnedToday) gold today").dlLabel(12)
                 }
+                if LiveMode.on { DLTextKey(title: "Get gold", symbol: "plus").opens(.buyGold) }
                 HStack(spacing: 12) {
                     goalCard
                     streakCard

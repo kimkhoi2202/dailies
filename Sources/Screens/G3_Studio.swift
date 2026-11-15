@@ -32,6 +32,7 @@ struct G3StudioScreen: View {
                 .padding(.top, 4)
                 limitCard
                 gamesCard
+                if LiveMode.on { WhopStudioPrograms(games: games) }
                 if !store.creations.isEmpty { madeCard }
                 DLTextKey(title: "Make a game", symbol: "sparkles").opens(.makeGame).padding(.top, 4)
                 DLTextKey(title: "Publish a game", symbol: "plus", style: .ink).opens(.publish(1))

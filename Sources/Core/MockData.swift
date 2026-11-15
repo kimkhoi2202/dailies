@@ -5,7 +5,7 @@ import SwiftUI
 //   - gold follows play time, about 1 gold a minute, at a rate set per game by the review
 //   - one game gives a player at most 100 gold a day, and one studio's games at most 300
 //   - likes and dislikes belong to a game, not to a single clip, and both counts are public
-//   - watching gives no gold, and gold cannot be bought or sold
+//   - watching gives no gold; gold packs are sold through Whop and sit outside the daily limits
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
@@ -192,7 +192,7 @@ enum Mock {
         "Up to 100 gold a day from one game.",
         "Up to 300 gold a day from one studio.",
         "Watching never earns gold.",
-        "Gold can't be bought or sold.",
+        "Gold from a pack is on top of these limits.",
     ]
 
     // MARK: Games
