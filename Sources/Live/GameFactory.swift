@@ -10,6 +10,7 @@ enum GameFactory {
         case .laneDash: LaneDashGame(options: options, link: link)
         case .gulpCity: GulpCityGame(options: options, link: link)
         case .inkland: InklandGame(options: options, link: link)
+        case .wildEights: WildEightsGame(options: options, link: link)
         }
     }
 }
