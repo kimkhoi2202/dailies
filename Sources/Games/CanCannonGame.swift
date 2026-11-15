@@ -1051,6 +1051,8 @@ struct CanCannonPilot {
     private var sinceShot: Double = 100
     private var goalX: Double = 0
     private var goalY: Double = 0
+    /// Losing on purpose: shots come quickly so the round ends soon after GameDemo.loseAfter.
+    private var hurried = false
 
     init(seed: UInt64, careful: Bool = false) {
         rng = CanCannonRandom(seed: seed ^ 0x70_696C_6F74, salt: 3)
@@ -1084,26 +1086,34 @@ struct CanCannonPilot {
                 return .none
             }
             calm = model.isMoving && sinceShot < maxWait ? 0 : calm + dt
-            let wait = model.shotsTotal == 0 ? firstWait : think
+            hurried = losing(model)
+            let wait = model.shotsTotal == 0 ? firstWait : (hurried ? 0.1 : think)
             if calm < wait { return .none }
             guard chooseGoal(model) else { return .none }
             aiming = true
             clock = 0
         }
         clock += dt
-        if clock < aimTime {
-            let k = CanCannonMath.easeOut(clock / aimTime)
+        let reach = hurried ? 0.3 : aimTime
+        let still = hurried ? 0.08 : hold
+        if clock < reach {
+            let k = CanCannonMath.easeOut(clock / reach)
             return .aim(goalX * k, CanCannonModel.aimBase + (goalY - CanCannonModel.aimBase) * k)
         }
-        if clock < aimTime + hold { return .aim(goalX, goalY) }
+        if clock < reach + still { return .aim(goalX, goalY) }
         aiming = false
         sinceShot = 0
         calm = 0
         return .fire
     }
 
+    private func losing(_ model: CanCannonModel) -> Bool {
+        guard !careful, let limit = GameDemo.loseAfter else { return false }
+        return model.time >= limit
+    }
+
     private mutating func chooseGoal(_ model: CanCannonModel) -> Bool {
-        if !careful, let limit = GameDemo.loseAfter, model.time >= limit {
+        if losing(model) {
             // Losing on purpose: every ball sails wide of the shelves.
             let side: Double = rng.next() < 0.5 ? -1 : 1
             goalX = side * rng.range(5.0, 5.4)
@@ -1170,6 +1180,8 @@ final class CanCannonRunner: ObservableObject {
     private var frame = 0
     private var reported = false
     private var pulling = false
+    /// The view's size at the last drag, for turning the pull into aim when the finger lifts.
+    private var lastSize = CGSize(width: 402, height: 874)
     /// Made the first time it is needed, which is only when GameDemo.autopilot is on.
     private var pilot: CanCannonPilot?
 
@@ -1182,6 +1194,10 @@ final class CanCannonRunner: ObservableObject {
     func advance(to date: Date, link: GameLink) -> Int {
         if link.paused {
             lastDate = nil
+            if pulling || model.aiming {
+                pulling = false
+                model.clearAim()
+            }
             return frame
         }
         defer { lastDate = date }
@@ -1224,24 +1240,40 @@ final class CanCannonRunner: ObservableObject {
             pulling = true
             GameHaptics.tap()
         }
-        let stage = CanCannonStage(size: size)
+        lastSize = size
+        aim(dx: dx, dy: dy)
+    }
+
+    private func aim(dx: Double, dy: Double) {
+        let stage = CanCannonStage(size: lastSize)
         let x = -dx * Self.pullGain / stage.ppu
         let y = CanCannonModel.aimBase + dy * Self.pullGain / stage.ppu
         model.setAim(x: x, y: y)
     }
 
-    /// The finger has lifted: fire if it pulled far enough.
+    /// The finger has lifted: fire if it pulled far enough. The aim is worked out again from the
+    /// pull, so the shot does not depend on the order SwiftUI reports the end of the gesture in.
     func release(from start: CGPoint, to point: CGPoint, link: GameLink) {
-        let wasPulling = pulling
         pulling = false
-        if link.paused || link.isFinished || GameDemo.autopilot { return }
+        if link.paused || link.isFinished || GameDemo.autopilot {
+            if !GameDemo.autopilot { model.clearAim() }
+            return
+        }
         let dx = Double(point.x - start.x)
         let dy = Double(point.y - start.y)
         let far = (dx * dx + dy * dy).squareRoot() >= Self.minPull
-        if !wasPulling || !far || !model.fire() {
+        if far && model.stage == .playing { aim(dx: dx, dy: dy) }
+        if !far || !model.fire() {
             model.clearAim()
         }
         settle(link)
+    }
+
+    /// The touch ended without a release, such as when the system took it. Drops the aim.
+    func cancelDrag() {
+        if GameDemo.autopilot { return }
+        pulling = false
+        model.clearAim()
     }
 
     /// Plays the haptics the model owes and reports the round once it is over.
@@ -1288,6 +1320,8 @@ public struct CanCannonGame: View {
 private struct CanCannonRound: View {
     @ObservedObject var link: GameLink
     @StateObject private var runner: CanCannonRunner
+    /// True while a finger is down. It clears itself when the touch ends or the system cancels it.
+    @GestureState private var dragging = false
 
     init(options: GameOptions, link: GameLink) {
         self.link = link
@@ -1302,6 +1336,7 @@ private struct CanCannonRound: View {
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                    .updating($dragging) { _, state, _ in state = true }
                     .onChanged { value in
                         runner.drag(from: value.startLocation, to: value.location, size: proxy.size, link: link)
                     }
@@ -1309,6 +1344,9 @@ private struct CanCannonRound: View {
                         runner.release(from: value.startLocation, to: value.location, link: link)
                     }
             )
+            .onChange(of: dragging) { _, down in
+                if !down { runner.cancelDrag() }
+            }
         }
         .ignoresSafeArea()
         .accessibilityElement()

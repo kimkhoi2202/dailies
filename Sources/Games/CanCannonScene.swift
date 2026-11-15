@@ -178,7 +178,25 @@ enum CanCannonPalette {
     static let ballDark = CanCannonTint(hex: 0x262A3A)
     static let star = CanCannonTint(hex: 0xFF9F43)
 
-    static func can(_ i: Int) -> CanCannonTint { cans[((i % cans.count) + cans.count) % cans.count] }
+    static func can(_ i: Int) -> CanCannonTint { cans[index(i)] }
+
+    static func index(_ i: Int) -> Int { ((i % cans.count) + cans.count) % cans.count }
+
+    // Gradients are made once and shared by every piece in every frame.
+    static let canBodies: [Gradient] = cans.map { (tint: CanCannonTint) -> Gradient in
+        let deep = tint.scaled(0.62)
+        return Gradient(colors: [deep.color(), tint.color(), tint.mix(.white, 0.42).color(), tint.color(), deep.scaled(0.9).color()])
+    }
+    static let paper = Gradient(colors: [CanCannonTint.white.scaled(0.72).color(), Color.white, Color.white,
+                                         CanCannonTint.white.scaled(0.68).color()])
+    static let metal = Gradient(colors: [CanCannonTint(hex: 0x7E8792).color(), CanCannonTint(hex: 0xE3E8EE).color(), Color.white,
+                                         CanCannonTint(hex: 0xC2C9D2).color(), CanCannonTint(hex: 0x737C88).color()])
+    static let lidInner = CanCannonTint(hex: 0xAEB6C0).color()
+    static let crateOuter = Gradient(colors: [CanCannonTint(hex: 0xFFC56B).color(), CanCannonTint(hex: 0xEE9B36).color(),
+                                              CanCannonTint(hex: 0xD27E25).color()])
+    static let crateInner = Gradient(colors: [CanCannonTint(hex: 0xE89632).color(), CanCannonTint(hex: 0xC97520).color()])
+    static let stoneBody = Gradient(colors: [CanCannonTint(hex: 0x8495DE).color(), CanCannonTint(hex: 0x5A6BB6).color(),
+                                             CanCannonTint(hex: 0x45529A).color()])
 
     /// The colour of a chip or puff.
     static func shard(_ code: Int) -> CanCannonTint {
@@ -274,6 +292,14 @@ struct CanCannonPainter {
 
     private func across(_ x0: Double, _ x1: Double, _ y: Double, _ colors: [Color]) -> GraphicsContext.Shading {
         .linearGradient(Gradient(colors: colors), startPoint: pt(x0, y), endPoint: pt(x1, y))
+    }
+
+    private func across(_ x0: Double, _ x1: Double, _ y: Double, _ gradient: Gradient) -> GraphicsContext.Shading {
+        .linearGradient(gradient, startPoint: pt(x0, y), endPoint: pt(x1, y))
+    }
+
+    private func down(_ y0: Double, _ y1: Double, _ gradient: Gradient) -> GraphicsContext.Shading {
+        .linearGradient(gradient, startPoint: pt(0, y0), endPoint: pt(0, y1))
     }
 
     private func down(_ y0: Double, _ y1: Double, _ colors: [Color]) -> GraphicsContext.Shading {
@@ -566,7 +592,7 @@ struct CanCannonPainter {
         c.scaleBy(x: s, y: s)
         if angle != 0 { c.rotate(by: .radians(-angle)) }
         switch p.kind {
-        case .can: drawCan(&c, w: p.w, h: p.h, tint: CanCannonPalette.can(p.tint))
+        case .can: drawCan(&c, w: p.w, h: p.h, tint: p.tint)
         case .crate: drawCrate(&c, w: p.w, h: p.h)
         case .stone: drawStone(&c, w: p.w, h: p.h)
         }
@@ -586,14 +612,13 @@ struct CanCannonPainter {
     }
 
     /// A can, in shelf units around its middle, y down.
-    private func drawCan(_ c: inout GraphicsContext, w: Double, h: Double, tint: Tint) {
+    private func drawCan(_ c: inout GraphicsContext, w: Double, h: Double, tint: Int) {
         let x0 = -w / 2
         let x1 = w / 2
         let top = -h / 2
         let rect = CGRect(x: x0, y: top, width: w, height: h)
         let body = Path(roundedRect: rect, cornerRadius: w * 0.1)
-        let deep = tint.scaled(0.62)
-        c.fill(body, with: across(x0, x1, 0, [deep.color(), tint.color(), tint.mix(.white, 0.42).color(), tint.color(), deep.scaled(0.9).color()]))
+        c.fill(body, with: across(x0, x1, 0, CanCannonPalette.canBodies[CanCannonPalette.index(tint)]))
 
         // A white wave across the label.
         let waveTop = -h * 0.06
@@ -613,12 +638,10 @@ struct CanCannonPainter {
             wave.addLine(to: pt(wx, wy))
         }
         wave.closeSubpath()
-        let paper = Tint(hex: 0xFFFFFF)
-        c.fill(wave, with: across(x0, x1, 0, [paper.scaled(0.72).color(), paper.color(), paper.color(), paper.scaled(0.68).color()]))
+        c.fill(wave, with: across(x0, x1, 0, CanCannonPalette.paper))
 
         // Metal rims and the lid.
-        let metal: [Color] = [Tint(hex: 0x7E8792).color(), Tint(hex: 0xE3E8EE).color(), Tint(hex: 0xFFFFFF).color(),
-                              Tint(hex: 0xC2C9D2).color(), Tint(hex: 0x737C88).color()]
+        let metal = CanCannonPalette.metal
         let rim = h * 0.075
         c.fill(Path(CGRect(x: x0, y: top, width: w, height: rim)), with: across(x0, x1, 0, metal))
         c.fill(Path(roundedRect: CGRect(x: x0, y: h / 2 - rim, width: w, height: rim), cornerRadius: w * 0.06),
@@ -626,18 +649,18 @@ struct CanCannonPainter {
         let lid = w * 0.2
         c.fill(Path(ellipseIn: CGRect(x: x0, y: top - lid / 2, width: w, height: lid)), with: across(x0, x1, 0, metal))
         c.fill(Path(ellipseIn: CGRect(x: x0 + w * 0.12, y: top - lid * 0.32, width: w * 0.76, height: lid * 0.64)),
-               with: .color(Tint(hex: 0xAEB6C0).color()))
+               with: .color(CanCannonPalette.lidInner))
         c.stroke(body, with: .color(Tint.ink.color(0.32)), lineWidth: 0.03)
     }
 
     private func drawCrate(_ c: inout GraphicsContext, w: Double, h: Double) {
         let rect = CGRect(x: -w / 2, y: -h / 2, width: w, height: h)
         let outer = Path(roundedRect: rect, cornerRadius: 0.06)
-        c.fill(outer, with: down(-h / 2, h / 2, [Tint(hex: 0xFFC56B).color(), Tint(hex: 0xEE9B36).color(), Tint(hex: 0xD27E25).color()]))
+        c.fill(outer, with: down(-h / 2, h / 2, CanCannonPalette.crateOuter))
         let b = Swift.min(w, h) * 0.14
         let inner = CGRect(x: -w / 2 + b, y: -h / 2 + b, width: w - 2 * b, height: h - 2 * b)
         c.fill(Path(roundedRect: inner, cornerRadius: 0.03),
-               with: down(-h / 2, h / 2, [Tint(hex: 0xE89632).color(), Tint(hex: 0xC97520).color()]))
+               with: down(-h / 2, h / 2, CanCannonPalette.crateInner))
         let lines = Swift.max(1, Int((h - 2 * b) / 0.22))
         var planks = Path()
         for k in 1...lines {
@@ -657,7 +680,7 @@ struct CanCannonPainter {
     private func drawStone(_ c: inout GraphicsContext, w: Double, h: Double) {
         let rect = CGRect(x: -w / 2, y: -h / 2, width: w, height: h)
         let outer = Path(roundedRect: rect, cornerRadius: 0.07)
-        c.fill(outer, with: down(-h / 2, h / 2, [Tint(hex: 0x8495DE).color(), Tint(hex: 0x5A6BB6).color(), Tint(hex: 0x45529A).color()]))
+        c.fill(outer, with: down(-h / 2, h / 2, CanCannonPalette.stoneBody))
         let b = 0.07
         c.stroke(Path(roundedRect: rect.insetBy(dx: b, dy: b), cornerRadius: 0.05), with: .color(Tint(hex: 0xA4B2EE).color(0.7)), lineWidth: 0.03)
         let r = Swift.min(w, h) * 0.18
@@ -734,8 +757,10 @@ struct CanCannonPainter {
     private func drawCannon(_ ctx: inout GraphicsContext) {
         let muzzle = stage.point(0, Model.muzzleY, Model.muzzleZ)
         let pivotX = W / 2
-        let pivotY = Double(muzzle.y) + 118 * u
-        let length = 118 * u
+        // On a short screen the barrel gets shorter so the housing and wheels stay in view.
+        let muzzleY = Double(muzzle.y)
+        let pivotY = Swift.min(muzzleY + 118 * u, H - Double(GameLayout.bottomInset) - 30 * u)
+        let length = Swift.max(64 * u, pivotY - muzzleY)
 
         // Which way the barrel points: at the aim, at the ball's target, or at the shelf.
         var goalX = 0.0
