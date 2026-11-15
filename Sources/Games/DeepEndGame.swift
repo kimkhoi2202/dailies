@@ -105,7 +105,7 @@ enum DeepEndPrompts {
         DeepEndPrompt(question: "NAME A COLOR", tiers: [
             "red, blue, green, yellow, purple, orange, pink, black, white",
             "brown, gray/grey, gold, silver, turquoise, navy, teal, maroon, beige, violet, lavender",
-            "magenta, cyan, indigo, crimson, burgundy, scarlet, olive, coral, peach, tan, ivory, lime, mint, salmon, aqua",
+            "magenta, cyan, indigo, crimson, burgundy, scarlet, olive, coral, peach, tan, ivory, lime, salmon, aqua",
             "chartreuse, vermilion, fuchsia, mauve, ochre, taupe, periwinkle, cerulean, amber, khaki, lilac, mustard, emerald, sapphire, charcoal",
             "puce, celadon, cobalt, viridian, sepia, umber, sienna, carmine, cinnabar, aubergine, heliotrope, marigold, ultramarine, saffron, gamboge",
             "zaffre, smaragdine, fulvous, glaucous, wenge, falu red, xanadu, coquelicot, gingerline, eburnean, mikado, razzmatazz, isabelline, caput mortuum, verdigris",
@@ -120,7 +120,7 @@ enum DeepEndPrompts {
         ]),
         DeepEndPrompt(question: "NAME A HERB OR SPICE", tiers: [
             "black pepper/pepper, cinnamon, basil, garlic, oregano",
-            "paprika, cumin, ginger, parsley, mint, rosemary, thyme, nutmeg, chili powder/chili, vanilla, dill, cilantro/coriander",
+            "paprika, cumin, ginger, parsley, rosemary, thyme, nutmeg, chili powder/chili, vanilla, dill, cilantro/coriander",
             "turmeric, cloves/clove, cardamom, sage, bay leaf/bay, saffron, cayenne, curry powder/curry, chives, tarragon, mustard seed/mustard, allspice, fennel seed",
             "star anise/anise, sumac, zaatar/za atar, marjoram, lemongrass, fenugreek, caraway, garam masala, mace, five spice, juniper/juniper berries, sesame, poppy seed",
             "asafoetida/hing, galangal, nigella/kalonji, ajwain, grains of paradise, sichuan pepper/szechuan pepper, makrut lime/kaffir lime, epazote, lovage, berbere, ras el hanout, annatto/achiote, mahlab",
@@ -606,8 +606,6 @@ final class DeepEndPilot {
     static let readyHold = 0.9
     private static let weights = [0.04, 0.12, 0.24, 0.27, 0.19, 0.14]
     private static let offList = ["PIZZA", "CASTLE", "BLANKET", "PENCIL", "TRUMPET", "RAINBOW"]
-    /// Real answers that are words the app keeps off its screens, so a recording never shows them.
-    private static let unsaid: Set<String> = ["MINT"]
 
     private var rng: DeepEndRandom
     private var planFor = -1
@@ -636,8 +634,8 @@ final class DeepEndPilot {
         let index = model.pic.promptIndex
         if planFor != index {
             planFor = index
-            choose(model.bank)
-            nextAt = now + (losing ? rng.range(0.5, 0.8) : rng.range(1.0, 1.7))
+            choose(model.bank, prompt: index)
+            nextAt = now + (losing ? rng.range(0.15, 0.25) : rng.range(1.0, 1.7))
             return
         }
         if now < nextAt { return }
@@ -652,7 +650,7 @@ final class DeepEndPilot {
             runner.press(DeepEndRules.dive, link: link)
             if model.accepting, model.pic.promptIndex == index {
                 plan = fallback
-                nextAt = now + rng.range(0.7, 1.0)
+                nextAt = now + (losing ? rng.range(0.3, 0.4) : rng.range(0.7, 1.0))
             }
             return
         }
@@ -665,20 +663,23 @@ final class DeepEndPilot {
         }
         guard let code = DeepEndRules.code(for: next) else { return }
         runner.press(code, link: link)
-        nextAt = now + (next == " " ? rng.range(0.14, 0.22) : rng.range(0.07, 0.14))
+        if losing {
+            nextAt = now + rng.range(0.05, 0.08)
+        } else {
+            nextAt = now + (next == " " ? rng.range(0.14, 0.22) : rng.range(0.07, 0.14))
+        }
     }
 
-    private func choose(_ bank: DeepEndBank) {
+    private func choose(_ bank: DeepEndBank, prompt: Int) {
         slipAt = -1
         let common = pick(bank, tier: 1)
         if losing {
-            if !missed, let wrong = Self.offList.first(where: { bank.lookup($0) == nil }) {
+            // Out of ideas: the first common answer that comes to mind, and near the end one that is not on the list.
+            plan = shortest(bank)
+            fallback = plan
+            if !missed, prompt >= DeepEndRules.round - 2, let wrong = Self.offList.first(where: { bank.lookup($0) == nil }) {
                 missed = true
                 plan = Array(wrong)
-                fallback = common
-            } else {
-                plan = common
-                fallback = common
             }
             return
         }
@@ -695,14 +696,24 @@ final class DeepEndPilot {
         }
     }
 
+    /// The quickest common answer to type.
+    private func shortest(_ bank: DeepEndBank) -> [Character] {
+        let pool = bank.list.filter { $0.tier == 1 }
+        guard let answer = (pool.isEmpty ? bank.list : pool).min(by: { $0.name.count < $1.name.count }) else { return [] }
+        return typeable(answer.name)
+    }
+
     /// A random answer of the tier, as the keys can type it.
     private func pick(_ bank: DeepEndBank, tier: Int) -> [Character] {
-        let sayable = bank.list.filter { !Self.unsaid.contains($0.name) }
-        let pool = sayable.filter { $0.tier == tier }
-        let from = pool.isEmpty ? sayable : pool
+        let pool = bank.list.filter { $0.tier == tier }
+        let from = pool.isEmpty ? bank.list : pool
         guard !from.isEmpty else { return [] }
+        return typeable(from[rng.int(from.count)].name)
+    }
+
+    private func typeable(_ name: String) -> [Character] {
         var out: [Character] = []
-        for ch in from[rng.int(from.count)].name {
+        for ch in name {
             if ch == " " {
                 if let lastChar = out.last, lastChar != " " { out.append(" ") }
             } else if DeepEndRules.code(for: ch) != nil {

@@ -997,29 +997,40 @@ struct DeepEndPainter {
     }
 
     private func drawScanlines(_ ctx: inout GraphicsContext) {
-        let size = CGSize(width: lay.w, height: lay.h)
-        if DeepEndScan.size != size {
+        let key = DeepEndScan.Key(w: Int(lay.w.rounded()), h: Int(lay.h.rounded()))
+        let lines: DeepEndScan.Lines
+        if let kept = DeepEndScan.kept[key] {
+            lines = kept
+        } else {
             var light = Path(), dark = Path()
             var y: CGFloat = 0
-            while y < size.height {
-                light.addRect(CGRect(x: 0, y: y, width: size.width, height: 1))
-                dark.addRect(CGRect(x: 0, y: y + 2, width: size.width, height: 1))
+            while y < lay.h {
+                light.addRect(CGRect(x: 0, y: y, width: lay.w, height: 1))
+                dark.addRect(CGRect(x: 0, y: y + 2, width: lay.w, height: 1))
                 y += 3
             }
-            DeepEndScan.size = size
-            DeepEndScan.light = light
-            DeepEndScan.dark = dark
+            lines = DeepEndScan.Lines(light: light, dark: dark)
+            if DeepEndScan.kept.count >= 8 { DeepEndScan.kept.removeAll(keepingCapacity: true) }
+            DeepEndScan.kept[key] = lines
         }
-        ctx.fill(DeepEndScan.light, with: .color(Ink.scanLight))
-        ctx.fill(DeepEndScan.dark, with: .color(Ink.scanDark))
+        ctx.fill(lines.light, with: .color(Ink.scanLight))
+        ctx.fill(lines.dark, with: .color(Ink.scanDark))
     }
 }
 
-/// The scanline paths for the last screen size, kept between frames.
+/// The scanline paths for each canvas size drawn so far, kept between frames.
 enum DeepEndScan {
-    static var size = CGSize.zero
-    static var light = Path()
-    static var dark = Path()
+    struct Key: Hashable {
+        let w: Int
+        let h: Int
+    }
+
+    struct Lines {
+        let light: Path
+        let dark: Path
+    }
+
+    static var kept: [Key: Lines] = [:]
 }
 
 // MARK: - The clip
