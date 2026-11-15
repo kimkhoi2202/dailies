@@ -197,31 +197,55 @@ struct CreateCameraScreen: View {
         .animation(.snappy(duration: 0.4), value: layout)
     }
 
-    /// Drag the player to move them.
+    /// Drag the player to move them. The translation is measured on the screen, not on the moving view,
+    /// so the view follows the finger without feeding its own movement back into the gesture.
     private func faceMove(_ size: CGSize) -> some Gesture {
-        DragGesture()
-            .onChanged { drag = $0.translation }
+        DragGesture(minimumDistance: 2, coordinateSpace: .global)
+            .onChanged { value in
+                guard pinch == 1 else { return }
+                var still = Transaction()
+                still.disablesAnimations = true
+                withTransaction(still) { drag = value.translation }
+            }
             .onEnded { value in
                 let isBubble = layout == .bubble
                 let from = isBubble ? bubbleAt : cutoutAt
-                let to = CGPoint(x: min(0.95, max(0.05, from.x + value.translation.width / size.width)),
-                                 y: min(0.95, max(0.08, from.y + value.translation.height / size.height)))
-                if isBubble { bubbleAt = to } else { cutoutAt = to }
-                drag = .zero
+                let moved = pinch == 1 ? value.translation : drag
+                var still = Transaction()
+                still.disablesAnimations = true
+                withTransaction(still) {
+                    let to = CGPoint(x: from.x + moved.width / size.width, y: from.y + moved.height / size.height)
+                    if isBubble { bubbleAt = to } else { cutoutAt = to }
+                    drag = .zero
+                }
+                // Pulled back on screen with a spring if it was let go past an edge.
+                withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
+                    let kept = CGPoint(x: min(0.92, max(0.08, (isBubble ? bubbleAt : cutoutAt).x)),
+                                       y: min(0.92, max(0.08, (isBubble ? bubbleAt : cutoutAt).y)))
+                    if isBubble { bubbleAt = kept } else { cutoutAt = kept }
+                }
             }
     }
 
     /// Two fingers anywhere on the card size the player.
     private var facePinch: some Gesture {
-        MagnifyGesture()
-            .onChanged { pinch = $0.magnification }
+        MagnifyGesture(minimumScaleDelta: 0.01)
+            .onChanged { value in
+                var still = Transaction()
+                still.disablesAnimations = true
+                withTransaction(still) { pinch = value.magnification }
+            }
             .onEnded { value in
-                if layout == .bubble {
-                    bubbleScale = min(2.6, max(0.6, bubbleScale * value.magnification))
-                } else {
-                    cutoutScale = min(1.1, max(0.3, cutoutScale * value.magnification))
+                var still = Transaction()
+                still.disablesAnimations = true
+                withTransaction(still) {
+                    if layout == .bubble {
+                        bubbleScale = min(2.6, max(0.6, bubbleScale * value.magnification))
+                    } else {
+                        cutoutScale = min(1.1, max(0.3, cutoutScale * value.magnification))
+                    }
+                    pinch = 1
                 }
-                pinch = 1
             }
     }
 

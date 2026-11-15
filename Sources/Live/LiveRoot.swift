@@ -287,6 +287,8 @@ struct LivePlayScreen: View {
     /// Decided once, when the round opens.
     @State private var options: GameOptions
     @State private var asking = false
+    /// Set for a room round the player chose to film.
+    @State private var film: CreateFilmSession?
     @Environment(\.scenePhase) private var scenePhase
 
     init(game: MockGame, solo: Bool) {
@@ -297,6 +299,7 @@ struct LivePlayScreen: View {
         _options = State(initialValue: GameOptions(solo: solo, playerName: Mock.handle, friendNames: Mock.playFriends,
                                                    bestScore: LiveStore.shared.s.best[game.id] ?? 0,
                                                    seed: roomSeed ?? LiveLaunch.seed ?? timeSeed))
+        _film = State(initialValue: roomSeed != nil && CreateFilm.wanted ? CreateFilmSession() : nil)
     }
 
     var body: some View {
@@ -306,6 +309,7 @@ struct LivePlayScreen: View {
                 GameFactory.view(for: game.kind, options: options, link: link)
             }
             .ignoresSafeArea()
+            if let film { CreateFilmBubble(session: film) }
             HStack {
                 DLMediaButton(symbol: "xmark", size: 44)
                     .tap { pause() }
@@ -337,13 +341,23 @@ struct LivePlayScreen: View {
         TouchWatcher.install { clock.start() }
         if GameDemo.autopilot { clock.start() }
         CommunityStore.shared.startPresence(game.id)
+        if let film { Task { await film.begin() } }
         link.onFinish = { result in
             TouchWatcher.remove()
             LiveRoomRound.report(result.score)
             let summary = LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: result, solo: solo)
             if summary.gold > 0 { UINotificationFeedbackGenerator().notificationOccurred(.success) }
-            LiveNav.shared.replaceTop(.results)
             CommunityStore.shared.roundEnded(summary)
+            guard let film else { return LiveNav.shared.replaceTop(.results) }
+            // A filmed round goes to its clip, ready to caption and post.
+            let seconds = clock.seconds
+            Task { @MainActor in
+                let url = await film.finish()
+                CreateClips.shared.take = CreateTake(gameID: game.id, layout: .bubble, videoURL: url,
+                                                     cameraOnly: film.cameraOnly, result: result,
+                                                     isBest: summary.isBest, seconds: seconds)
+                LiveNav.shared.replaceTop(.createPreview)
+            }
         }
     }
 
@@ -360,6 +374,7 @@ struct LivePlayScreen: View {
 
     /// Leaving early still keeps the gold from the time played. The round has no score.
     private func leave() {
+        film?.discard()
         LiveRoomRound.report(0)
         if clock.seconds > 0 {
             LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: GameResult(score: 0, unit: ""), solo: solo)
