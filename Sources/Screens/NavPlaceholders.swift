@@ -37,7 +37,7 @@ struct MessagesTabScreen: View {
             DLEmptyState(symbol: "bubble.left.and.bubble.right.fill", title: "No chats yet",
                          detail: "Talk to friends, send game invites and share your scores here.",
                          key: "Find friends") {
-                LiveNav.shared.share("Come and play with me on Dailies")
+                LiveNav.shared.share("Come and play with me on DEGEN")
             }
         }
     }

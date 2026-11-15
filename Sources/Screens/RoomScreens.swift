@@ -155,7 +155,7 @@ struct RoomScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             DLNavBar(title: "Room", trailingSymbol: "square.and.arrow.up") {
-                LiveNav.shared.share("Join my room on Dailies with the code \(code)")
+                LiveNav.shared.share("Join my room on DEGEN with the code \(code)")
             }
             .padding(.horizontal, DL.margin).padding(.top, 4)
 
