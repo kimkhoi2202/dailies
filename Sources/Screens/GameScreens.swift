@@ -115,7 +115,8 @@ private struct RoundOverLayout<Headline: View, Rows: View>: View {
     }
 }
 
-/// The round is over. Its score, the gold it added, where today stands with this game, and a vote.
+/// The round is over. A leaderboard for this game is the main thing: your row moves into its place,
+/// the player just above you is the next one to beat, and a large key plays again at once.
 struct ResultsScreen: View {
     var game: MockGame = Mock.roundGame
     var balance: Int? = nil
@@ -126,6 +127,8 @@ struct ResultsScreen: View {
     @ObservedObject private var live = LiveStore.shared
     /// While true the chip shows the balance from before the round, so the gold is seen to arrive.
     @State private var holdBalance = true
+    /// false while your row still sits where it started, true once it has moved to its place.
+    @State private var settled = false
 
     private var score: String {
         guard let result = summary?.result else { return Mock.roundScore }
@@ -158,148 +161,327 @@ struct ResultsScreen: View {
         return balance
     }
 
+    private var board: ResultsBoard {
+        ResultsBoard(game: game, score: summary?.result.score ?? Int(Mock.roundScore) ?? 0,
+                     bestBefore: summary?.bestBefore ?? 33, isBest: isBest)
+    }
+
+    private func leave() {
+        LiveNav.shared.closeAll()
+        CommunityStore.shared.rateIfDue(game.id)
+    }
+
+    private func playAgain() {
+        LiveNav.shared.replaceTop(.play(game.id, solo: summary?.solo ?? false))
+    }
+
     var body: some View {
-        RoundOverLayout(game: game, stillPhase: 0.95, dim: LiveMode.on ? 0.62 : 0.45,
-                        chipBalance: chipBalance, rowSpacing: 16) {
-            headline
-        } rows: {
-            goldRow
-            voteRow
-            DLTextKey(title: "Again")
-                .tap { LiveNav.shared.replaceTop(.play(game.id, solo: summary?.solo ?? false)) }
-            postRow
+        let board = board
+        VStack(spacing: 0) {
+            header
+            ResultsBoardCard(board: board, settled: settled)
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+            Spacer(minLength: 0)
         }
+        .ignoresSafeArea(edges: .top)
+        .safeAreaInset(edge: .bottom, spacing: 0) { actions }
+        .background(DL.body.ignoresSafeArea())
         .onAppear {
             // Hold the old balance for a beat, then let the chip roll up to the new one.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { holdBalance = false }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                withAnimation(.spring(duration: 0.75, bounce: 0.25)) { settled = true }
+            }
         }
     }
 
-    private var headline: some View {
-        VStack(spacing: 4) {
-            Text("ROUND TIME \(played.uppercased())")
-                .font(DL.label(11))
-                .foregroundStyle(.white.opacity(0.8))
-            Text(score)
-                .font(DL.display(132))
-                .foregroundStyle(.white)
-                .padding(.top, -6)
-                .lineLimit(1)
-                .minimumScaleFactor(0.4)
-                .padding(.horizontal, 24)
-            Text(unit.uppercased())
-                .font(DL.display(28))
-                .tracking(2)
-                .foregroundStyle(.white)
-                .padding(.top, -22)
-            HStack(spacing: 6) {
-                if isBest {
-                    HStack(spacing: 5) {
-                        Image(systemName: "arrow.up").font(.system(size: 10, weight: .black))
-                        Text("NEW BEST").font(DL.label(11))
+    /// The game's last frame, dimmed, with the round's score, the new best badge and the gold on it.
+    private var header: some View {
+        ZStack(alignment: .bottom) {
+            ClipStill(game: game, phase: 0.95, showHUD: false, focusY: 0.2)
+            Color.black.opacity(LiveMode.on ? 0.62 : 0.45)
+            VStack(spacing: 0) {
+                HStack {
+                    DLMediaButton(symbol: "xmark", size: 40)
+                        .tap(leave)
+                        .accessibilityLabel("Close")
+                    Spacer()
+                    DLGoldChip(balance: chipBalance)
+                }
+                Spacer(minLength: 0)
+                HStack(alignment: .bottom, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("\(game.title.uppercased()) · \(played.uppercased())")
+                            .font(DL.label(11))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .lineLimit(1)
+                        HStack(alignment: .lastTextBaseline, spacing: 8) {
+                            Text(score)
+                                .font(DL.display(68))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
+                            Text(unit.uppercased())
+                                .font(DL.display(22))
+                                .tracking(1)
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                        }
+                        HStack(spacing: 6) {
+                            if isBest {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "arrow.up").font(.system(size: 10, weight: .black))
+                                    Text("NEW BEST").font(DL.label(11))
+                                }
+                                .foregroundStyle(DL.onGold)
+                                .padding(.horizontal, 10)
+                                .frame(height: 24)
+                                .background(Capsule().fill(DL.gold))
+                            }
+                            if let standing {
+                                Text(standing.uppercased())
+                                    .font(DL.label(11))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 10)
+                                    .frame(height: 24)
+                                    .background(Capsule().fill(.white.opacity(0.2)))
+                            }
+                        }
                     }
-                    .foregroundStyle(DL.onGold)
-                    .padding(.horizontal, 10)
-                    .frame(height: 26)
-                    .background(Capsule().fill(DL.gold))
-                }
-                if let standing {
-                    Text(standing.uppercased())
-                        .font(DL.label(11))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .frame(height: 26)
-                        .background(Capsule().fill(.white.opacity(0.2)))
+                    Spacer(minLength: 8)
+                    goldBadge
                 }
             }
-            .padding(.top, 8)
-            if let line = summary?.result.detail {
-                Text(line)
-                    .font(DL.text(14, .semibold))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .padding(.horizontal, 28)
-                    .padding(.top, 6)
-            }
+            .padding(.horizontal, 18)
+            .padding(.top, 58)
+            .padding(.bottom, 16)
         }
-        .padding(.top, 40)
+        .frame(height: 250)
+        .clipShape(DL.screenShape)
     }
 
-    /// The gold this round added, and how much of today's 100 this game has now given.
-    private var goldRow: some View {
-        let todayLine = summary?.wasFull == true
-            ? "Limit reached. More gold in \(Mock.resetIn)."
-            : "\(game.earnedToday) of 100 from \(game.title) today"
-        return HStack(alignment: .center, spacing: 14) {
-            HStack(alignment: .center, spacing: 10) {
-                DLCoin(size: 46)
-                Text("+\(gold)").font(DL.display(92)).fixedSize().foregroundStyle(DL.ink)
+    /// The gold this round added. Tapping it explains how gold is counted.
+    private var goldBadge: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            HStack(spacing: 6) {
+                DLCoin(size: 24)
+                Text("+\(gold)").font(DL.display(40)).foregroundStyle(.white).fixedSize()
             }
-            VStack(alignment: .leading, spacing: 6) {
-                Text("GOLD COLLECTED").dlLabel(10.5)
-                Text(todayLine)
-                    .font(DL.text(14, .medium))
-                    .foregroundStyle(DL.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                DLMeter(value: Double(game.earnedToday))
-            }
+            Text(summary?.wasFull == true ? "LIMIT REACHED" : "\(game.earnedToday) OF 100 TODAY")
+                .font(DL.label(10))
+                .foregroundStyle(.white.opacity(0.8))
         }
-        .frame(height: 84)
+        .padding(.bottom, 4)
         .contentShape(Rectangle())
         .opens(.fairness(game.id))
     }
 
-    private var voteRow: some View {
-        HStack(spacing: 10) {
-            Text("Was it good?").font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
-            Spacer()
-            VoteKey(symbol: "hand.thumbsup.fill", label: "LIKE", chosen: voted == true, celebrates: true)
-                .tap { live.setVote(game.id, like: true) }
-            VoteKey(symbol: "hand.thumbsdown.fill", label: "DISLIKE", chosen: voted == false, celebrates: false)
-                .tap { live.setVote(game.id, like: false) }
-        }
-        .dlCard(padding: 12, radius: 22)
-    }
-
-    /// Posting the run as a clip. This is where the feed's videos come from.
-    private var postRow: some View {
-        HStack(spacing: 12) {
-            ClipStill(game: game, phase: 0.85, showHUD: true, focusY: 0.15)
-                .frame(width: 44, height: 62)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Post this run").font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
-                Text("Your best 42 seconds, ready as a clip.").font(DL.text(13)).foregroundStyle(DL.ink2)
+    /// The large Play again key, with Share and Leave below it. Always on screen.
+    private var actions: some View {
+        VStack(spacing: 10) {
+            DLKey(style: .gold, radius: 26, depth: 7) {
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.counterclockwise").font(.system(size: 26, weight: .black))
+                    Text("PLAY AGAIN").font(DL.display(40)).tracking(1)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                }
             }
-            Spacer()
-            Image(systemName: "arrow.up.circle.fill").font(.system(size: 28)).foregroundStyle(DL.ink)
+            .frame(height: 92)
+            .tap(playAgain)
+            .accessibilityLabel("Play again")
+            HStack(spacing: 10) {
+                DLKey(style: .neutral, radius: 18, depth: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.up.circle.fill").font(.system(size: 15, weight: .bold))
+                        Text("SHARE RUN").font(DL.display(18)).tracking(0.6)
+                    }
+                }
+                .frame(height: 48)
+                .opens(.shareRun(game.id))
+                DLKey(style: .neutral, radius: 18, depth: 4) {
+                    Text("LEAVE").font(DL.display(18)).tracking(0.6)
+                }
+                .frame(height: 48)
+                .tap(leave)
+            }
         }
-        .dlCard(padding: 12, radius: 22)
-        .opens(.shareRun(game.id))
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
     }
 }
 
-/// Like or Dislike on the results screen. The chosen one fills with ink.
-private struct VoteKey: View {
-    let symbol: String
-    let label: String
-    let chosen: Bool
-    /// Only a like gets the small kick when it lands.
-    let celebrates: Bool
+/// The rows of the round's leaderboard: this game's best scores from the server, filled out with
+/// friends so the board is never empty, and your round placed among them.
+struct ResultsBoard {
+    struct Row: Identifiable, Equatable {
+        let id: String
+        let name: String
+        let score: Int
+        let isYou: Bool
+    }
+
+    let game: MockGame
+    /// The players around you, best first, without you.
+    let others: [Row]
+    /// Your score this round.
+    let score: Int
+    /// Where your row starts before it moves: your best before this round, or nil to rise from the bottom.
+    let start: Int?
+
+    init(game: MockGame, score: Int, bestBefore: Int, isBest: Bool) {
+        self.game = game
+        self.score = score
+        start = isBest && bestBefore > 0 ? bestBefore : nil
+        let store = LiveStore.shared
+        let me = Mock.handle
+        var rows = store.board(for: game.id)
+            .filter { !$0.you && $0.handle != me }
+            .map { Row(id: $0.handle, name: $0.handle, score: Int($0.score.rounded()), isYou: false) }
+        if rows.count < 5 {
+            for (name, value) in LiveBoard.sampleScores(for: game) where rows.count < 6 && !rows.contains(where: { $0.name == name }) {
+                rows.append(Row(id: name, name: name, score: value, isYou: false))
+            }
+        }
+        if rows.count < 5 {
+            // A game with no sample scores gets friends spread around the player's own score.
+            let base = max(score, bestBefore, 10)
+            let factors = [1.6, 1.22, 1.07, 0.84, 0.58]
+            let top = game.kind == .gulpCity ? 100 : (game.kind == .inkland ? 1000 : Int.max)
+            for (index, name) in GameOptions().friendNames.enumerated() where rows.count < 6 && index < factors.count
+                && !rows.contains(where: { $0.name == name }) {
+                let value = min(top, max(1, Int((Double(base) * factors[index]).rounded()) + (index < 3 ? 1 : 0)))
+                rows.append(Row(id: name, name: name, score: value, isYou: false))
+            }
+        }
+        others = rows.sorted { $0.score > $1.score }
+    }
+
+    /// How many players are ahead of a score. A tie stays ahead: you need more to pass.
+    private func ahead(of value: Int) -> Int { others.filter { $0.score >= value }.count }
+
+    /// Your place on the board once your row has moved, from 1.
+    var rank: Int { ahead(of: score) + 1 }
+
+    /// The board's rows at one moment: up to six, around where your row ends.
+    func rows(settled: Bool) -> (first: Int, rows: [Row]) {
+        let final = ahead(of: score)
+        let low = max(0, min(final - 3, others.count - 5))
+        let window = Array(others[low..<min(others.count, low + 5)])
+        let shown = settled ? score : (start ?? -1)
+        let you = Row(id: "you", name: Mock.handle, score: shown, isYou: true)
+        var all = window
+        all.insert(you, at: window.filter { $0.score >= shown }.count)
+        return (low + 1, all)
+    }
+
+    /// The player just above your row, the next one to pass.
+    var target: Row? {
+        let count = ahead(of: score)
+        return count > 0 ? others[count - 1] : nil
+    }
+
+    /// "3 more floors": what it takes to pass the player above.
+    var targetText: String? {
+        guard let target else { return nil }
+        let gap = LiveBoard.gap(target.score + 1, score, game)
+        guard let space = gap.firstIndex(of: " "), gap[gap.index(after: space)...].count > 1 else { return "\(gap) more" }
+        return "\(gap[..<space]) more\(gap[space...])"
+    }
+
+    /// "You passed kaz": the players this round's new best moved you past.
+    var passedText: String? {
+        guard let start else { return nil }
+        let passed = others.filter { $0.score >= start && $0.score < score }
+        guard let first = passed.first else { return nil }
+        return passed.count == 1 ? "You passed \(first.name)" : "You passed \(first.name) and \(passed.count - 1) more"
+    }
+}
+
+/// The round's leaderboard: a short ranked list with your row in gold and the next player to beat called out.
+private struct ResultsBoardCard: View {
+    let board: ResultsBoard
+    let settled: Bool
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: symbol)
-                .font(.system(size: 14, weight: .bold))
-                .likeCelebration(chosen && celebrates, tint: DL.ink, burst: false)
-            Text(label).font(DL.label(11))
+        let shown = board.rows(settled: settled)
+        VStack(spacing: 4) {
+            HStack {
+                Text("LEADERBOARD").dlLabel(10.5)
+                Spacer()
+                Text(LiveBoard.unit(for: board.game).uppercased()).dlLabel(10.5)
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
+            .padding(.bottom, 2)
+            ForEach(Array(shown.rows.enumerated()), id: \.element.id) { index, row in
+                rowView(row, place: shown.first + index)
+            }
+            if settled, let passed = board.passedText {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .black))
+                    Text(passed).font(DL.text(14, .semibold))
+                }
+                .foregroundStyle(DL.goldText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
-        .foregroundStyle(chosen ? DL.onInk : DL.ink)
-        .padding(.horizontal, 13)
-        .frame(height: 40)
-        .background(Capsule().fill(chosen ? DL.ink : DL.body))
-        .overlay(Capsule().strokeBorder(chosen ? Color.clear : DL.line))
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: DL.cardRadius, style: .continuous).fill(DL.surface))
+    }
+
+    private func rowView(_ row: ResultsBoard.Row, place: Int) -> some View {
+        let isTarget = settled && row.id == board.target?.id
+        return HStack(spacing: 10) {
+            Text("\(place)")
+                .font(DL.display(26))
+                .foregroundStyle(row.isYou ? DL.ink : DL.ink3)
+                .contentTransition(.numericText(value: Double(place)))
+                .frame(width: 30, alignment: .leading)
+            DLAvatar(name: row.name, size: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(row.name).font(DL.text(15, .semibold)).foregroundStyle(DL.ink).lineLimit(1)
+                    if row.isYou { DLTag(text: "You", filled: true) }
+                }
+                if isTarget, let text = board.targetText {
+                    Text("Beat \(row.name): \(text)")
+                        .font(DL.text(12, .bold))
+                        .foregroundStyle(DL.onGold)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 8)
+                        .frame(height: 20)
+                        .background(Capsule().fill(DL.gold))
+                        .transition(.opacity)
+                } else if row.isYou && settled && board.target == nil {
+                    Text("Top of the board").font(DL.text(12, .semibold)).foregroundStyle(DL.goldText)
+                }
+            }
+            Spacer(minLength: 8)
+            Text(row.score < 0 ? "-" : LiveBoard.text(max(0, row.score), board.game))
+                .font(DL.display(row.isYou ? 34 : 28))
+                .foregroundStyle(DL.ink)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .contentTransition(.numericText(value: Double(row.score)))
+        }
+        .padding(.horizontal, 10)
+        .frame(height: row.isYou || isTarget ? 58 : 48)
+        .background {
+            if row.isYou {
+                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(DL.goldWash)
+            } else if isTarget {
+                RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(DL.gold, lineWidth: 2)
+            }
+        }
+        .zIndex(row.isYou ? 1 : 0)
+        .accessibilityElement(children: .combine)
     }
 }
 
