@@ -33,7 +33,7 @@ struct G3StudioScreen: View {
                 limitCard
                 gamesCard
                 if !store.creations.isEmpty { madeCard }
-                DLTextKey(title: "Make a game", symbol: "sparkles").opens(.create).padding(.top, 4)
+                DLTextKey(title: "Make a game", symbol: "sparkles").opens(.makeGame).padding(.top, 4)
                 DLTextKey(title: "Publish a game", symbol: "plus", style: .ink).opens(.publish(1))
             }
         }

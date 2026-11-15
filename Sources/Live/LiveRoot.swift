@@ -149,11 +149,15 @@ struct LayerView: View {
             G3ReviewResultScreen()
         case .reviewChanges:
             G3ReviewChangesScreen()
-        case .create:
+        case .create(let gameID):
+            CreateCameraScreen(startGameID: gameID)
+        case .createPreview:
+            CreatePreviewScreen()
+        case .makeGame:
             G4CreateScreen()
-        case .createChat(let creationID):
+        case .makeChat(let creationID):
             G4CreateChatScreen(creationID: creationID)
-        case .createPreview(let creationID):
+        case .makePreview(let creationID):
             G4CreatePreviewScreen(creationID: creationID)
         }
     }
@@ -165,6 +169,7 @@ struct LayerView: View {
 struct LiveVideos: View {
     @ObservedObject private var nav = LiveNav.shared
     @ObservedObject private var store = LiveStore.shared
+    @ObservedObject private var made = CreateClips.shared
 
     /// Long enough that nobody reaches the end. The six clips repeat.
     private let pageCount = 600
@@ -177,10 +182,19 @@ struct LiveVideos: View {
             let playing = nav.tab == 1 && nav.layers.isEmpty && store.isOn("Autoplay clips")
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    // Clips players posted come first, newest at the top, then the catalog clips.
+                    let posted = made.feed
                     ForEach(0..<pageCount, id: \.self) { index in
-                        LiveClipPage(clip: Mock.clips[index % Mock.clips.count], active: playing && nav.videoIndex == index)
-                            .frame(width: screen.width, height: screen.height)
-                            .id(index)
+                        Group {
+                            if index < posted.count {
+                                CreateClipPage(clip: posted[index], active: playing && nav.videoIndex == index)
+                            } else {
+                                LiveClipPage(clip: Mock.clips[(index - posted.count) % Mock.clips.count],
+                                             active: playing && nav.videoIndex == index)
+                            }
+                        }
+                        .frame(width: screen.width, height: screen.height)
+                        .id(index)
                     }
                 }
                 .scrollTargetLayout()
@@ -447,10 +461,10 @@ struct LiveResultsScreen: View {
 ///   -video <n>          the clip showing in Videos
 ///   -play <game id>     open straight into a game (-solo 1 to play alone, -seed <n> for a fixed round)
 ///   -route <name>       open a screen: gold, history, streak, search, inbox, settings, saveGold, notify, studio,
-///                       reviewProgress, reviewResult, reviewChanges, create, or one that takes a value:
+///                       reviewProgress, reviewResult, reviewChanges, makeGame, or one that takes a value:
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
-///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
-///                       createChat:<creation id>, createPreview:<creation id>
+///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>, create[:<game id>],
+///                       makeChat:<creation id>, makePreview:<creation id>
 ///   -demo 1             games play themselves (-lose <seconds> has the scripted player lose after that long)
 ///   -gamescale <x>      draw games on a canvas x times smaller and scale it up, to measure drawing cost
 enum LiveLaunch {
@@ -494,9 +508,9 @@ enum LiveLaunch {
         case "reviewProgress": return .reviewProgress
         case "reviewResult": return .reviewResult
         case "reviewChanges": return .reviewChanges
-        case "create": return .create
-        case "createChat": return .createChat(value)
-        case "createPreview": return .createPreview(value)
+        case "makeGame": return .makeGame
+        case "makeChat": return .makeChat(value)
+        case "makePreview": return .makePreview(value)
         case "gameReady": return .gameReady(value)
         case "gameDetail": return .gameDetail(value)
         case "leaderboard": return .leaderboard(value)
@@ -505,6 +519,7 @@ enum LiveLaunch {
         case "shareRun": return .shareRun(value)
         case "spend": return .spend(Int(value) ?? 1)
         case "publish": return .publish(Int(value) ?? 1)
+        case "create": return .create(value.isEmpty ? nil : value)
         default: return nil
         }
     }
@@ -553,7 +568,7 @@ final class LiveHost: UIHostingController<LiveRoot> {
     override var preferredStatusBarStyle: UIStatusBarStyle {
         // A sheet leaves the screen under it showing, so the top screen that is not a sheet decides.
         switch LiveNav.shared.layers.last(where: { $0.route.style != .sheet })?.route {
-        case .gameReady, .play, .results, .gameDetail: .lightContent
+        case .gameReady, .play, .results, .gameDetail, .create, .createPreview: .lightContent
         case nil: LiveNav.shared.tab == 1 ? .lightContent : .default
         default: .default
         }

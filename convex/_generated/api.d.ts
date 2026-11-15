@@ -10,6 +10,7 @@
 
 import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
+import type * as clips from "../clips.js";
 import type * as creations from "../creations.js";
 import type * as games from "../games.js";
 import type * as ledger from "../ledger.js";
@@ -30,6 +31,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   auth: typeof auth;
+  clips: typeof clips;
   creations: typeof creations;
   games: typeof games;
   ledger: typeof ledger;

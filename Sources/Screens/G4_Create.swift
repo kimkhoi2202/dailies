@@ -24,7 +24,7 @@ enum G4Engine {
 
     /// Where a creation opens from a list: the talk while it is talking, the game once it is being built.
     static func route(_ creation: ConvexCreation) -> Route {
-        creation.status == "building" || creation.status == "ready" ? .createPreview(creation.id) : .createChat(creation.id)
+        creation.status == "building" || creation.status == "ready" ? .makePreview(creation.id) : .makeChat(creation.id)
     }
 }
 
@@ -126,7 +126,7 @@ struct G4CreateScreen: View {
             do {
                 let id = try await store.startCreation(body)
                 draft = ""
-                LiveNav.shared.open(.createChat(id))
+                LiveNav.shared.open(.makeChat(id))
             } catch {
                 LiveNav.shared.say("The studio did not answer. Try again.")
             }
@@ -180,7 +180,7 @@ struct G4CreateChatScreen: View {
                 .onChange(of: detail?.messages.count) { scrollToEnd(proxy) }
                 .onChange(of: detail?.thinking) { scrollToEnd(proxy) }
                 .onChange(of: detail?.status) { _, status in
-                    if status == "building" { LiveNav.shared.open(.createPreview(creationID)) }
+                    if status == "building" { LiveNav.shared.open(.makePreview(creationID)) }
                 }
             }
             if detail?.status == "talking" || detail?.status == "failed" || detail == nil {
@@ -281,7 +281,7 @@ struct G4CreateChatScreen: View {
 
     private func built(_ detail: ConvexCreationDetail) -> some View {
         DLTextKey(title: detail.status == "ready" ? "Open the game" : "Watch it being built", symbol: "arrow.right")
-            .opens(.createPreview(creationID))
+            .opens(.makePreview(creationID))
             .padding(.top, 4)
     }
 
@@ -447,7 +447,7 @@ struct G4CreatePreviewScreen: View {
                 .frame(width: 200)
                 .tap {
                     Task { @MainActor in try? await store.retryCreation(creationID) }
-                    LiveNav.shared.replaceTop(.createChat(creationID))
+                    LiveNav.shared.replaceTop(.makeChat(creationID))
                 }
             Spacer()
         }
@@ -462,7 +462,7 @@ struct G4CreatePreviewScreen: View {
             DLIconButton(symbol: "arrow.counterclockwise")
                 .tap {
                     LiveNav.shared.closeFlow()
-                    LiveNav.shared.open(.create)
+                    LiveNav.shared.open(.makeGame)
                 }
                 .accessibilityLabel("Start another")
             HStack(spacing: 0) {
@@ -492,10 +492,10 @@ struct G4CreatePreviewScreen: View {
 
     /// The talk is usually the screen under this one. If it is not, it opens on top.
     private func showWish() {
-        if case .createChat(let id)? = nav.layers.dropLast().last?.route, id == creationID {
+        if case .makeChat(let id)? = nav.layers.dropLast().last?.route, id == creationID {
             LiveNav.shared.back()
         } else {
-            LiveNav.shared.open(.createChat(creationID))
+            LiveNav.shared.open(.makeChat(creationID))
         }
     }
 }

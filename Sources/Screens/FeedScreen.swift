@@ -22,13 +22,21 @@ struct VideoPage: View {
     /// A moving phase makes the gameplay move. nil holds the game's best still.
     var phase: Double? = nil
     var pressed: Bool = false
+    /// A player's own recording, shown in place of the game's replay.
+    var media: AnyView? = nil
+    /// The run's score, for a player's clip.
+    var tag: String? = nil
 
     private var game: MockGame { clip.game }
 
     var body: some View {
         ZStack {
-            // Five Up carries its own header in its art, so it is the one clip shown without the game's HUD.
-            ClipStill(game: game, phase: phase, showHUD: game.kind != .fiveUp, focusY: 0)
+            if let media {
+                media
+            } else {
+                // Five Up carries its own header in its art, so it is the one clip shown without the game's HUD.
+                ClipStill(game: game, phase: phase, showHUD: game.kind != .fiveUp, focusY: 0)
+            }
             shade(from: .top, height: 130, strength: 0.42)
             shade(from: .bottom, height: 400, strength: 0.78)
             HStack(alignment: .bottom, spacing: 10) {
@@ -73,6 +81,7 @@ struct VideoPage: View {
             HStack(spacing: 6) {
                 DLMediaTag(text: game.players, symbol: "person.2.fill")
                 DLMediaTag(text: game.mode)
+                if let tag { DLMediaTag(text: tag, symbol: "trophy.fill") }
             }
             if game.isFullToday {
                 DLMediaTag(text: "Limit reached. More gold in \(Mock.resetIn)", symbol: "checkmark")
