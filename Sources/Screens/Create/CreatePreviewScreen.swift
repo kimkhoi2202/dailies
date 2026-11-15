@@ -353,6 +353,10 @@ struct CreateClipPage: View {
     let clip: ConvexClip
     let active: Bool
     @ObservedObject private var store = LiveStore.shared
+    @State private var menu = false
+    @State private var editing = false
+    @State private var confirmDelete = false
+    @State private var draft = ""
 
     var body: some View {
         let game = Mock.game(clip.gameSlug)
@@ -360,13 +364,64 @@ struct CreateClipPage: View {
         let shown = MockClip(id: Mock.clips.first { $0.game.id == game.id }?.id ?? Mock.clips[0].id, game: game,
                              player: clip.handle, caption: clip.caption, length: "",
                              comments: groupedNumber(Int(clip.comments)), shares: groupedNumber(Int(clip.likes)))
-        VideoPage(clip: shown, progress: 0, voted: store.vote(for: game.id), media: AnyView(media(game)), tag: clip.scoreText)
+        VideoPage(clip: shown, progress: 0, voted: store.vote(for: game.id), media: AnyView(media(game)), tag: clip.scoreText,
+                  saveKey: clip.saveKey, onMore: clip.mine ? { menu = true } : nil)
             // Two seconds on screen is a view. A view of someone else's clip pays its creator when the game has a program.
             .task(id: active) {
                 guard active, !clip.mine else { return }
                 try? await Task.sleep(for: .seconds(2))
                 if !Task.isCancelled { WhopStore.shared.saw(clip.id) }
             }
+            .confirmationDialog("Your clip", isPresented: $menu, titleVisibility: .visible) {
+                Button("Edit caption") {
+                    draft = clip.caption
+                    editing = true
+                }
+                if clip.visibility == "everyone" {
+                    Button("Show to friends only") { change(caption: clip.caption, everyone: false) }
+                } else {
+                    Button("Show to everyone") { change(caption: clip.caption, everyone: true) }
+                }
+                Button("Delete clip", role: .destructive) { confirmDelete = true }
+                Button("Cancel", role: .cancel) {}
+            }
+            .alert("Edit caption", isPresented: $editing) {
+                TextField("Say something about this run", text: $draft)
+                Button("Save") { change(caption: draft, everyone: clip.visibility == "everyone") }
+                Button("Cancel", role: .cancel) {}
+            }
+            .alert("Delete this clip?", isPresented: $confirmDelete) {
+                Button("Delete", role: .destructive, action: delete)
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("It comes off Videos, your profile and everyone's saved clips.")
+            }
+    }
+
+    private func change(caption: String, everyone: Bool) {
+        let clip = clip
+        let wasEveryone = clip.visibility == "everyone"
+        Task { @MainActor in
+            do {
+                try await CreateClips.shared.update(clip, caption: caption, everyone: everyone)
+                LiveNav.shared.say(everyone == wasEveryone ? "Caption saved" : (everyone ? "Everyone can see it" : "Friends only"))
+            } catch {
+                LiveNav.shared.say("Could not save. Try again")
+            }
+        }
+    }
+
+    private func delete() {
+        let clip = clip
+        Task { @MainActor in
+            do {
+                try await CreateClips.shared.remove(clip)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                LiveNav.shared.say("Clip deleted")
+            } catch {
+                LiveNav.shared.say("Could not delete. Try again")
+            }
+        }
     }
 
     @ViewBuilder private func media(_ game: MockGame) -> some View {

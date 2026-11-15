@@ -69,6 +69,9 @@ struct LibraryScreen: View {
 
             HomeSectionTitle(title: "Your clips")
             clipGrid
+
+            HomeSectionTitle(title: "Saved clips")
+            savedGrid
         }
         .defaultScrollAnchor(MockArgs.value("-scroll") == "bottom" ? .bottom : .top)
     }
@@ -153,23 +156,21 @@ struct LibraryScreen: View {
     }
 
     @ViewBuilder private var clipGrid: some View {
-        let mine = clips.feed.filter(\.mine)
-        if mine.isEmpty {
+        if clips.mine.isEmpty {
             DLEmptyState(symbol: "video.fill", title: "No clips yet", detail: "Film yourself playing with the + button.",
                          key: "Open camera") { LiveNav.shared.open(.create(nil)) }
         } else {
-            Grid(horizontalSpacing: 8, verticalSpacing: 8) {
-                ForEach(Array(stride(from: 0, to: mine.count, by: 3)), id: \.self) { start in
-                    GridRow {
-                        ForEach(mine[start..<min(start + 3, mine.count)]) { clip in
-                            LibraryClipTile(clip: clip).opens(.myClip(clip.id))
-                        }
-                        ForEach(0..<(3 - min(3, mine.count - start)), id: \.self) { _ in
-                            Color.clear.gridCellUnsizedAxes(.vertical)
-                        }
-                    }
-                }
-            }
+            ClipGrid(items: clips.mine.map { .posted($0) }, source: .mine)
+        }
+    }
+
+    @ViewBuilder private var savedGrid: some View {
+        if clips.saved.isEmpty {
+            DLEmptyState(symbol: "bookmark.fill", title: "Nothing saved yet",
+                         detail: "Tap the bookmark on a clip in Videos to keep it here.",
+                         key: "Go to Videos") { LiveNav.shared.goToTab(1) }
+        } else {
+            ClipGrid(items: clips.saved, source: .saved)
         }
     }
 }
@@ -228,9 +229,18 @@ struct LibraryClipTile: View {
                     }
                 } else {
                     ClipStill(game: Mock.game(clip.gameSlug), showHUD: false, focusY: 0.2)
+                        .overlay {
+                            if let address = clip.url, let url = URL(string: address) { ClipVideoFrame(url: url) }
+                        }
                 }
             }
             .overlay(LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom))
+            .overlay(alignment: .topTrailing) {
+                if clip.visibility == "friends" {
+                    Image(systemName: "person.2.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
+                        .padding(6).background(Circle().fill(.black.opacity(0.5))).padding(6)
+                }
+            }
             .overlay(alignment: .bottomLeading) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(clip.gameTitle.uppercased()).font(DL.display(15)).lineLimit(1).minimumScaleFactor(0.7)
@@ -338,17 +348,8 @@ struct LibraryGameSheet: View {
 /// One of your clips from the Library, full screen, played the way Videos plays it.
 struct LibraryClipScreen: View {
     let clipID: String
-    @ObservedObject private var clips = CreateClips.shared
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            Color.black.ignoresSafeArea()
-            if let clip = clips.feed.first(where: { $0.id == clipID }) {
-                CreateClipPage(clip: clip, active: true).ignoresSafeArea()
-            }
-            DLMediaButton(symbol: "xmark").goesBack()
-                .padding(.leading, DL.margin).padding(.top, 8)
-                .accessibilityLabel("Close")
-        }
+        ClipsViewer(source: .mine, start: clipID)
     }
 }

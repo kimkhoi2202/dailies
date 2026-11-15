@@ -39,6 +39,8 @@ enum Route: Hashable {
     case libraryGame(String)
     /// One of your own posted clips, by its id.
     case myClip(String)
+    /// A list of clips full screen ("mine", "saved" or "user:<handle>"), starting at a clip.
+    case clipList(String, String)
     // the avatar
     /// An item id to open on its sheet, "closet" for the Closet, or nil.
     case shop(String?)
@@ -73,7 +75,7 @@ enum Route: Hashable {
         switch self {
         case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room, .shop, .makeChat, .makePreview, .notifications:
             .push
-        case .story, .friendVideos, .myClip:
+        case .story, .friendVideos, .myClip, .clipList:
             .cover
         case .rate:
             .sheet

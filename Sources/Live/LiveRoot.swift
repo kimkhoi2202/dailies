@@ -189,6 +189,8 @@ struct LayerView: View {
             LibraryGameSheet(game: Mock.game(gameID))
         case .myClip(let clipID):
             LibraryClipScreen(clipID: clipID)
+        case .clipList(let source, let start):
+            ClipsViewer(source: ClipSource(source), start: start)
         case .makeChat(let creationID):
             G4CreateChatScreen(creationID: creationID)
         case .makePreview(let creationID):
@@ -272,6 +274,8 @@ struct LiveVideos: View {
 struct LiveClipPage: View {
     let clip: MockClip
     let active: Bool
+    /// A catalog clip can be saved. A friend's post shown on the same page cannot.
+    var saveable = true
     @ObservedObject private var store = LiveStore.shared
     @State private var loopStart = Date()
 
@@ -284,17 +288,19 @@ struct LiveClipPage: View {
                 TimelineView(.animation(minimumInterval: 1.0 / 40)) { timeline in
                     let loops = timeline.date.timeIntervalSince(loopStart) / Self.loopSeconds
                     let phase = loops - loops.rounded(.towardZero)
-                    VideoPage(clip: clip, progress: CGFloat(phase), voted: vote, phase: phase)
+                    VideoPage(clip: clip, progress: CGFloat(phase), voted: vote, phase: phase, saveKey: saveKey)
                 }
             } else {
                 // At rest a clip shows its opening moment.
-                VideoPage(clip: clip, progress: 0, voted: vote, phase: 0.02)
+                VideoPage(clip: clip, progress: 0, voted: vote, phase: 0.02, saveKey: saveKey)
             }
         }
         .onChange(of: active) { _, isActive in
             if isActive { loopStart = Date() }
         }
     }
+
+    private var saveKey: String? { saveable ? CreateClips.sampleKey(clip.id) : nil }
 }
 
 // MARK: Playing

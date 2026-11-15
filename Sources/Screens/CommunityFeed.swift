@@ -428,7 +428,7 @@ struct CommunityVideoPlayer: View {
             LiveClipPage(clip: MockClip(id: commentsID, game: post.game, player: post.name, caption: post.caption,
                                         length: "", comments: groupedNumber(post.comments),
                                         shares: groupedNumber(post.reactions.values.reduce(0, +))),
-                         active: active)
+                         active: active, saveable: false)
         }
     }
 }
