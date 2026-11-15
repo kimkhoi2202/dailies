@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { currentUser, dayNumber, earningsFor, requireUser } from "./lib";
 
-const FIRST = ["quick", "sunny", "mellow", "brave", "lucky", "cosmic", "jolly", "nimble", "tidy", "witty", "zesty", "calm"];
+const FIRST = ["quick", "sunny", "mellow", "brave", "swift", "cosmic", "jolly", "nimble", "tidy", "witty", "zesty", "calm"];
 const SECOND = ["otter", "falcon", "panda", "comet", "pixel", "mango", "badger", "robin", "lynx", "koala", "gecko", "heron"];
 export const COLORS = ["#7C5CFF", "#FF6B57", "#19B8A6", "#F5B301", "#FF7AB6", "#4C9AFF", "#8BC34A", "#FF9F43"];
 

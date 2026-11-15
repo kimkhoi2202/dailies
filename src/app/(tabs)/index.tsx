@@ -49,6 +49,7 @@ export default function Home() {
         <Wordmark />
         <Row gap={8}>
           <GoldPill amount={me?.gold} onPress={() => router.push('/gold')} />
+          <IconButton name="players" label="Join a room" onPress={() => router.push('/join')} size={36} />
           <IconButton name="search" label="Search" onPress={() => router.push('/search')} size={36} />
         </Row>
       </Row>

@@ -51,6 +51,7 @@ export default function RootLayout() {
                 <Stack.Screen name="play/[slug]" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
                 <Stack.Screen name="comments/[slug]" options={{ ...sheet, sheetAllowedDetents: [0.62, 1] }} />
                 <Stack.Screen name="how-gold-works" options={{ ...sheet, sheetAllowedDetents: [0.66] }} />
+                <Stack.Screen name="join" options={{ ...sheet, sheetAllowedDetents: [0.9] }} />
               </Stack>
             </Session>
           </ThemeProvider>

@@ -1,4 +1,4 @@
-import { useConvexAuth, useMutation } from 'convex/react';
+import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
@@ -7,7 +7,7 @@ import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { type GameHandle, type GameMessage, GameView } from '@/components/game-view';
-import { Body, Coin, Display, GoldPill, Icon, IconButton, Key, Label, Meter, Row } from '@/components/ui';
+import { Avatar, Body, Coin, Display, GoldPill, Icon, IconButton, Key, Label, Meter, Row } from '@/components/ui';
 import { VoteButton } from '@/components/vote-button';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -24,7 +24,7 @@ type Outcome = { score: number; unit: string; headline?: string; playMs: number;
 const IDLE_MS = 10_000;
 
 export default function Play() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { slug, room: roomCode, round: roomRound } = useLocalSearchParams<{ slug: string; room?: string; round?: string }>();
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const game = useGame(slug);
@@ -32,6 +32,16 @@ export default function Play() {
   const startRound = useMutation(api.rounds.start);
   const finishRound = useMutation(api.rounds.finish);
   const vote = useVote();
+  const room = useQuery(api.rooms.get, roomCode ? { code: roomCode } : 'skip');
+  const postScore = useMutation(api.rooms.score);
+  const lastPost = useRef(0);
+  const report = (value: number, done: boolean) => {
+    if (!roomCode) return;
+    const now = Date.now();
+    if (!done && now - lastPost.current < 800) return;
+    lastPost.current = now;
+    postScore({ code: roomCode, round: Number(roomRound), score: value, done }).catch(() => {});
+  };
   const view = useRef<GameHandle>(null);
 
   const [first, setFirst] = useState<Round | null>(null);
@@ -45,7 +55,7 @@ export default function Play() {
   const begin = async () => {
     setFailed(false);
     try {
-      const next = await startRound({ slug, day: localDay() });
+      const next = await startRound({ slug, day: localDay(), room: roomCode });
       round.current = next;
       clock.current = { activeMs: 0, lastTick: 0, lastInput: 0, score: 0, wallStart: 0 };
       setGold(0);
@@ -101,6 +111,7 @@ export default function Play() {
     const playMs = clock.current.wallStart ? Date.now() - clock.current.wallStart : 0;
     setOutcome({ ...result, playMs });
     setPhase('over');
+    report(result.score, true);
     try {
       const saved = await finishRound({ roundId: current.roundId, score: result.score, activeMs: clock.current.activeMs });
       setOutcome({ ...result, playMs, gold: saved.gold, today: saved.today, left: saved.left, newBest: saved.newBest, balance: saved.balance });
@@ -116,7 +127,10 @@ export default function Play() {
       clock.current = { activeMs: 0, lastTick: now, lastInput: now, score: 0, wallStart: now };
       setPhase('playing');
     } else if (message.type === 'input') clock.current.lastInput = Date.now();
-    else if (message.type === 'score') clock.current.score = message.score;
+    else if (message.type === 'score') {
+      clock.current.score = message.score;
+      report(message.score, false);
+    }
     else if (message.type === 'end') settle({ score: message.score ?? clock.current.score, unit: message.unit ?? game?.unit ?? '', headline: message.headline });
   };
 
@@ -125,6 +139,7 @@ export default function Play() {
     if (current && phase === 'paused') {
       finishRound({ roundId: current.roundId, score: clock.current.score, activeMs: clock.current.activeMs }).catch(() => {});
     }
+    if (phase !== 'over') report(clock.current.score, true);
     router.back();
   };
 
@@ -160,6 +175,17 @@ export default function Play() {
             onPress={() => (phase === 'playing' ? pause() : leave())}
           />
           <GoldPill amount={gold} prefix="+" onDark />
+        </View>
+      )}
+
+      {room && phase !== 'over' && (
+        <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 56, left: Margin, gap: 5 }}>
+          {room.players.filter((player) => !player.you).slice(0, 5).map((player) => (
+            <Row key={player.id} gap={6} style={{ backgroundColor: 'rgba(14,14,15,0.55)', borderRadius: 14, height: 28, paddingLeft: 4, paddingRight: 10, alignSelf: 'flex-start' }}>
+              <Avatar name={player.name} color={player.color} size={20} />
+              <Display size={17} color="#F3F0E9">{formatScore(player.score, game?.unit ?? '')}</Display>
+            </Row>
+          ))}
         </View>
       )}
 
@@ -226,6 +252,20 @@ export default function Play() {
               </Row>
             )}
 
+            {room && (
+              <View style={{ backgroundColor: t.raised, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8, gap: 6 }}>
+                {room.players.map((player, index) => (
+                  <Row key={player.id} gap={10}>
+                    <Display size={18} color={t.ink3} style={{ width: 14 }}>{index + 1}</Display>
+                    <Avatar name={player.name} color={player.color} size={22} />
+                    <Body weight="600" size={14} style={{ flex: 1 }}>{player.you ? 'You' : player.name}</Body>
+                    {player.playing && <Label size={9.5}>Playing</Label>}
+                    <Display size={20}>{formatScore(player.score, game?.unit ?? '')}</Display>
+                  </Row>
+                ))}
+              </View>
+            )}
+
             <Row style={{ justifyContent: 'space-between', backgroundColor: t.raised, borderRadius: 18, paddingLeft: 14, paddingRight: 8, height: 52 }}>
               <Body weight="600">Was it good?</Body>
               <Row gap={4}>
@@ -235,8 +275,14 @@ export default function Play() {
             </Row>
 
             <Row gap={10}>
-              <Key testID="again-key" tone="gold" icon="again" label="Again" onPress={begin} style={{ flex: 1 }} />
-              <Key tone="dark" label={limitReached ? 'Find another game' : 'Done'} onPress={() => (limitReached ? router.dismissTo('/') : router.back())} style={{ flex: 1 }} />
+              {roomCode ? (
+                <Key tone="gold" label="Back to the room" onPress={() => router.back()} style={{ flex: 1 }} />
+              ) : (
+                <>
+                  <Key testID="again-key" tone="gold" icon="again" label="Again" onPress={begin} style={{ flex: 1 }} />
+                  <Key tone="dark" label={limitReached ? 'Find another game' : 'Done'} onPress={() => (limitReached ? router.dismissTo('/') : router.back())} style={{ flex: 1 }} />
+                </>
+              )}
             </Row>
 
             <Pressable onPress={() => router.replace(`/leaderboard/${slug}`)} style={{ alignSelf: 'center', paddingVertical: 4 }}>

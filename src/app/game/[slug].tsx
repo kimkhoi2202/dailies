@@ -1,4 +1,4 @@
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { router, useLocalSearchParams, usePathname } from 'expo-router';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +21,7 @@ export default function GameScreen() {
   const game = useGame(slug);
   const board = useQuery(api.social.leaderboard, { slug });
   const vote = useVote();
+  const createRoom = useMutation(api.rooms.create);
   const onTop = usePathname() === `/game/${slug}`;
   const heroHeight = Math.round(height * 0.44);
   const liked = game ? likedPercent(game.likes, game.dislikes) : null;
@@ -90,6 +91,19 @@ export default function GameScreen() {
               <Meter value={game?.today ?? 0} max={100} />
             </Card>
           </Pressable>
+
+          {game && game.maxPlayers > 1 && (
+            <Card style={{ gap: 10 }}>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Label>Play together</Label>
+                <Body size={12.5} color={t.ink2}>Up to {game.maxPlayers} on the same level</Body>
+              </Row>
+              <Row gap={10}>
+                <Key small tone="dark" icon="players" label="Start a room" style={{ flex: 1 }} onPress={() => createRoom({ slug }).then((code) => router.push(`/room/${code}`), () => {})} />
+                <Key small tone="dark" label="Join with a code" style={{ flex: 1 }} onPress={() => router.push('/join')} />
+              </Row>
+            </Card>
+          )}
 
           <Row gap={10}>
             {[
