@@ -263,18 +263,17 @@ final class DailyGridModel {
         marks[cell] = after
         changedAt[cell] = ambient
         refreshConflicts()
-        if after == .crown {
-            if conflict[cell] {
-                lives -= 1
-                owe(.conflict)
-                if lives <= 0 { beginEnding("Out of tries") }
+        if after == .crown && conflict[cell] {
+            lives -= 1
+            owe(.conflict)
+            if lives <= 0 {
+                beginEnding("Out of tries")
                 return true
             }
-            owe(.crown)
-            checkSolved()
-            return true
+        } else {
+            owe(after == .crown ? .crown : .mark)
         }
-        owe(.mark)
+        checkSolved()
         return true
     }
 
@@ -290,6 +289,7 @@ final class DailyGridModel {
             changedAt[cell] = ambient
             refreshConflicts()
             owe(.mark)
+            checkSolved()
             return true
         case 1:
             return hint()
@@ -303,6 +303,7 @@ final class DailyGridModel {
             undoMarks.removeAll(keepingCapacity: true)
             refreshConflicts()
             owe(.mark)
+            checkSolved()
             return true
         }
     }
@@ -406,8 +407,10 @@ final class DailyGridModel {
     }
 
     /// Six crowns with no conflict between them fill every row, column and colour exactly once.
+    /// Runs after every change to the marks, so a board that becomes whole by taking a wrong
+    /// crown away counts too.
     private func checkSolved() {
-        if crownCount != DailyGridPuzzle.size { return }
+        if stage != .playing || crownCount != DailyGridPuzzle.size { return }
         for i in 0..<DailyGridPuzzle.cells where conflict[i] { return }
         let points = DailyGridModel.basePoints + Swift.max(0, DailyGridModel.speedPoints - Int(gridTime))
         score += points
