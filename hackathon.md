@@ -84,3 +84,17 @@ and a fraction of gold carried between rounds (`convex/ledger.ts`,
 The Expo screens and the JavaScript games were removed. Leaderboards, other
 players' comments and the catalog's display numbers still show sample data in
 the app.
+
+### 2026-11-15 - 6642de8
+Added a seventh game, Short Stack: no-limit Texas Hold'em at a table of six, sized
+for one sitting of two to three minutes. The rules are a plain Swift model with a
+seeded deck: a moving button, blinds that double every three hands, minimum
+raises, all in with side pots, showdowns on the best five of seven cards and
+split pots. The game plays the five other seats itself, each weighing a quick
+sample of showdowns against the price of calling, with a lean of its own. Cards,
+suits, chips and the table are drawn in code in one Canvas, and the same painter
+draws the game's clip in Videos (`Sources/Games/ShortStackGame.swift`,
+`Sources/Games/ShortStackScene.swift`). An older poker app of Khoi's was the
+reference for the rules and the feel of the table; the game was written again in
+Swift today. It is in the catalog and seeded in Convex with its friends' scores
+and comments (`Sources/Core/MockData.swift`, `convex/seed.ts`).

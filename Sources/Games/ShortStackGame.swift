@@ -364,6 +364,7 @@ final class ShortStackModel {
     static let turnLimit = 20.0
     static let thinkShort = 0.4
     static let thinkLong = 0.7
+    static let alwaysStays = 0.72           // the share of showdowns a hand must take to call any raise
     static let watchPace = 3.0              // how much faster the table goes once the player is out of a hand
     static let dealGap = 0.07
     static let dealSlide = 0.26
@@ -898,7 +899,8 @@ final class ShortStackModel {
         let price = owed / Swift.max(1, pot + owed)
         let pressure = owed / Swift.max(1, Double(me.chips))
         let rivals = table.seats.indices.filter { $0 != seat && table.seats[$0].live }.count
-        let need = price + pressure * 0.34 + 0.1 + 0.02 * Double(rivals - 1) + style.caution
+        // However big the raise, a hand this good always stays, so pushing all in every hand does not pay.
+        let need = Swift.min(price + pressure * 0.34 + 0.1 + 0.02 * Double(rivals - 1), Self.alwaysStays) + style.caution
         if rules.call > 0, strength + (roll - 0.5) * 0.16 < need { return .fold }
 
         let quiet: ShortStackTable.Move = rules.call > 0 ? .call : .check

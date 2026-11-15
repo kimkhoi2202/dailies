@@ -296,7 +296,7 @@ struct ShortStackFrame {
     var messageAge = 100.0
     var messageLife = 2.0
     var hand = 1
-    var hands = 6
+    var hands = 8
     var small = 10
     var big = 20
     var controls = ShortStackControls()
@@ -739,7 +739,8 @@ struct ShortStackPainter {
             let alpha = 1 - M.smooth(0.9, 1.4, since)
             if alpha <= 0.01 { continue }
             let rise = 26 * M.easeOut(since / 0.5)
-            let y = award.seat == 0 ? to.y - 30 - rise * 0.4 : to.y - 30 - rise * 0.5
+            // Over the player's cards it would hide the name of their hand, so it goes above them.
+            let y = award.seat == 0 ? 506 - rise * 0.4 : to.y - 30 - rise * 0.5
             let line = "+\(M.grouped(award.amount))"
             var c = ctx
             c.opacity = alpha
@@ -932,6 +933,16 @@ enum ShortStackClip {
         }
         f.pot = pot
         f.total = pot + f.seats.reduce(0) { $0 + $1.stake }
+
+        // The keys light up while the table waits for the player.
+        for (from, to, owed) in [(0.215, 0.235, 20), (0.405, 0.44, 0), (0.585, 0.61, 0), (0.71, 0.74, 0)] where p >= from && p < to {
+            f.controls.live = true
+            f.controls.canRaise = true
+            f.controls.call = owed == 0 ? "Check" : "Call"
+            f.controls.callSub = owed == 0 ? "" : "\(owed)"
+            f.controls.clock = 1 - 0.2 * (p - from) / (to - from)
+            f.seats[0].turn = f.controls.clock
+        }
 
         for k in 0..<5 { f.shown[k] = M.clamp((p - reveals[k]) * seconds / 0.45) }
         if f.shown[2] >= 1 { f.seats[0].hand = "Pair of kings" }
