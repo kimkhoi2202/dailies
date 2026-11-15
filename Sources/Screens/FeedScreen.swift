@@ -22,13 +22,21 @@ struct VideoPage: View {
     /// A moving phase makes the gameplay move. nil holds the game's best still.
     var phase: Double? = nil
     var pressed: Bool = false
+    /// A player's own recording, shown in place of the game's replay.
+    var media: AnyView? = nil
+    /// The run's score, for a player's clip.
+    var tag: String? = nil
 
     private var game: MockGame { clip.game }
 
     var body: some View {
         ZStack {
-            // Five Up carries its own header in its art, so it is the one clip shown without the game's HUD.
-            ClipStill(game: game, phase: phase, showHUD: game.kind != .fiveUp, focusY: 0)
+            if let media {
+                media
+            } else {
+                // Five Up carries its own header in its art, so it is the one clip shown without the game's HUD.
+                ClipStill(game: game, phase: phase, showHUD: game.kind != .fiveUp, focusY: 0)
+            }
             shade(from: .top, height: 130, strength: 0.42)
             shade(from: .bottom, height: 400, strength: 0.78)
             HStack(alignment: .bottom, spacing: 10) {
@@ -73,6 +81,7 @@ struct VideoPage: View {
             HStack(spacing: 6) {
                 DLMediaTag(text: game.players, symbol: "person.2.fill")
                 DLMediaTag(text: game.mode)
+                if let tag { DLMediaTag(text: tag, symbol: "trophy.fill") }
             }
             if game.isFullToday {
                 DLMediaTag(text: "Limit reached. More gold in \(Mock.resetIn)", symbol: "checkmark")
@@ -102,15 +111,31 @@ struct VideoPage: View {
 
     private var rail: some View {
         VStack(spacing: 15) {
-            VStack(spacing: 5) {
-                // Once today's gold is all collected the key goes pale. It still plays.
-                DLRoundPlayKey(size: 68, style: game.isFullToday ? .neutral : .gold)
-                    .scaleEffect(pressed ? 0.9 : 1)
-                Text("Play").font(DL.text(13, .bold)).foregroundStyle(.white)
+            // Play the game, or film yourself playing it. Record sits to the left of Play.
+            HStack(alignment: .top, spacing: 12) {
+                VStack(spacing: 5) {
+                    ZStack {
+                        Circle().strokeBorder(.white, lineWidth: 4)
+                        Circle().fill(DL.gold).padding(10)
+                    }
+                    .frame(width: 52, height: 52)
+                    .padding(.top, 8)
+                    Text("Record").font(DL.text(13, .bold)).foregroundStyle(.white)
+                }
+                .opens(.create(game.id))
+                .accessibilityLabel("Record yourself playing \(game.title)")
+                VStack(spacing: 5) {
+                    // Once today's gold is all collected the key goes pale. It still plays.
+                    DLRoundPlayKey(size: 68, style: game.isFullToday ? .neutral : .gold)
+                        .scaleEffect(pressed ? 0.9 : 1)
+                    Text("Play").font(DL.text(13, .bold)).foregroundStyle(.white)
+                }
+                .opens(.gameReady(game.id))
+                .accessibilityLabel("Play \(game.title)")
             }
+            .fixedSize()
+            .frame(width: 72, alignment: .trailing)
             .padding(.bottom, 4)
-            .opens(.gameReady(game.id))
-            .accessibilityLabel("Play \(game.title)")
 
             let liked = voted == true
             counted(game.likes) {

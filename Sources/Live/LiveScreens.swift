@@ -155,6 +155,8 @@ enum LiveBoard {
 
 /// Search that searches. With nothing typed and no category picked it shows the three designed shelves.
 struct LiveSearchScreen: View {
+    /// true inside Community's Explore, which has its own top bar, so the back key and title are left out.
+    var embedded = false
     @ObservedObject private var store = LiveStore.shared
     @State private var query = ""
     @State private var category = "All"
@@ -174,13 +176,15 @@ struct LiveSearchScreen: View {
 
     var body: some View {
         DLPage(spacing: 0, bottomInset: 60) {
-            HStack(alignment: .center, spacing: 10) {
-                DLIconButton(symbol: "chevron.left").goesBack().accessibilityLabel("Back")
-                Text("SEARCH").font(DL.display(40)).foregroundStyle(DL.ink)
-                Spacer()
-                DLGoldChip(onMedia: false).opens(.gold)
+            if !embedded {
+                HStack(alignment: .center, spacing: 10) {
+                    DLIconButton(symbol: "chevron.left").goesBack().accessibilityLabel("Back")
+                    Text("SEARCH").font(DL.display(40)).foregroundStyle(DL.ink)
+                    Spacer()
+                    DLGoldChip(onMedia: false).opens(.gold)
+                }
             }
-            field.padding(.top, 10)
+            field.padding(.top, embedded ? 4 : 10)
             categories.padding(.top, 4)
             if words.isEmpty && category == "All" { shelves } else { results }
         }

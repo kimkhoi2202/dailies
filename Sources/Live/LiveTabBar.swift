@@ -14,7 +14,7 @@ struct LiveTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            item(0, symbol: "house.fill", title: "Home")
+            item(0, symbol: "person.2.fill", title: "Community")
             item(1, symbol: "play.rectangle.on.rectangle.fill", title: "Reels")
             LiveCreateKey()
                 .frame(width: slot + 4)
@@ -64,7 +64,7 @@ struct LiveCreateKey: View {
     var body: some View {
         Button {
             if LiveStore.shared.s.haptics { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
-            LiveNav.shared.open(.create)
+            LiveNav.shared.open(.create(nil))
         } label: {
             Image(systemName: "plus").font(.system(size: 24, weight: .black))
         }

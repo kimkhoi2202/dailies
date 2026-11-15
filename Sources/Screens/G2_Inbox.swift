@@ -37,6 +37,7 @@ struct G2InboxScreen: View {
         DLTabs(selected: 0) {
             DLPage(spacing: 14) {
                 DLNavBar(title: "Inbox", trailingSymbol: "gearshape.fill", trailingAction: { LiveNav.shared.open(.settings) })
+                messagesRow
                 card(title: "Today, \(unread) new", notes: G2InboxData.today, action: "Mark all read")
                 card(title: "Earlier", notes: G2InboxData.earlier, action: nil)
                 Text("Notifications clear themselves after 30 days.")
@@ -46,6 +47,23 @@ struct G2InboxScreen: View {
                     .padding(.top, 2)
             }
         }
+    }
+
+    /// The way into Messages, with how many chats have something new.
+    private var messagesRow: some View {
+        let unread = MessagesStore.shared.chats.filter(\.unread).count
+        return HStack(spacing: 12) {
+            G2SymbolTile(symbol: "bubble.left.and.bubble.right.fill", size: 40, tint: DL.goldText)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Messages").font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
+                Text(unread > 0 ? "\(unread) chats with something new" : "Friends and groups").font(DL.text(13)).foregroundStyle(DL.ink2)
+            }
+            Spacer(minLength: 8)
+            if unread > 0 { Circle().fill(DL.gold).frame(width: 10, height: 10) }
+            Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(DL.ink2)
+        }
+        .dlCard(padding: 14)
+        .opens(.messages)
     }
 
     private func card(title: String, notes: [MockNotification], action: String?) -> some View {

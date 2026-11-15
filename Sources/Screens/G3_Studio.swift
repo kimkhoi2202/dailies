@@ -5,6 +5,7 @@ import SwiftUI
 
 struct G3StudioScreen: View {
     private let games: [MockGame] = [Mock.tippyTower, Mock.spiralDrop]
+    @ObservedObject private var store = LiveStore.shared
 
     var body: some View {
         DLTabs(selected: 2) {
@@ -31,7 +32,9 @@ struct G3StudioScreen: View {
                 .padding(.top, 4)
                 limitCard
                 gamesCard
-                DLTextKey(title: "Publish a game", symbol: "plus").opens(.publish(1)).padding(.top, 4)
+                if !store.creations.isEmpty { madeCard }
+                DLTextKey(title: "Make a game", symbol: "sparkles").opens(.makeGame).padding(.top, 4)
+                DLTextKey(title: "Publish a game", symbol: "plus", style: .ink).opens(.publish(1))
             }
         }
     }
@@ -79,6 +82,39 @@ struct G3StudioScreen: View {
                 .foregroundStyle(DL.ink2)
         }
         .dlCard(padding: 14)
+    }
+
+    /// The games this player is making or has made in the studio, newest first.
+    private var madeCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Made in the studio").dlLabel(10.5).padding(.top, 10).padding(.bottom, 2)
+            ForEach(store.creations) { creation in
+                if creation.id != store.creations.first?.id { DLDivider(inset: 56) }
+                HStack(spacing: 12) {
+                    if let slug = creation.gameSlug, let made = store.madeGame(slug) {
+                        DLThumb(game: made, size: 44)
+                    } else {
+                        DLMonogram(size: 44, plain: true, ink: DL.ink, counter: DL.surface)
+                            .frame(width: 44, height: 44)
+                            .background(DL.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(creation.title ?? creation.wish)
+                            .font(DL.text(16, .semibold)).foregroundStyle(DL.ink).lineLimit(1)
+                        Text(G4Engine.statusWord(creation)).font(DL.text(13)).foregroundStyle(DL.ink2)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(DL.ink2)
+                }
+                .padding(.vertical, 9)
+                .contentShape(Rectangle())
+                .opens(G4Engine.route(creation))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity)
+        .background(RoundedRectangle(cornerRadius: DL.cardRadius, style: .continuous).fill(DL.surface))
     }
 
     private var gamesCard: some View {

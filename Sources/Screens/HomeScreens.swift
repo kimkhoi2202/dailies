@@ -79,8 +79,9 @@ struct HomeScreen: View {
                     DLLogo(height: 36)
                     Spacer()
                     DLGoldChip(onMedia: false).opens(.gold)
+                    CreatePlusButton().opens(.create(nil)).accessibilityLabel("Create")
                     DLIconButton(symbol: "magnifyingglass").opens(.search).accessibilityLabel("Search")
-                    DLAvatar(name: Mock.handle, size: 36).opens(.profile("me")).accessibilityLabel("Your profile")
+                    MyAvatarHead(size: 36).opens(.profile("me")).accessibilityLabel("Your profile")
                 }
                 .padding(.bottom, 2)
 
@@ -236,6 +237,7 @@ struct GameReadyScreen: View {
                         DLTag(text: game.players, symbol: "person.2.fill")
                         DLTag(text: game.mode)
                         DLTag(text: game.category)
+                        CommunityFriendsTag(gameID: game.id)
                     }
                     goldRow
                     friendsRow

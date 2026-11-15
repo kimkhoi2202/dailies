@@ -21,19 +21,13 @@ struct G2StreakSheetScreen: View {
             TodayScreen()
         } content: {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Your streak").dlLabel(10.5)
-                        Text("\(Mock.streakDays) DAYS")
-                            .font(DL.display(112))
-                            .foregroundStyle(DL.ink)
-                            .frame(height: 98)
-                            // Pulled left so the numeral's stem lines up with the label above it.
-                            .padding(.leading, -4)
-                    }
-                    Spacer()
-                    DLIconButton(symbol: "xmark", size: 36).goesBack().accessibilityLabel("Close")
-                }
+                Text(Mock.streakDays == 1 ? "1 DAY" : "\(Mock.streakDays) DAYS")
+                    .font(DL.display(112))
+                    .foregroundStyle(DL.ink)
+                    .lineLimit(1).minimumScaleFactor(0.5)
+                    .frame(height: 98)
+                    // Pulled left so the numeral's stem lines up with the rows below it.
+                    .padding(.leading, -4)
                 weekCard.padding(.top, 14)
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(G2StreakData.rules.indices, id: \.self) { index in

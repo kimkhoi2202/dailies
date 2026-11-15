@@ -15,18 +15,21 @@ struct LiveRoot: View {
         ZStack {
             // The system bar stays hidden. LiveTabBar draws the bar, with the Create key in its middle.
             TabView(selection: $nav.tab) {
-                Tab("Home", systemImage: "house.fill", value: 0) { HomeScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().toolbar(.hidden, for: .tabBar) }
                 Tab("Reels", systemImage: "play.rectangle.on.rectangle.fill", value: 1) { LiveVideos().toolbar(.hidden, for: .tabBar) }
                 Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().toolbar(.hidden, for: .tabBar) }
-                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesTabScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesInboxScreen(showsBack: false).toolbar(.hidden, for: .tabBar) }
                 Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().toolbar(.hidden, for: .tabBar) }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { LiveTabBar() }
 
+            // Sheets are presented by iOS below, so they swipe down like any other sheet.
             ForEach(Array(nav.layers.enumerated()), id: \.element.id) { depth, layer in
-                LayerView(layer: layer)
-                    .zIndex(Double(depth + 1))
-                    .transition(layer.route.style.entrance)
+                if layer.route.style != .sheet {
+                    LayerView(layer: layer)
+                        .zIndex(Double(depth + 1))
+                        .transition(layer.route.style.entrance)
+                }
             }
 
             if let toast = nav.toast {
@@ -44,6 +47,13 @@ struct LiveRoot: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { store.rollDayIfNeeded() }
+        }
+        .sheet(item: Binding(get: { nav.layers.last.flatMap { $0.route.style == .sheet ? $0 : nil } },
+                             set: { shown in
+                                 // Swiped away: drop the sheet's layer, unless something already took it off.
+                                 if shown == nil, nav.layers.last?.route.style == .sheet { nav.layers.removeLast() }
+                             })) { layer in
+            LayerView(layer: layer).environment(\.dlInSystemSheet, true)
         }
         .statusBarHidden(nav.isPlaying)
         .persistentSystemOverlays(nav.isPlaying ? .hidden : .automatic)
@@ -149,16 +159,44 @@ struct LayerView: View {
             G3ReviewResultScreen()
         case .reviewChanges:
             G3ReviewChangesScreen()
-        case .create:
-            CreatePlaceholderScreen()
-        case .profile:
-            ProfilePlaceholderScreen()
+        case .create(let gameID):
+            CreateCameraScreen(startGameID: gameID)
+        case .createPreview:
+            CreatePreviewScreen()
+        case .makeGame:
+            G4CreateScreen()
+        case .profile(let handle):
+            ProfileScreen(handle: handle)
+        case .shop(let focus):
+            ShopScreen(focus: focus)
         case .join:
             JoinRoomSheet()
         case .startRoom:
             StartRoomSheet()
         case .room(let code):
             RoomScreen(code: code)
+        case .makeChat(let creationID):
+            G4CreateChatScreen(creationID: creationID)
+        case .makePreview(let creationID):
+            G4CreatePreviewScreen(creationID: creationID)
+        case .notifications:
+            CommunityNotificationsScreen()
+        case .story(let index):
+            CommunityStoryScreen(start: index)
+        case .rate(let gameID):
+            CommunityRatingSheet(gameID: gameID)
+        case .friendVideos(let start):
+            CommunityVideoPlayer(start: start)
+        case .messages:
+            MessagesInboxScreen()
+        case .chat(let id):
+            MessagesChatScreen(chatID: id)
+        case .newGroup:
+            MessagesNewGroupScreen()
+        case .workplace:
+            MessagesWorkplaceScreen()
+        case .playTogether(let id):
+            MessagesPlayTogetherSheet(chatID: id)
         }
     }
 }
@@ -169,6 +207,7 @@ struct LayerView: View {
 struct LiveVideos: View {
     @ObservedObject private var nav = LiveNav.shared
     @ObservedObject private var store = LiveStore.shared
+    @ObservedObject private var made = CreateClips.shared
 
     /// Long enough that nobody reaches the end. The six clips repeat.
     private let pageCount = 600
@@ -181,10 +220,19 @@ struct LiveVideos: View {
             let playing = nav.tab == 1 && nav.layers.isEmpty && store.isOn("Autoplay clips")
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    // Clips players posted come first, newest at the top, then the catalog clips.
+                    let posted = made.feed
                     ForEach(0..<pageCount, id: \.self) { index in
-                        LiveClipPage(clip: Mock.clips[index % Mock.clips.count], active: playing && nav.videoIndex == index)
-                            .frame(width: screen.width, height: screen.height)
-                            .id(index)
+                        Group {
+                            if index < posted.count {
+                                CreateClipPage(clip: posted[index], active: playing && nav.videoIndex == index)
+                            } else {
+                                LiveClipPage(clip: Mock.clips[(index - posted.count) % Mock.clips.count],
+                                             active: playing && nav.videoIndex == index)
+                            }
+                        }
+                        .frame(width: screen.width, height: screen.height)
+                        .id(index)
                     }
                 }
                 .scrollTargetLayout()
@@ -270,7 +318,10 @@ struct LivePlayScreen: View {
             if asking { pausePrompt }
         }
         .onAppear(perform: begin)
-        .onDisappear { TouchWatcher.remove() }
+        .onDisappear {
+            TouchWatcher.remove()
+            CommunityStore.shared.stopPresence()
+        }
         .onChange(of: scenePhase) { _, phase in
             // Leaving the app pauses the round. The prompt is waiting on return.
             if phase != .active && !link.isFinished {
@@ -285,12 +336,14 @@ struct LivePlayScreen: View {
         let clock = self.clock
         TouchWatcher.install { clock.start() }
         if GameDemo.autopilot { clock.start() }
+        CommunityStore.shared.startPresence(game.id)
         link.onFinish = { result in
             TouchWatcher.remove()
             LiveRoomRound.report(result.score)
             let summary = LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: result, solo: solo)
             if summary.gold > 0 { UINotificationFeedbackGenerator().notificationOccurred(.success) }
             LiveNav.shared.replaceTop(.results)
+            CommunityStore.shared.roundEnded(summary)
         }
     }
 
@@ -454,10 +507,15 @@ struct LiveResultsScreen: View {
 ///   -video <n>          the clip showing in Videos
 ///   -play <game id>     open straight into a game (-solo 1 to play alone, -seed <n> for a fixed round)
 ///   -route <name>       open a screen: gold, history, streak, search, inbox, settings, saveGold, notify, studio,
-///                       reviewProgress, reviewResult, reviewChanges, or one that takes a value:
+///                       reviewProgress, reviewResult, reviewChanges, makeGame, or one that takes a value:
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
 ///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
-///                       create, join, startRoom, profile:<handle>, room:<code>
+///                       create[:<game id>], join, startRoom, profile:<handle>, room:<code>,
+///                       messages, chat:<chat id>, newGroup, workplace,
+///                       makeChat:<creation id>, makePreview:<creation id>,
+///                       shop, shop:closet, shop:<item id> (opens that item's sheet)
+///   -tryon <item id>    in the Shop, try an item on without opening its sheet
+///   -shopturn 1         in the Shop, turn the Dailie round to show its back
 ///   -demo 1             games play themselves (-lose <seconds> has the scripted player lose after that long)
 ///   -gamescale <x>      draw games on a canvas x times smaller and scale it up, to measure drawing cost
 enum LiveLaunch {
@@ -501,6 +559,9 @@ enum LiveLaunch {
         case "reviewProgress": return .reviewProgress
         case "reviewResult": return .reviewResult
         case "reviewChanges": return .reviewChanges
+        case "makeGame": return .makeGame
+        case "makeChat": return .makeChat(value)
+        case "makePreview": return .makePreview(value)
         case "gameReady": return .gameReady(value)
         case "gameDetail": return .gameDetail(value)
         case "leaderboard": return .leaderboard(value)
@@ -509,11 +570,17 @@ enum LiveLaunch {
         case "shareRun": return .shareRun(value)
         case "spend": return .spend(Int(value) ?? 1)
         case "publish": return .publish(Int(value) ?? 1)
-        case "create": return .create
+        case "create": return .create(value.isEmpty ? nil : value)
         case "join": return .join
         case "startRoom": return .startRoom
         case "profile": return .profile(value.isEmpty ? "me" : value)
         case "room": return .room(value)
+        case "friendVideos": return .friendVideos(value)
+        case "shop": return .shop(value.isEmpty ? nil : value)
+        case "messages": return .messages
+        case "chat": return .chat(value)
+        case "newGroup": return .newGroup
+        case "workplace": return .workplace
         default: return nil
         }
     }
@@ -562,7 +629,7 @@ final class LiveHost: UIHostingController<LiveRoot> {
     override var preferredStatusBarStyle: UIStatusBarStyle {
         // A sheet leaves the screen under it showing, so the top screen that is not a sheet decides.
         switch LiveNav.shared.layers.last(where: { $0.route.style != .sheet })?.route {
-        case .gameReady, .play, .results, .gameDetail: .lightContent
+        case .gameReady, .play, .results, .gameDetail, .profile, .shop, .create, .createPreview, .story, .friendVideos: .lightContent
         case nil: LiveNav.shared.tab == 1 ? .lightContent : .default
         default: .default
         }
