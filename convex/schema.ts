@@ -123,4 +123,9 @@ export default defineSchema({
     item: v.string(),
     price: v.number(),
   }).index("by_user_and_item", ["userId", "item"]),
+
+  saved: defineTable({
+    userId: v.id("users"),
+    gameSlug: v.string(),
+  }).index("by_user_and_gameSlug", ["userId", "gameSlug"]),
 });
