@@ -15,13 +15,15 @@ struct LiveRoot: View {
         ZStack {
             // The system bar stays hidden. LiveTabBar draws the bar, with the Create key in its middle.
             TabView(selection: $nav.tab) {
-                Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().underTabBar() }
                 Tab("Reels", systemImage: "play.rectangle.on.rectangle.fill", value: 1) { LiveVideos().toolbar(.hidden, for: .tabBar) }
-                Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().toolbar(.hidden, for: .tabBar) }
-                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesInboxScreen(showsBack: false).toolbar(.hidden, for: .tabBar) }
-                Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().underTabBar() }
+                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesInboxScreen(showsBack: false).underTabBar() }
+                Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().underTabBar() }
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) { LiveTabBar() }
+            // An inset on the TabView never reaches the pages inside its tabs, so the bar floats over
+            // them and each page keeps its own room for it (underTabBar).
+            .overlay(alignment: .bottom) { LiveTabBar() }
 
             // Sheets are presented by iOS below, so they swipe down like any other sheet.
             ForEach(Array(nav.layers.enumerated()), id: \.element.id) { depth, layer in
@@ -58,6 +60,14 @@ struct LiveRoot: View {
         .statusBarHidden(nav.isPlaying)
         .persistentSystemOverlays(nav.isPlaying ? .hidden : .automatic)
         .defersSystemGestures(on: nav.isPlaying ? .all : [])
+    }
+}
+
+private extension View {
+    /// A tab's page: the system bar hidden, and room at the bottom so the last row scrolls clear of LiveTabBar.
+    func underTabBar() -> some View {
+        toolbar(.hidden, for: .tabBar)
+            .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: LiveTabBar.height) }
     }
 }
 
@@ -175,6 +185,10 @@ struct LayerView: View {
             StartRoomSheet()
         case .room(let code):
             RoomScreen(code: code)
+        case .libraryGame(let gameID):
+            LibraryGameSheet(game: Mock.game(gameID))
+        case .myClip(let clipID):
+            LibraryClipScreen(clipID: clipID)
         case .makeChat(let creationID):
             G4CreateChatScreen(creationID: creationID)
         case .makePreview(let creationID):
@@ -502,6 +516,7 @@ struct LiveResultsScreen: View {
 ///   -fresh 1            start over with a new account
 ///   -scheme light|dark  appearance
 ///   -tab <0...4>        open on a tab: 0 Home, 1 Videos, 2 You, 3 Messages, 4 Library
+///   -scroll bottom      in the Library, open scrolled to the end
 ///   -video <n>          the clip showing in Videos
 ///   -play <game id>     open straight into a game (-solo 1 to play alone, -seed <n> for a fixed round)
 ///   -route <name>       open a screen: gold, history, streak, search, inbox, settings, saveGold, notify, studio,
@@ -509,6 +524,7 @@ struct LiveResultsScreen: View {
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
 ///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
 ///                       create[:<game id>], join, startRoom, profile:<handle>, room:<code>,
+///                       libraryGame:<game id>, myClip:<clip id>,
 ///                       messages, chat:<chat id>, newGroup, workplace,
 ///                       makeChat:<creation id>, makePreview:<creation id>,
 ///                       shop, shop:closet, shop:<item id> (opens that item's sheet)
@@ -573,6 +589,8 @@ enum LiveLaunch {
         case "startRoom": return .startRoom
         case "profile": return .profile(value.isEmpty ? "me" : value)
         case "room": return .room(value)
+        case "libraryGame": return .libraryGame(value)
+        case "myClip": return .myClip(value)
         case "shop": return .shop(value.isEmpty ? nil : value)
         case "messages": return .messages
         case "chat": return .chat(value)

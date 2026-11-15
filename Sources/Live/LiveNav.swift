@@ -36,6 +36,9 @@ enum Route: Hashable {
     case join
     case startRoom
     case room(String)
+    case libraryGame(String)
+    /// One of your own posted clips, by its id.
+    case myClip(String)
     // the avatar
     /// An item id to open on its sheet, "closet" for the Closet, or nil.
     case shop(String?)
@@ -63,7 +66,7 @@ enum Route: Hashable {
         switch self {
         case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room, .shop, .makeChat, .makePreview, .notifications:
             .push
-        case .story:
+        case .story, .myClip:
             .cover
         case .rate:
             .sheet
@@ -74,7 +77,7 @@ enum Route: Hashable {
             .sheet
         case .messages, .chat, .newGroup, .workplace:
             .push
-        case .playTogether:
+        case .playTogether, .libraryGame:
             .sheet
         }
     }
