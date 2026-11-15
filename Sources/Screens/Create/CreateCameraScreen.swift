@@ -226,6 +226,9 @@ struct CreateCameraScreen: View {
         _options = State(initialValue: Self.playOptions(Mock.game(startGameID ?? Mock.games.first?.id ?? ""), seed: 1))
         _centeredID = State(initialValue: startGameID ?? Mock.games.first?.id)
         _userPicked = State(initialValue: startGameID != nil)
+        // `-gameOn 1` opens with the game on and `-layout <name>` picks the layout, for checking the camera without tapping.
+        _gameOn = State(initialValue: MockArgs.value("-gameOn").map { $0 == "1" } ?? true)
+        _layout = State(initialValue: MockArgs.value("-layout").flatMap(CreateLayout.init(rawValue:)) ?? .bubble)
     }
 
     private var selected: MockGame? {
@@ -617,7 +620,7 @@ struct CreateCameraScreen: View {
                     }
                     .foregroundStyle(.white)
                     .frame(width: 58, height: 58)
-                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.black.opacity(0.6)))
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(white: 0.08)))
                     .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.8), lineWidth: 1.5))
                 }
                 .accessibilityLabel("Upload a video and tag it with the game")
