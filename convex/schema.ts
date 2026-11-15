@@ -200,4 +200,52 @@ export default defineSchema({
   }).index("by_user_and_gameSlug", ["userId", "gameSlug"]),
 
   ...communityTables,
+
+  chatConversations: defineTable({
+    kind: v.union(v.literal("direct"), v.literal("group"), v.literal("workplace")),
+    name: v.string(),
+    icon: v.string(),
+    key: v.optional(v.string()),
+    domain: v.optional(v.string()),
+    lastMessageAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_domain", ["domain"]),
+
+  chatMembers: defineTable({
+    conversationId: v.id("chatConversations"),
+    userId: v.id("users"),
+    lastReadAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_conversationId_and_userId", ["conversationId", "userId"]),
+
+  chatMessages: defineTable({
+    conversationId: v.id("chatConversations"),
+    userId: v.id("users"),
+    kind: v.union(v.literal("text"), v.literal("invite"), v.literal("score"), v.literal("post")),
+    body: v.string(),
+    gameSlug: v.optional(v.string()),
+    roomCode: v.optional(v.string()),
+    score: v.optional(v.number()),
+    sentAt: v.optional(v.number()),
+  }).index("by_conversationId", ["conversationId"]),
+
+  chatTyping: defineTable({
+    conversationId: v.id("chatConversations"),
+    userId: v.id("users"),
+    at: v.number(),
+  }).index("by_conversationId_and_userId", ["conversationId", "userId"]),
+
+  chatOnline: defineTable({
+    userId: v.id("users"),
+    at: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  workplaceCodes: defineTable({
+    userId: v.id("users"),
+    domain: v.string(),
+    code: v.string(),
+    expiresAt: v.number(),
+  }).index("by_userId", ["userId"]),
 });

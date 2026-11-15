@@ -50,6 +50,12 @@ enum Route: Hashable {
     case notifications
     case story(Int)
     case rate(String)
+    // messages
+    case messages
+    case chat(String)
+    case newGroup
+    case workplace
+    case playTogether(String)
 
     enum Style { case push, cover, sheet }
 
@@ -65,6 +71,10 @@ enum Route: Hashable {
              .create, .createPreview, .makeGame:
             .cover
         case .comments, .fairness, .spend, .streak, .saveGold, .notify, .join, .startRoom:
+            .sheet
+        case .messages, .chat, .newGroup, .workplace:
+            .push
+        case .playTogether:
             .sheet
         }
     }

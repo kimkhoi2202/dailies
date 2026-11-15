@@ -18,7 +18,7 @@ struct LiveRoot: View {
                 Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().toolbar(.hidden, for: .tabBar) }
                 Tab("Reels", systemImage: "play.rectangle.on.rectangle.fill", value: 1) { LiveVideos().toolbar(.hidden, for: .tabBar) }
                 Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().toolbar(.hidden, for: .tabBar) }
-                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesTabScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesInboxScreen(showsBack: false).toolbar(.hidden, for: .tabBar) }
                 Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().toolbar(.hidden, for: .tabBar) }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { LiveTabBar() }
@@ -175,6 +175,16 @@ struct LayerView: View {
             CommunityStoryScreen(start: index)
         case .rate(let gameID):
             CommunityRatingSheet(gameID: gameID)
+        case .messages:
+            MessagesInboxScreen()
+        case .chat(let id):
+            MessagesChatScreen(chatID: id)
+        case .newGroup:
+            MessagesNewGroupScreen()
+        case .workplace:
+            MessagesWorkplaceScreen()
+        case .playTogether(let id):
+            MessagesPlayTogetherSheet(chatID: id)
         }
     }
 }
@@ -489,6 +499,7 @@ struct LiveResultsScreen: View {
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
 ///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
 ///                       create[:<game id>], join, startRoom, profile:<handle>, room:<code>,
+///                       messages, chat:<chat id>, newGroup, workplace,
 ///                       makeChat:<creation id>, makePreview:<creation id>,
 ///                       shop, shop:closet, shop:<item id> (opens that item's sheet)
 ///   -tryon <item id>    in the Shop, try an item on without opening its sheet
@@ -553,6 +564,10 @@ enum LiveLaunch {
         case "profile": return .profile(value.isEmpty ? "me" : value)
         case "room": return .room(value)
         case "shop": return .shop(value.isEmpty ? nil : value)
+        case "messages": return .messages
+        case "chat": return .chat(value)
+        case "newGroup": return .newGroup
+        case "workplace": return .workplace
         default: return nil
         }
     }
