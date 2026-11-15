@@ -393,16 +393,24 @@ struct ShopItemSheet: View {
         }
     }
 
+    private static let confettiColors: [Color] = [Color(hex: "FFC531"), Color(hex: "1FA89A"), Color(hex: "7C5CFF"), Color(hex: "FF7AB6")]
+
+    /// One square of the burst after buying: it flies out from the middle and fades.
+    private func confetti(_ index: Int) -> some View {
+        let angle: Double = Double(index) / 14.0 * 2.0 * Double.pi
+        let dx: CGFloat = burst ? CGFloat(cos(angle) * 140.0) : 0
+        let dy: CGFloat = burst ? CGFloat(sin(angle) * 95.0) : 0
+        return Rectangle().fill(Self.confettiColors[index % Self.confettiColors.count])
+            .frame(width: 9, height: 9)
+            .offset(x: dx, y: dy)
+            .opacity(burst ? 0 : 1)
+    }
+
     private var celebration: some View {
         VStack(spacing: 12) {
             ZStack {
                 ForEach(0..<14, id: \.self) { index in
-                    let angle = Double(index) / 14 * 2 * .pi
-                    let colors = [Color(hex: "FFC531"), Color(hex: "1FA89A"), Color(hex: "7C5CFF"), Color(hex: "FF7AB6")]
-                    Rectangle().fill(colors[index % colors.count])
-                        .frame(width: 9, height: 9)
-                        .offset(x: burst ? cos(angle) * 140 : 0, y: burst ? sin(angle) * 95 : 0)
-                        .opacity(burst ? 0 : 1)
+                    confetti(index)
                 }
                 art.scaleEffect(bought ? 1 : 0.3)
             }

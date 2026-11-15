@@ -26,6 +26,8 @@ export default defineSchema({
         gadget: v.optional(v.string()),
       }),
     ),
+    // Decor items placed in this player's profile room, in spot order.
+    room: v.optional(v.object({ decor: v.array(v.string()) })),
   }).index("by_handle", ["handle"]),
 
   games: defineTable({

@@ -26,7 +26,8 @@ struct AvatarRoom: View {
             let pane = CGRect(x: w * 0.08, y: h * 0.2, width: w * 0.22, height: h * 0.26)
             context.fill(Path(roundedRect: pane.insetBy(dx: -5, dy: -5), cornerRadius: 8), with: .color(Color(hex: "3A332C")))
             context.fill(Path(roundedRect: pane, cornerRadius: 5), with: .color(Color(hex: "0E0D0B")))
-            for (fx, fy) in [(0.2, 0.25), (0.65, 0.18), (0.4, 0.62), (0.8, 0.7), (0.15, 0.8)] {
+            let stars: [(CGFloat, CGFloat)] = [(0.2, 0.25), (0.65, 0.18), (0.4, 0.62), (0.8, 0.7), (0.15, 0.8)]
+            for (fx, fy) in stars {
                 context.fill(Path(CGRect(x: pane.minX + pane.width * fx, y: pane.minY + pane.height * fy, width: 3, height: 3)),
                              with: .color(Color(hex: "FFC531")))
             }
