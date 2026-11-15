@@ -10,6 +10,7 @@ import SwiftUI
 
 enum GameKind: String, CaseIterable {
     case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland
+    case shortStack
 }
 
 struct MockGame: Identifiable {
@@ -65,6 +66,7 @@ struct MockGame: Identifiable {
         case .laneDash: LaneDashScene(phase: moment, showHUD: showHUD)
         case .gulpCity: GulpCityScene(phase: moment, showHUD: showHUD)
         case .inkland: InklandScene(phase: moment, showHUD: showHUD)
+        case .shortStack: ShortStackScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -184,7 +186,7 @@ enum Mock {
 
     // MARK: Games
 
-    // The six games as the app ships them. Their counts are samples, shown until the server's first answer.
+    // The games as the app ships them. Their counts are samples, shown until the server's first answer.
     private static let sampleGames = [
       MockGame(
         id: "tippy-tower", kind: .tippyTower, title: "Tippy Tower", tagline: "Stack it. Don't blink.",
@@ -228,6 +230,12 @@ enum Mock {
         plays: "371K", likes: "40.3K", dislikes: "3.9K", approval: 91,
         bestScore: "87%", clipPhase: 0.85, tint: Color(red: 0.55, green: 0.80, blue: 0.70)),
 
+      MockGame(
+        id: "short-stack", kind: .shortStack, title: "Short Stack", tagline: "Six seats. Three minutes.",
+        category: "Cards", players: "1 to 6 players", mode: "Competitive", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 40s", seedEarned: 0,
+        plays: "238K", likes: "26.4K", dislikes: "2.1K", approval: 93,
+        bestScore: "2,460 chips", clipPhase: 0.865, tint: Color(red: 0.07, green: 0.56, blue: 0.48)),
     ]
 
     private static var counted: (version: Int, games: [MockGame], clips: [MockClip]) = (-1, [], [])
@@ -253,6 +261,7 @@ enum Mock {
     static var inkland: MockGame { games[3] }
     static var spiralDrop: MockGame { games[4] }
     static var gulpCity: MockGame { games[5] }
+    static var shortStack: MockGame { games[6] }
 
     // MARK: Videos
 
@@ -269,6 +278,8 @@ enum Mock {
                  caption: "eleven floors without touching red", length: "0:35", comments: "198", shares: "977"),
         (id: "c6", game: "gulp-city", player: "tofu",
                  caption: "swallowed the whole block with two seconds left", length: "0:29", comments: "88", shares: "412"),
+        (id: "c7", game: "short-stack", player: "kaz",
+                 caption: "two pair on the river and the whole table folded too late", length: "0:33", comments: "143", shares: "508"),
     ]
     static var clips: [MockClip] { refresh(); return counted.clips }
 

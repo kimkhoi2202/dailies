@@ -1,6 +1,6 @@
 # Hackathon log
 
-- **Project:** Dailies
+- **Project:** DEGEN (first called Dailies)
 - **Event:** The Consumer Mobile Hackathon
 - **What it does:** A daily feed of small phone games where playing collects gold, with likes, comments, leaderboards and rooms for playing the same level with friends.
 - **Live app:** not deployed
@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** gpt-6-luna (OpenAI Responses API, from a Convex action)
 - **Started:** 2026-11-15T18:02:39Z
-- **Last updated:** 2026-11-15T21:13:57Z
+- **Last updated:** 2026-11-15T22:37:19Z
 
 ## Log
 
@@ -94,6 +94,47 @@ and the streak week (`Sources/Live/LiveStore.swift`, `Sources/Live/LiveScreens.s
 amount of two digits (`Sources/Screens/GameScreens.swift`). Built the app on
 Revyl, installed it on a cloud iPhone and played a round by touch; the round and
 its gold appeared in Convex under a new device account.
+
+### 2026-11-15 - 6642de8
+Added a seventh game, Short Stack: no-limit Texas Hold'em at a table of six, sized
+for one sitting of two to three minutes. The rules are a plain Swift model with a
+seeded deck: a moving button, blinds that double every three hands, minimum
+raises, all in with side pots, showdowns on the best five of seven cards and
+split pots. The game plays the five other seats itself, each weighing a quick
+sample of showdowns against the price of calling, with a lean of its own. Cards,
+suits, chips and the table are drawn in code in one Canvas, and the same painter
+draws the game's clip in Videos (`Sources/Games/ShortStackGame.swift`,
+`Sources/Games/ShortStackScene.swift`). An older poker app of Khoi's was the
+reference for the rules and the feel of the table; the game was written again in
+Swift today. It is in the catalog and seeded in Convex with its friends' scores
+and comments (`Sources/Core/MockData.swift`, `convex/seed.ts`).
+
+### 2026-11-15 - b72b9a1
+Tuned Short Stack. A sitting is seven hands. The other seats now stay in against
+a raise of any size once their hand is strong enough, so going all in on every
+hand stops working, and they take a little longer to act. Every seat has the same
+plate, and the seat to act wears a gold ring that runs down with its time. The
+game's clip in Videos is timed to the feed and lights the keys while the table
+waits for the player (`Sources/Games/ShortStackGame.swift`,
+`Sources/Games/ShortStackScene.swift`). The results screen has one Again key
+(`Sources/Screens/GameScreens.swift`).
+
+### 2026-11-15 - 271209b
+Renamed the app to DEGEN wherever a person reads the name: under the icon, in
+share text, in Settings and in accessibility labels. The logo on Home is drawn in
+code, the D mark followed by EGEN, in place of two lockup images
+(`Sources/DS/Components.swift`, `project.yml`). The repository, the Xcode
+target, the bundle id and the Convex project keep the name Dailies. Replaced the
+app icon with one 1024 px image
+(`Resources/Assets.xcassets/AppIcon.appiconset`). Prepared the app for App Store
+Connect: version 1.0.0, the games category, the export compliance answer, iPhone
+as the only device, and a privacy manifest that declares UserDefaults, no
+tracking and no collected data (`project.yml`, `Resources/PrivacyInfo.xcprivacy`).
+An archive of this commit, signed for the team's App Store Connect account under
+its own bundle id, was uploaded to TestFlight as 1.0.0 (3). It is available to
+the team's internal testers and is waiting for Apple's beta review, which the
+public TestFlight link needs before it opens. After the merge, `main` was built
+on Revyl and opened on a cloud iPhone, where Home loaded with all seven games.
 
 ### 2026-11-15 - 285f965
 Added the studio's game creation pipeline, on the `game-creation` branch.

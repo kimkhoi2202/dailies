@@ -140,7 +140,7 @@ struct WidgetsMoment: View {
                     .frame(width: 64, height: 64)
             }
             // A blank name keeps the other icons the same height as ours.
-            Text(isDailies ? "Dailies" : " ").font(.system(size: 12, weight: .medium)).foregroundStyle(DL.ink)
+            Text(isDailies ? "DEGEN" : " ").font(.system(size: 12, weight: .medium)).foregroundStyle(DL.ink)
         }
     }
 
