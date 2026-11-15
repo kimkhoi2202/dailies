@@ -1,6 +1,6 @@
 # Hackathon log
 
-- **Project:** Dailies
+- **Project:** DEGEN (first called Dailies)
 - **Event:** The Consumer Mobile Hackathon
 - **What it does:** A daily feed of small phone games where playing collects gold, with likes, comments, leaderboards and rooms for playing the same level with friends.
 - **Live app:** not deployed
@@ -94,3 +94,17 @@ and the streak week (`Sources/Live/LiveStore.swift`, `Sources/Live/LiveScreens.s
 amount of two digits (`Sources/Screens/GameScreens.swift`). Built the app on
 Revyl, installed it on a cloud iPhone and played a round by touch; the round and
 its gold appeared in Convex under a new device account.
+
+### 2026-11-15 - 6642de8
+Added a seventh game, Short Stack: no-limit Texas Hold'em at a table of six, sized
+for one sitting of two to three minutes. The rules are a plain Swift model with a
+seeded deck: a moving button, blinds that double every three hands, minimum
+raises, all in with side pots, showdowns on the best five of seven cards and
+split pots. The game plays the five other seats itself, each weighing a quick
+sample of showdowns against the price of calling, with a lean of its own. Cards,
+suits, chips and the table are drawn in code in one Canvas, and the same painter
+draws the game's clip in Videos (`Sources/Games/ShortStackGame.swift`,
+`Sources/Games/ShortStackScene.swift`). An older poker app of Khoi's was the
+reference for the rules and the feel of the table; the game was written again in
+Swift today. It is in the catalog and seeded in Convex with its friends' scores
+and comments (`Sources/Core/MockData.swift`, `convex/seed.ts`).

@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide, busRush, cornerPocket, canCannon
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide, busRush, cornerPocket, canCannon, shortStack
 }
 
 struct MockGame: Identifiable {
@@ -77,6 +77,7 @@ struct MockGame: Identifiable {
         case .busRush: BusRushScene(phase: moment, showHUD: showHUD)
         case .cornerPocket: CornerPocketScene(phase: moment, showHUD: showHUD)
         case .canCannon: CanCannonScene(phase: moment, showHUD: showHUD)
+        case .shortStack: ShortStackScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -196,7 +197,7 @@ enum Mock {
 
     // MARK: Games
 
-    // The six games as the app ships them. Their counts are samples, shown until the server's first answer.
+    // The games as the app ships them. Their counts are samples, shown until the server's first answer.
     private static let sampleGames = [
       MockGame(
         id: "tippy-tower", kind: .tippyTower, title: "Tippy Tower", tagline: "Stack it. Don't blink.",
@@ -324,6 +325,12 @@ enum Mock {
         plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
         bestScore: "1,480 points", clipPhase: 0.5, tint: Color(red: 0.24, green: 0.42, blue: 0.88)),
 
+      MockGame(
+        id: "short-stack", kind: .shortStack, title: "Short Stack", tagline: "Six seats. Three minutes.",
+        category: "Cards", players: "1 to 6 players", mode: "Competitive", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 40s", seedEarned: 0,
+        plays: "238K", likes: "26.4K", dislikes: "2.1K", approval: 93,
+        bestScore: "2,460 chips", clipPhase: 0.865, tint: Color(red: 0.07, green: 0.56, blue: 0.48)),
     ]
 
     private static var counted: (version: Int, games: [MockGame], clips: [MockClip]) = (-1, [], [])
@@ -350,17 +357,18 @@ enum Mock {
     static var spiralDrop: MockGame { games[4] }
     static var gulpCity: MockGame { games[5] }
     static var slipOut: MockGame { games[6] }
-    static var blockParty: MockGame { games[7] }
-    static var wildEights: MockGame { games[8] }
-    static var brickOut: MockGame { games[9] }
-    static var dailyGrid: MockGame { games[10] }
-    static var letterRush: MockGame { games[11] }
-    static var pourParty: MockGame { games[12] }
-    static var deepEnd: MockGame { games[13] }
-    static var jamSlide: MockGame { games[14] }
-    static var busRush: MockGame { games[15] }
-    static var cornerPocket: MockGame { games[16] }
-    static var canCannon: MockGame { games[17] }
+    static var shortStack: MockGame { games[7] }
+    static var blockParty: MockGame { games[8] }
+    static var wildEights: MockGame { games[9] }
+    static var brickOut: MockGame { games[10] }
+    static var dailyGrid: MockGame { games[11] }
+    static var letterRush: MockGame { games[12] }
+    static var pourParty: MockGame { games[13] }
+    static var deepEnd: MockGame { games[14] }
+    static var jamSlide: MockGame { games[15] }
+    static var busRush: MockGame { games[16] }
+    static var cornerPocket: MockGame { games[17] }
+    static var canCannon: MockGame { games[18] }
 
     // MARK: Videos
 
@@ -401,6 +409,8 @@ enum Mock {
                  caption: "called the corner and sank the eight off two rails", length: "0:33", comments: "109", shares: "512"),
         (id: "c18", game: "can-cannon", player: "noor.runs",
                  caption: "one ball, the whole pyramid", length: "0:26", comments: "137", shares: "690"),
+        (id: "c7", game: "short-stack", player: "kaz",
+                 caption: "two pair on the river and the whole table folded too late", length: "0:33", comments: "143", shares: "508"),
     ]
     static var clips: [MockClip] { refresh(); return counted.clips }
 

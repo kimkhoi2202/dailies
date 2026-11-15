@@ -334,7 +334,7 @@ struct GameReadyScreen: View {
             .padding(.horizontal, 13)
             .frame(height: 36)
             .background(Capsule().fill(DL.body))
-            .tap { LiveNav.shared.share("Come and play \(game.title) with me on Dailies") }
+            .tap { LiveNav.shared.share("Come and play \(game.title) with me on DEGEN") }
         }
         .dlCard(padding: 12, radius: 22)
     }
