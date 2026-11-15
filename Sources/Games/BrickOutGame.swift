@@ -89,8 +89,8 @@ final class BrickOutModel {
         floaters.reserveCapacity(16)
         if !options.solo {
             for name in options.friendNames.filter({ !$0.isEmpty }).prefix(3) {
-                let pace = friendRng.range(0.7, 1.3)
-                friends.append(Friend(name: name, pace: pace, score: 0, wait: friendRng.range(0.8, 2.0)))
+                let pace = friendRng.range(0.75, 1.35)
+                friends.append(Friend(name: name, pace: pace, score: 0, wait: friendRng.range(1.5, 3.5)))
                 hud.friends.append(BrickOutFriendChip(name: name, score: 0))
             }
         }
@@ -488,8 +488,8 @@ final class BrickOutModel {
         for k in friends.indices {
             friends[k].wait -= dt
             if friends[k].wait > 0 { continue }
-            friends[k].score += 10 * friendRng.int(2...4) + (friendRng.next() < 0.1 ? 50 : 0)
-            friends[k].wait = friendRng.range(0.9, 2.4) / friends[k].pace
+            friends[k].score += 10 * friendRng.int(2...3) + (friendRng.next() < 0.08 ? 50 : 0)
+            friends[k].wait = friendRng.range(2.0, 4.0) / friends[k].pace
         }
     }
 

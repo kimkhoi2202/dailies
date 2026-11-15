@@ -721,7 +721,8 @@ struct BrickOutPainter {
             let dx = Double(rect.minX) + 11 * u
             ctx.fill(Path(ellipseIn: CGRect(x: dx - dot, y: y - dot, width: 2 * dot, height: 2 * dot)),
                      with: .color(BrickOutInk.face[(k * 2 + 3) % BrickOutInk.face.count]))
-            let name = Text(String(f.name.prefix(9))).font(.system(size: 11.5 * u, weight: .bold, design: .rounded))
+            let room = Swift.max(3, Int((chipW - 58 * u) / (6.6 * u)))
+            let name = Text(String(f.name.prefix(room))).font(.system(size: 11.5 * u, weight: .bold, design: .rounded))
             ctx.draw(name.foregroundColor(.white.opacity(0.75)), at: CGPoint(x: dx + 9 * u, y: y), anchor: .leading)
             let s = Text("\(f.score)").font(.system(size: 12 * u, weight: .heavy, design: .rounded)).monospacedDigit()
             let ink: Color = f.score > mine ? BrickOutInk.warn : .white
@@ -914,8 +915,8 @@ enum BrickOutCover {
             bricks[i].x += Double(d.dx) * move
             bricks[i].y += Double(d.dy) * move
             bricks[i].held = local < 0.12
+            if local > 0.12 { bricks[i].exitSide = side }
             if local > 0.35 {
-                bricks[i].exitSide = side
                 bricks[i].exitAge = (local - 0.35) * 1.2
                 gates[gateIndex].flash = (local - 0.35) * 1.0
                 let gc = L.gateCenter(gates[gateIndex])
@@ -944,8 +945,8 @@ enum BrickOutCover {
         painter.drawBricks(&ctx, bricks, hint: -1, ambient: ambient)
         painter.drawSparks(&ctx, sparks)
         painter.drawFloaters(&ctx, floaters)
-        if gone >= 1, local > 0.35 { painter.drawPraise(&ctx, gone >= 2 ? "Great" : "Nice", age: (local - 0.35) * 1.1) }
         guard showHUD else { return }
+        if gone >= 1, local > 0.35 { painter.drawPraise(&ctx, gone >= 2 ? "Great" : "Nice", age: (local - 0.35) * 1.1) }
         var hud = BrickOutHUD()
         hud.score = 180 + gone * 40
         hud.clock = 48 - p * 14
