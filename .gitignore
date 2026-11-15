@@ -29,3 +29,12 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 .DS_Store
+
+expo-env.d.ts
+.metro-health-check*
+.kotlin/
+*.orig.*
+*.key
+*.pem
+/ios
+/android

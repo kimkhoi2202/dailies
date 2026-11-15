@@ -4,6 +4,16 @@ Consumer mobile app built at [The Consumer Mobile Hackathon](https://consumermob
 
 The hackathon's required stack is Capy (writes the app), Revyl (runs it on a device and checks it), and Convex (the backend).
 
+## Run it
+
+```sh
+npm install
+npx convex dev    # syncs convex/ to the dev deployment; writes .env.local on first run
+npm run ios       # or: npm start, then scan the QR code with Expo Go
+```
+
+The app is an Expo app (Expo Router, TypeScript) at the repository root with screens in `src/app/`, and the Convex backend is in `convex/`. `AGENTS.md` holds the conventions for each sponsor tool, and `hackathon.md` is the public build log.
+
 ## Worktrees
 
 The main checkout stays on `main`. Every other branch gets its own worktree in a sibling folder, so no worktree sits inside another one and Metro, TypeScript, and watchman never crawl a second copy of the app.
