@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 // The profile: your Dailie standing in a dark little room, your name and numbers under it, and the
 // trophies you have earned. The Shop pill at the top right leads to the Shop.
@@ -9,6 +10,10 @@ struct ProfileScreen: View {
     @ObservedObject private var store = LiveStore.shared
     @StateObject private var loader: ProfileLoader
     @State private var tab = 0
+    @ObservedObject private var clips = CreateClips.shared
+    /// Someone else's clips, from the server. nil until the first answer.
+    @State private var userClips: [ConvexClip]?
+    @State private var clipsWatch: AnyCancellable?
     @State private var bubble: String?
     @State private var bubbleTurn = 0
 
@@ -71,10 +76,10 @@ struct ProfileScreen: View {
                     room(info, top: top)
                     identity(info)
                         .padding(.horizontal, DL.margin).padding(.top, 16)
-                    G2Segmented(items: ["Trophies", "Clips", "Ranked"], selected: tab)
+                    G2Segmented(items: tabs, selected: tab)
                         .overlay {
                             HStack(spacing: 0) {
-                                ForEach(0..<3, id: \.self) { index in
+                                ForEach(tabs.indices, id: \.self) { index in
                                     Color.clear.contentShape(Rectangle()).tap { tab = index }
                                 }
                             }
@@ -88,7 +93,15 @@ struct ProfileScreen: View {
             .ignoresSafeArea(edges: .top)
         }
         .background(DL.body.ignoresSafeArea())
+        .onAppear {
+            guard !isMe, clipsWatch == nil else { return }
+            clipsWatch = clips.watchUser(handle) { rows in userClips = rows }
+        }
+        .onDisappear { clipsWatch?.cancel(); clipsWatch = nil }
     }
+
+    /// Your own profile also holds the clips you saved.
+    private var tabs: [String] { isMe ? ["Trophies", "Clips", "Saved", "Ranked"] : ["Trophies", "Clips", "Ranked"] }
 
     // MARK: Room
 
@@ -202,13 +215,37 @@ struct ProfileScreen: View {
                 }
             }
         case 1 where isMe:
-            WhopProfileClips()
+            VStack(spacing: 14) {
+                if clips.mine.isEmpty {
+                    DLEmptyState(symbol: "video.fill", title: "No clips yet", detail: "Film yourself playing with the + button.",
+                                 key: "Open camera") { LiveNav.shared.open(.create(nil)) }
+                } else {
+                    ClipGrid(items: clips.mine.map { .posted($0) }, source: .mine)
+                }
+                WhopProfileClips(showsClips: false)
+            }
+        case 1:
+            if let rows = userClips, !rows.isEmpty {
+                ClipGrid(items: rows.map { .posted($0) }, source: .user(handle))
+            } else {
+                Text(userClips == nil ? "" : "No clips yet.")
+                    .font(DL.text(15)).foregroundStyle(DL.ink2)
+                    .frame(maxWidth: .infinity).padding(.vertical, 30)
+            }
+        case 2 where isMe:
+            if clips.saved.isEmpty {
+                DLEmptyState(symbol: "bookmark.fill", title: "Nothing saved yet",
+                             detail: "Tap the bookmark on a clip in Videos to keep it here.",
+                             key: "Go to Videos") { LiveNav.shared.goToTab(1) }
+            } else {
+                ClipGrid(items: clips.saved, source: .saved)
+            }
         default:
             VStack(spacing: 8) {
-                Image(systemName: tab == 1 ? "film.stack" : "chart.bar.fill")
+                Image(systemName: "chart.bar.fill")
                     .font(.system(size: 34, weight: .semibold)).foregroundStyle(DL.ink3)
                 Text("COMING SOON").font(DL.display(26)).foregroundStyle(DL.ink)
-                Text(tab == 1 ? "Clips you post show up here." : "Ranked seasons are on the way.")
+                Text("Ranked seasons are on the way.")
                     .font(DL.text(14)).foregroundStyle(DL.ink2)
             }
             .frame(maxWidth: .infinity)

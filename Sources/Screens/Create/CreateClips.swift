@@ -13,12 +13,15 @@ enum CreateLayout: String, CaseIterable {
     case window
     /// The player's face in a circle that sits in a corner.
     case bubble
+    /// The camera in a band across the top third, the game below it.
+    case top
 
     var title: String {
         switch self {
         case .cutout: "Green screen"
         case .window: "Background"
         case .bubble: "Bubble"
+        case .top: "Cam on top"
         }
     }
 
@@ -27,8 +30,12 @@ enum CreateLayout: String, CaseIterable {
         case .cutout: "person.fill"
         case .window: "person.crop.rectangle"
         case .bubble: "pip"
+        case .top: "rectangle.split.1x2"
         }
     }
+
+    /// The player can be dragged and pinched.
+    var movable: Bool { self != .top }
 }
 
 /// One recording, on its way from the camera to the preview.

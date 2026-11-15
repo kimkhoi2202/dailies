@@ -29,6 +29,15 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published private(set) var access: Access = .unknown
     @Published private(set) var front = true
     @Published private(set) var torch = false
+    /// true from a tap on flip until the other camera's first upright frames are on screen.
+    @Published private(set) var flipping = false
+    /// The last frame before the flip, shown blurred while the cameras swap.
+    @Published private(set) var flipStill: UIImage?
+    private var flipCount = 0
+    /// Touched only on the camera queue: frames seen from the new camera since the flip.
+    private var framesSinceFlip = -1
+    /// Touched only on the camera queue: the flip those frames belong to.
+    private var pendingFlip = 0
     /// Extra quarter turns the player chose with the rotate button, one count per camera, kept between launches.
     /// The upright angle itself comes from the system for each camera, since front and back sensors sit differently.
     private static func turnsKey(front: Bool) -> String { front ? "dailies.create.turns.front" : "dailies.create.turns.back" }
@@ -100,10 +109,17 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         }
     }
 
+    /// Swaps front and back. The last frame stays up, blurred, so the swap never shows a frozen, sideways or
+    /// mirrored frame; it clears once the other camera has sent a few frames.
     func flip() {
+        guard !flipping else { return }
         let toFront = !front
+        flipStill = cutout ? cutoutLayer.contents.map { UIImage(cgImage: $0 as! CGImage) } : still()
+        flipping = true
         front = toFront
         torch = false
+        flipCount += 1
+        let count = flipCount
         queue.async {
             guard self.configured else { return }
             self.session.beginConfiguration()
@@ -116,6 +132,18 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             self.usingFront = toFront
             self.orient()
             self.session.commitConfiguration()
+            self.framesSinceFlip = 0
+            self.pendingFlip = count
+        }
+        // However the swap goes, the blur never stays up for long.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.endFlip(count) }
+    }
+
+    private func endFlip(_ count: Int) {
+        guard flipping, count == flipCount else { return }
+        flipping = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            if self?.flipping == false { self?.flipStill = nil }
         }
     }
 
@@ -154,7 +182,8 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     private func configure(audio: Bool) {
         configured = true
         session.beginConfiguration()
-        session.sessionPreset = .high
+        // 720p is plenty for a face over a game, and it keeps the person cutout and the screen recording smooth.
+        session.sessionPreset = session.canSetSessionPreset(.hd1280x720) ? .hd1280x720 : .high
         if let input = Self.input(front: front), session.canAddInput(input) { session.addInput(input) }
         if audio, let mic = AVCaptureDevice.default(for: .audio), let input = try? AVCaptureDeviceInput(device: mic),
            session.canAddInput(input), session.canAddOutput(audioOut) {
@@ -196,9 +225,23 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             let shown = display.sampleBufferRenderer
             if shown.status == .failed { shown.flush() }
             shown.enqueue(sample)
-            if cutout, !segmenting, let frame = lastFrame {
+            // After a flip, the first frames from the other camera can still be settling, so the blur waits a few.
+            var settled = false
+            if framesSinceFlip >= 0 {
+                framesSinceFlip += 1
+                settled = framesSinceFlip >= 4
+            }
+            let isCutout = cutout
+            if settled && !isCutout {
+                framesSinceFlip = -1
+                let count = pendingFlip
+                DispatchQueue.main.async { self.endFlip(count) }
+            }
+            if isCutout, !segmenting, let frame = lastFrame {
                 segmenting = true
-                segmentQueue.async { self.cutOut(frame) }
+                if settled { framesSinceFlip = -1 }
+                let count = settled ? pendingFlip : nil
+                segmentQueue.async { self.cutOut(frame, endsFlip: count) }
             }
         }
         guard writing, let writer else { return }
@@ -215,10 +258,19 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     }
 
     /// Cuts the person out of one frame and shows them on a clear background.
-    private func cutOut(_ frame: CVPixelBuffer) {
+    private func cutOut(_ frame: CVPixelBuffer, endsFlip: Int?) {
         defer { queue.async { self.segmenting = false } }
         let handler = VNImageRequestHandler(cvPixelBuffer: frame, options: [:])
-        guard (try? handler.perform([segmenter])) != nil, let mask = segmenter.results?.first?.pixelBuffer else { return }
+        guard (try? handler.perform([segmenter])) != nil, let mask = segmenter.results?.first?.pixelBuffer else {
+            if let endsFlip {
+                // Nobody in front of the other camera: show nothing rather than the person from before.
+                DispatchQueue.main.async {
+                    self.cutoutLayer.contents = nil
+                    self.endFlip(endsFlip)
+                }
+            }
+            return
+        }
         let image = CIImage(cvPixelBuffer: frame)
         var matte = CIImage(cvPixelBuffer: mask)
         matte = matte.transformed(by: CGAffineTransform(scaleX: image.extent.width / matte.extent.width,
@@ -233,6 +285,7 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             CATransaction.setDisableActions(true)
             self.cutoutLayer.contents = picture
             CATransaction.commit()
+            if let endsFlip { self.endFlip(endsFlip) }
         }
     }
 
@@ -329,6 +382,9 @@ struct CreateCameraView: UIViewRepresentable {
 
         override func layoutSubviews() {
             super.layoutSubviews()
+            // A new layout can make a new host before the old one is gone. The camera's layers live in the newest
+            // host, and an old one must not move them.
+            guard full.superlayer === layer else { return }
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             full.frame = bounds
