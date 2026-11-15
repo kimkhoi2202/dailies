@@ -238,7 +238,7 @@ struct ResultsScreen: View {
         return HStack(alignment: .center, spacing: 14) {
             HStack(alignment: .center, spacing: 10) {
                 DLCoin(size: 46)
-                Text("+\(gold)").font(DL.display(92)).foregroundStyle(DL.ink)
+                Text("+\(gold)").font(DL.display(92)).fixedSize().foregroundStyle(DL.ink)
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text("GOLD COLLECTED").dlLabel(10.5)
