@@ -8,11 +8,11 @@
 - **Frontend:** not deployed
 - **Convex deployment:** https://blissful-jackal-368.convex.cloud
 - **Components:** @convex-dev/auth (auth, authPassword, authUsername)
-- **Convex features:** schema, tables, indexes, queries, mutations, realtime queries, optimistic updates
+- **Convex features:** schema, tables, indexes, queries, mutations, realtime queries
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-11-15T18:02:39Z
-- **Last updated:** 2026-11-15T19:35:08Z
+- **Last updated:** 2026-11-15T21:02:45Z
 
 ## Log
 
@@ -65,3 +65,22 @@ friends join with the code, and everyone plays the same seeded level while live
 scores from the others show on screen through a Convex query. Rounds played in a
 room collect gold like any other round (`convex/rooms.ts`,
 `src/app/room/[code].tsx`, `src/app/join.tsx`, `src/app/play/[slug].tsx`).
+
+### 2026-11-15 - 245bbfd
+Replaced the Expo app with a native iOS app in Swift (SwiftUI). Eight Capy agents
+rewrote it in parallel, file by file, working from a Swift prototype of the same
+app that was started on November 14. The prototype was the reference for layout,
+tuning and structure; each file was written again today, staying close to it, and
+its fonts and brand images were carried over as they are. The app has the Home,
+Videos and You tabs, the game page, the play and results screens, gold,
+leaderboards, comments, search, settings and the studio screens, and six games
+drawn in Swift (`Sources/`, `project.yml`). The store every screen reads is now
+backed by Convex through the Swift client: a device account kept in the Keychain,
+live queries for the player, the catalog and the gold history, and mutations for
+rounds, likes, comments and spending (`Sources/Live/LiveStore.swift`,
+`Sources/Convex/`). The backend gained a gold history, spending, comment likes
+and a fraction of gold carried between rounds (`convex/ledger.ts`,
+`convex/shop.ts`, `convex/rounds.ts`, `convex/social.ts`, `convex/schema.ts`).
+The Expo screens and the JavaScript games were removed. Leaderboards, other
+players' comments and the catalog's display numbers still show sample data in
+the app.
