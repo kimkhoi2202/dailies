@@ -4,7 +4,8 @@ import SwiftUI
 //
 // The whole picture is painted into one Canvas by PourPartyPainter from a PourPartyFrame. The clip
 // in the video feed builds a frame from a phase (0...1) and a fixed script; the playable game builds
-// one from its live model. No assets, any frame size.
+// one from its live model. The backdrop, the glass, the ribbon and the crown are pictures in
+// Resources/GameArt; the liquid and everything that moves inside the glass is drawn here.
 
 public struct PourPartyScene: View {
     public var phase: Double
@@ -108,12 +109,8 @@ enum PourPartyInk {
 
     static let night = hex(0x18171D)
     static let nightDeep = hex(0x0E0D12)
-    static let nightGlow = hex(0x26242E)
     static let gold = hex(0xF5B301)
-    static let goldDeep = hex(0xC98E00)
     static let ribbon = hex(0xE8445A)
-    static let ribbonDeep = hex(0xA92A3C)
-    static let gem = hex(0x3DE0C8)
 
     /// The liquids, flat and bright. A level uses the first few.
     static let liquidHex: [UInt32] = [0xFF4D5E, 0xFF9A3D, 0xFFD93D, 0x7BDB3F, 0x1FC98F, 0x3D8BFF, 0xA25BFF, 0xFF6BC0]
@@ -365,13 +362,31 @@ struct PourPartyConfetto {
     var size: Double
 }
 
-/// A faint doodle in the background.
-struct PourPartyDoodle {
-    var x: Double
-    var y: Double
-    var kind: Int
-    var size: Double
-    var turn: Double
+/// The painted pictures, looked up once per frame.
+struct PourPartyArt {
+    let backdrop: GraphicsContext.ResolvedImage
+    let tube: GraphicsContext.ResolvedImage
+    let ribbon: GraphicsContext.ResolvedImage
+    let ribbonGrey: GraphicsContext.ResolvedImage
+    let crown: GraphicsContext.ResolvedImage
+
+    /// The tube picture is this much wider than the glass, for the rim.
+    static let tubeRim: CGFloat = 1.19
+    /// The tube picture's height over its width.
+    static let tubeAspect: CGFloat = 2.68
+    /// The ribbon picture's height over its width, and where the middle of its front sits, from the top.
+    static let ribbonAspect: CGFloat = 0.297
+    static let ribbonMid: CGFloat = 0.4
+    /// The crown picture's height over its width.
+    static let crownAspect: CGFloat = 0.99
+
+    init(_ ctx: GraphicsContext) {
+        backdrop = ctx.resolve(Image("pour-party-backdrop"))
+        tube = ctx.resolve(Image("pour-party-tube"))
+        ribbon = ctx.resolve(Image("pour-party-ribbon"))
+        ribbonGrey = ctx.resolve(Image("pour-party-ribbon-grey"))
+        crown = ctx.resolve(Image("pour-party-crown"))
+    }
 }
 
 // MARK: - Painter
@@ -401,35 +416,26 @@ struct PourPartyPainter {
         return list
     }()
 
-    static let doodles: [PourPartyDoodle] = {
-        var rng = PourPartyRandom(seed: 7, salt: PourPartyRandom.scenery)
-        var list: [PourPartyDoodle] = []
-        for _ in 0..<42 {
-            list.append(PourPartyDoodle(x: rng.range(0.03, 0.97), y: rng.range(0.03, 0.97), kind: rng.int(3),
-                                        size: rng.range(9, 22), turn: rng.range(0, 6.28)))
-        }
-        return list
-    }()
-
     func draw(_ ctx: inout GraphicsContext, _ f: PourPartyFrame) {
-        drawBackground(&ctx)
+        let art = PourPartyArt(ctx)
+        drawBackground(&ctx, art)
         if f.showHUD {
             drawHUD(&ctx, f)
             drawButtons(&ctx, f)
         }
         // Tubes in their slots first, then the ones in the air, so a pouring tube passes over the rest.
         for i in f.tubes.indices where !isAirborne(i, f) {
-            drawResting(&ctx, index: i, f)
+            drawResting(&ctx, index: i, f, art)
         }
         for pour in f.pours where M.pourReach(pour.progress) > 0.001 {
-            drawPouring(&ctx, pour, f)
+            drawPouring(&ctx, pour, f, art)
         }
         if f.dim > 0.01 {
             ctx.fill(Path(CGRect(x: 0, y: 0, width: W, height: H)), with: .color(PourPartyInk.nightDeep.opacity(0.5 * f.dim)))
         }
         drawFloats(&ctx, f)
         if let age = f.confettiAge { drawConfetti(&ctx, age: age) }
-        if let banner = f.banner { drawBanner(&ctx, banner, age: f.bannerAge, length: f.bannerLength) }
+        if let banner = f.banner { drawBanner(&ctx, banner, age: f.bannerAge, length: f.bannerLength, art) }
         if let hint = f.hint, f.hintAlpha > 0.01, f.showHUD { drawHint(&ctx, hint, alpha: f.hintAlpha) }
     }
 
@@ -440,36 +446,14 @@ struct PourPartyPainter {
 
     // MARK: Background
 
-    private func drawBackground(_ ctx: inout GraphicsContext) {
-        let screen = Path(CGRect(x: 0, y: 0, width: W, height: H))
-        ctx.fill(screen, with: .color(PourPartyInk.night))
-        ctx.fill(screen, with: .radialGradient(
-            Gradient(colors: [PourPartyInk.nightGlow, PourPartyInk.night, PourPartyInk.nightDeep]),
-            center: CGPoint(x: W * 0.5, y: H * 0.42), startRadius: 0, endRadius: H * 0.75))
-        let line = Swift.max(0.8, 1.4 * u)
-        for d in Self.doodles {
-            let cx = CGFloat(d.x) * W
-            let cy = CGFloat(d.y) * H
-            let s = CGFloat(d.size) * u
-            var g = ctx
-            g.translateBy(x: cx, y: cy)
-            g.rotate(by: .radians(d.turn))
-            let shade = GraphicsContext.Shading.color(Color.white.opacity(0.055))
-            switch d.kind {
-            case 0:
-                g.stroke(Path(ellipseIn: CGRect(x: -s / 2, y: -s / 2, width: s, height: s)), with: shade, lineWidth: line)
-            case 1:
-                let tri = PourPartyShapes.polygon([CGPoint(x: 0, y: -s / 2), CGPoint(x: s / 2, y: s / 2), CGPoint(x: -s / 2, y: s / 2)])
-                g.stroke(tri, with: shade, lineWidth: line)
-            default:
-                var plus = Path()
-                plus.move(to: CGPoint(x: -s / 2, y: 0))
-                plus.addLine(to: CGPoint(x: s / 2, y: 0))
-                plus.move(to: CGPoint(x: 0, y: -s / 2))
-                plus.addLine(to: CGPoint(x: 0, y: s / 2))
-                g.stroke(plus, with: shade, style: StrokeStyle(lineWidth: line, lineCap: .round))
-            }
-        }
+    private func drawBackground(_ ctx: inout GraphicsContext, _ art: PourPartyArt) {
+        ctx.fill(Path(CGRect(x: 0, y: 0, width: W, height: H)), with: .color(PourPartyInk.night))
+        let size = art.backdrop.size
+        if size.width < 1 || size.height < 1 { return }
+        let k = Swift.max(W / size.width, H / size.height)
+        let w = size.width * k
+        let h = size.height * k
+        ctx.draw(art.backdrop, in: CGRect(x: (W - w) / 2, y: (H - h) / 2, width: w, height: h))
     }
 
     // MARK: HUD
@@ -539,7 +523,7 @@ struct PourPartyPainter {
 
     // MARK: Tubes
 
-    private func drawResting(_ ctx: inout GraphicsContext, index i: Int, _ f: PourPartyFrame) {
+    private func drawResting(_ ctx: inout GraphicsContext, index i: Int, _ f: PourPartyFrame, _ art: PourPartyArt) {
         let rect = L.rects[i]
         var scale = CGFloat(0.7 + 0.3 * M.outBack(f.levelIn))
         let alpha = M.clamp(f.levelIn * 1.6)
@@ -558,7 +542,7 @@ struct PourPartyPainter {
             scale *= 1 + CGFloat(0.12 * sin(Double.pi * M.clamp(f.popAge / 0.32)))
         }
         drawGlass(&ctx, bands: f.tubes[i], center: CGPoint(x: rect.midX + dx, y: rect.midY + dy),
-                  angle: 0, side: 0, scale: scale, alpha: alpha, glow: glow)
+                  angle: 0, side: 0, scale: scale, alpha: alpha, glow: glow, art: art)
     }
 
     /// How far a pouring tube tips: a little as it arrives, more as it empties.
@@ -611,7 +595,7 @@ struct PourPartyPainter {
         return (CGPoint(x: x, y: y), -side * tilt * reach, side, s.lip)
     }
 
-    private func drawPouring(_ ctx: inout GraphicsContext, _ p: PourPartyPourPose, _ f: PourPartyFrame) {
+    private func drawPouring(_ ctx: inout GraphicsContext, _ p: PourPartyPourPose, _ f: PourPartyFrame, _ art: PourPartyArt) {
         let pose = pourPose(p)
         let share = M.pourShare(p.progress)
         if share > 0, share < 1 {
@@ -632,13 +616,13 @@ struct PourPartyPainter {
             }
         }
         drawGlass(&ctx, bands: f.tubes[p.from], center: pose.center, angle: pose.angle, side: pose.side,
-                  scale: 1, alpha: 1, glow: 0.6 * M.pourReach(p.progress))
+                  scale: 1, alpha: 1, glow: 0.6 * M.pourReach(p.progress), art: art)
     }
 
     /// One tube with its liquid, drawn in its own frame: the centre of the glass is the origin.
     /// Liquid keeps a level surface in the world, so inside a tipped tube it slopes towards the lip.
     private func drawGlass(_ ctx: inout GraphicsContext, bands: [PourPartyBand], center: CGPoint, angle: Double,
-                           side: Double, scale: CGFloat, alpha: Double, glow: Double) {
+                           side: Double, scale: CGFloat, alpha: Double, glow: Double, art: PourPartyArt) {
         if alpha <= 0.01 { return }
         var g = ctx
         g.translateBy(x: center.x, y: center.y)
@@ -651,8 +635,6 @@ struct PourPartyPainter {
         let inset = L.inset
         let glass = PourPartyShapes.tube(x0: -w / 2, y0: -h / 2, width: w, height: h)
         let inner = PourPartyShapes.tube(x0: -w / 2 + inset, y0: -h / 2, width: w - 2 * inset, height: h - inset)
-
-        g.fill(glass, with: .color(Color.white.opacity(0.07)))
 
         var liquid = g
         liquid.clip(to: inner)
@@ -681,12 +663,12 @@ struct PourPartyPainter {
             level = hi
         }
 
-        g.fill(Path(roundedRect: CGRect(x: -w / 2 + 5 * u, y: -h / 2 + 10 * u, width: 5 * u, height: h - 32 * u), cornerRadius: 2.5 * u),
-               with: .color(Color.white.opacity(0.14)))
-        g.stroke(glass, with: .color(Color.white.opacity(0.5 + 0.45 * glow)), lineWidth: (2 + 1.2 * CGFloat(glow)) * u)
-        let rim = Path(roundedRect: CGRect(x: -w / 2 - 2 * u, y: -h / 2 - 2.5 * u, width: w + 4 * u, height: 6 * u), cornerRadius: 3 * u)
-        g.fill(rim, with: .color(Color.white.opacity(0.14)))
-        g.stroke(rim, with: .color(Color.white.opacity(0.78)), lineWidth: Swift.max(1, 1.5 * u))
+        let picW = w * PourPartyArt.tubeRim
+        let picH = picW * PourPartyArt.tubeAspect
+        g.draw(art.tube, in: CGRect(x: -picW / 2, y: h / 2 - picH, width: picW, height: picH))
+        if glow > 0.01 {
+            g.stroke(glass, with: .color(Color.white.opacity(0.6 * glow)), lineWidth: 2.2 * CGFloat(glow) * u)
+        }
     }
 
     // MARK: Moments
@@ -728,7 +710,7 @@ struct PourPartyPainter {
         }
     }
 
-    private func drawBanner(_ ctx: inout GraphicsContext, _ kind: PourPartyBanner, age: Double, length: Double) {
+    private func drawBanner(_ ctx: inout GraphicsContext, _ kind: PourPartyBanner, age: Double, length: Double, _ art: PourPartyArt) {
         let pop = M.outBack(M.clamp(age / 0.38))
         let alpha = M.clamp(age / 0.12) * (1 - M.smooth(length - 0.3, length, age))
         if alpha <= 0.01 || pop <= 0.01 { return }
@@ -739,61 +721,20 @@ struct PourPartyPainter {
         g.scaleBy(x: CGFloat(pop), y: CGFloat(pop))
         g.opacity = alpha
 
-        let w = 262 * u
         let h = 66 * u
-        let front: Color
-        let back: Color
-        let words: String
-        switch kind {
-        case .solved:
-            front = PourPartyInk.ribbon
-            back = PourPartyInk.ribbonDeep
-            words = "Solved"
-        case .timeUp:
-            front = PourPartyInk.hex(0x3A3846)
-            back = PourPartyInk.hex(0x26242E)
-            words = "Time is up"
-        }
-        // The ribbon's tails, hanging a little lower than the front.
-        let tailTop: CGFloat = -h / 2 + 10 * u
-        let tailBottom: CGFloat = h / 2 + 10 * u
-        let tailMid: CGFloat = 10 * u
-        let outer: CGFloat = w / 2 + 26 * u
-        let under: CGFloat = w / 2 - 14 * u
-        let notch: CGFloat = w / 2 + 12 * u
-        let left = PourPartyShapes.polygon([
-            CGPoint(x: -outer, y: tailTop), CGPoint(x: -under, y: tailTop),
-            CGPoint(x: -under, y: tailBottom), CGPoint(x: -outer, y: tailBottom), CGPoint(x: -notch, y: tailMid)
-        ])
-        let right = PourPartyShapes.polygon([
-            CGPoint(x: outer, y: tailTop), CGPoint(x: under, y: tailTop),
-            CGPoint(x: under, y: tailBottom), CGPoint(x: outer, y: tailBottom), CGPoint(x: notch, y: tailMid)
-        ])
-        g.fill(left, with: .color(back))
-        g.fill(right, with: .color(back))
-        let body = Path(roundedRect: CGRect(x: -w / 2, y: -h / 2, width: w, height: h), cornerRadius: 7 * u)
-        g.fill(Path(roundedRect: CGRect(x: -w / 2, y: -h / 2 + 4 * u, width: w, height: h), cornerRadius: 7 * u), with: .color(back))
-        g.fill(body, with: .color(front))
+        let words = kind == .solved ? "Solved" : "Time is up"
+        let ribbon = kind == .solved ? art.ribbon : art.ribbonGrey
+        let ribbonW = 320 * u
+        let ribbonH = ribbonW * PourPartyArt.ribbonAspect
+        g.draw(ribbon, in: CGRect(x: -ribbonW / 2, y: -ribbonH * PourPartyArt.ribbonMid, width: ribbonW, height: ribbonH))
         let text = Text(words).font(.system(size: 32 * u, weight: .heavy, design: .rounded)).kerning(1.5 * u)
         g.draw(text.foregroundColor(PourPartyInk.nightDeep.opacity(0.35)), at: CGPoint(x: 0, y: 2 * u), anchor: .center)
         g.draw(text.foregroundColor(.white), at: CGPoint(x: 0, y: 0), anchor: .center)
 
         if kind == .solved {
-            var crown = g
-            crown.translateBy(x: 0, y: -h / 2 - 14 * u)
-            let foot: CGFloat = 30 * u
-            let tip: CGFloat = 32 * u
-            let dip: CGFloat = 9 * u
-            let spikes = PourPartyShapes.polygon([
-                CGPoint(x: -foot, y: 0), CGPoint(x: -tip, y: -24 * u), CGPoint(x: -foot / 2, y: -dip), CGPoint(x: 0, y: -tip),
-                CGPoint(x: foot / 2, y: -dip), CGPoint(x: tip, y: -24 * u), CGPoint(x: foot, y: 0)
-            ])
-            crown.fill(spikes, with: .color(PourPartyInk.gold))
-            crown.fill(Path(roundedRect: CGRect(x: -tip, y: -4 * u, width: 2 * tip, height: 12 * u), cornerRadius: 3 * u), with: .color(PourPartyInk.goldDeep))
-            let gemHalf: CGFloat = 6 * u
-            let gemMid: CGFloat = -14 * u
-            let gem = PourPartyShapes.polygon([CGPoint(x: 0, y: gemMid - 8 * u), CGPoint(x: gemHalf, y: gemMid), CGPoint(x: 0, y: gemMid + 8 * u), CGPoint(x: -gemHalf, y: gemMid)])
-            crown.fill(gem, with: .color(PourPartyInk.gem))
+            let crownW = 76 * u
+            let crownH = crownW * PourPartyArt.crownAspect
+            g.draw(art.crown, in: CGRect(x: -crownW / 2, y: -h / 2 + 2 * u - crownH, width: crownW, height: crownH))
         }
     }
 }
