@@ -32,6 +32,8 @@ final class BlockPartyModel {
         let final: Int
         var nextAt: Double
         var out: Bool
+        /// Seconds since the player went ahead of this friend. nil while behind.
+        var passedFor: Double? = nil
     }
 
     struct Particle {
@@ -420,6 +422,10 @@ final class BlockPartyModel {
 
         score += gained
         scorePop = 0
+        for k in friends.indices where friends[k].passedFor == nil && friends[k].score > 0 && score > friends[k].score {
+            friends[k].passedFor = 0
+            owe(.clear)
+        }
         float(x: cx, y: cy - cell * 0.3, text: "+" + BlockPartyFormat.grouped(gained), big: cleared > 0)
 
         if tray[0] == nil && tray[1] == nil && tray[2] == nil { deal() }
@@ -491,6 +497,8 @@ final class BlockPartyModel {
         if abs(Double(score) - shown) < 0.5 { shown = Double(score) }
         for k in friends.indices {
             friends[k].shown += (Double(friends[k].score) - friends[k].shown) * ease
+            if let since = friends[k].passedFor { friends[k].passedFor = Swift.min(since + dt, 9) }
+            if friends[k].passedFor != nil && friends[k].score > score { friends[k].passedFor = nil }
         }
 
         switch stage {

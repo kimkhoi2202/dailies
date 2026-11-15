@@ -582,10 +582,17 @@ struct BlockPartyPainter {
             let label = ctx.resolve(Text(words).font(.system(size: 13.5 * u, weight: .bold, design: .rounded).monospacedDigit())
                 .foregroundColor(Color.white.opacity(friend.out ? 0.55 : 0.95)))
             let width = Double(label.measure(in: CGSize(width: L.W, height: 60)).width)
-            let chipW = width + 30 * u
-            let chip = CGRect(x: x - chipW / 2, y: L.friendsY - 12 * u, width: chipW, height: 24 * u)
+            let flash = friend.passedFor.map { Swift.max(0, 1 - $0 / 0.7) } ?? 0
+            let grow = 1 + 0.16 * flash
+            let chipW = (width + 30 * u) * grow
+            let chipH = 24 * u * grow
+            let chip = CGRect(x: x - chipW / 2, y: L.friendsY - chipH / 2, width: chipW, height: chipH)
             let ahead = Int(friend.shown) > m.score
-            ctx.fill(Path(roundedRect: chip, cornerRadius: 12 * u), with: .color(Color.white.opacity(ahead ? 0.18 : 0.10)))
+            ctx.fill(Path(roundedRect: chip, cornerRadius: chipH / 2), with: .color(Color.white.opacity((ahead ? 0.18 : 0.10) + 0.5 * flash)))
+            if flash > 0.01 {
+                ctx.stroke(Path(roundedRect: chip.insetBy(dx: -3 * u * (1 - flash), dy: -3 * u * (1 - flash)), cornerRadius: chipH / 2),
+                           with: .color(P.combo.opacity(flash)), lineWidth: 2 * u)
+            }
             let dot = 7 * u
             ctx.fill(Path(ellipseIn: CGRect(x: chip.minX + 9 * u, y: L.friendsY - dot / 2, width: dot, height: dot)),
                      with: .color(friend.out ? P.base[0] : P.base[5 + k % 3]))
