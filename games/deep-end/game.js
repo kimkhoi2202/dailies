@@ -788,16 +788,16 @@
 
   function drawReveal(ctx, W) {
     var a = Math.min(1, phaseT / 0.15);
-    var y = L.cardY + L.cardH + 18 - (1 - a) * 8;
+    var y = L.cardY + L.cardH + (L.compact ? 10 : 18) - (1 - a) * 8;
     ctx.globalAlpha = a;
-    var s = textWidth(reveal.name, 3) > W - 40 ? 2 : 3;
+    var s = L.compact || textWidth(reveal.name, 3) > W - 40 ? 2 : 3;
     if (reveal.tier) {
       var lines = wrap(reveal.name, s, W - 32);
       for (var i = 0; i < lines.length; i++) drawChroma(ctx, lines[i], W / 2, y + i * (7 * s + 6), s, 'center');
       drawText(ctx, '+' + reveal.pts + '  ' + TIERS[reveal.tier - 1], W / 2, y + lines.length * (7 * s + 6) + 4, 2, TIER_COLORS[reveal.tier - 1], 'center', 3);
     } else {
-      drawText(ctx, 'TIME', W / 2, y, 3, PINK, 'center', 3);
-      drawText(ctx, '+0', W / 2, y + 31, 2, DIM, 'center', 3);
+      drawText(ctx, 'TIME', W / 2, y, s, PINK, 'center', 3);
+      drawText(ctx, '+0', W / 2, y + 7 * s + 10, 2, DIM, 'center', 3);
     }
     ctx.globalAlpha = 1;
   }
