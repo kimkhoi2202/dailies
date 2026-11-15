@@ -195,6 +195,22 @@ const GAMES = [
     dislikes: 18,
     scores: [2600, 3500, 1900, 1200, 2100, 2900],
   },
+  {
+    slug: "pour-party",
+    title: "Pour Party",
+    studio: "Paper Lantern",
+    pitch: "Sort the colours. Beat the clock.",
+    how: "Tap a tube to lift it, tap another to pour. A colour only pours onto the same colour or into an empty tube. Sort every tube before the clock runs out, then the next level comes.",
+    minPlayers: 1,
+    maxPlayers: 1,
+    mode: "casual" as const,
+    category: "Puzzle",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 276,
+    dislikes: 21,
+    scores: [700, 1500, 300, 400, 1000, 1200],
+  },
 ];
 
 const PLAYERS = [
@@ -219,6 +235,7 @@ const COMMENTS: Record<string, string[]> = {
   "brick-out": ["cleared four boards and lost on the fifth with one move left", "the yellow one was blocking everything the whole time"],
   "daily-grid": ["five boards in three minutes and not one wrong crown", "the lilac region got me twice"],
   "letter-rush": ["found a six letter word with two seconds left", "we had the same board and still found different words"],
+  "pour-party": ["level four with two seconds left. my hands were shaking", "used all three undos on one tube"],
 };
 
 export const run = internalMutation({

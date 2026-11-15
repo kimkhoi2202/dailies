@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty
 }
 
 struct MockGame: Identifiable {
@@ -61,6 +61,7 @@ struct MockGame: Identifiable {
         case .brickOut: BrickOutScene(phase: moment, showHUD: showHUD)
         case .dailyGrid: DailyGridScene(phase: moment, showHUD: showHUD)
         case .letterRush: LetterRushScene(phase: moment, showHUD: showHUD)
+        case .pourParty: PourPartyScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -242,7 +243,14 @@ enum Mock {
         plays: "214K", likes: "27.5K", dislikes: "1.8K", approval: 94,
         bestScore: "3,500 points", clipPhase: 0.85, tint: Color(red: 0.96, green: 0.70, blue: 0.0))
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush]
+    static let pourParty = MockGame(
+        id: "pour-party", kind: .pourParty, title: "Pour Party", tagline: "Sort the colours. Beat the clock.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 10s", seedEarned: 0,
+        plays: "214K", likes: "27.6K", dislikes: "2.1K", approval: 93,
+        bestScore: "1,500 points", clipPhase: 0.85, tint: Color(red: 0.24, green: 0.55, blue: 1.0))
+
+    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty]
 
     // MARK: Videos
 
