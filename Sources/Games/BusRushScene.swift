@@ -8,7 +8,8 @@ import SwiftUI
 // The whole picture is painted into one Canvas by BusRushPainter from a BusRushFrame. Everything
 // that moves is worked out from the times kept in a BusRushTimeline, so the clip and the playable
 // game share one painter: the clip replays a recorded round at any moment, the game paints its own.
-// No assets, any frame size, drawn for a 402 x 874 stage.
+// The buses, riders, ground, hedge, bushes and sign are pictures in Resources/GameArt; roads, bays,
+// seats and effects are drawn here. Any frame size, drawn for a 402 x 874 stage.
 
 public struct BusRushScene: View {
     public var phase: Double
@@ -124,20 +125,16 @@ enum BusRushInk {
     static let inkSoft = hex(0x151412, 0.55)
     static let path = hex(0xDCD4C6)
     static let pathEdge = hex(0xCFC6B6)
-    static let hedge = hex(0x86C25E)
-    static let hedgeDark = hex(0x69A848)
     static let asphalt = hex(0x55565E)
     static let asphaltDark = hex(0x48494F)
     static let lot = hex(0xDBD8D1)
     static let lotLine = hex(0xEAE7E1)
-    static let glass = hex(0x22304A)
     static let red = hex(0xE8503F)
     static let green = hex(0x2EB872)
 
     /// The bus and rider colours: red, blue, green, purple, orange, teal.
     static let busHex: [UInt32] = [0xF0484E, 0x3A7BFF, 0x2DBE6C, 0x9B5CF6, 0xFF8A1F, 0x14BFC6]
     static let body: [Color] = busHex.map { hex($0) }
-    static let dark: [Color] = busHex.map { mix($0, 0x000000, 0.26) }
     static let light: [Color] = busHex.map { mix($0, 0xFFFFFF, 0.4) }
 }
 
@@ -737,6 +734,47 @@ struct BusRushLayout {
     }
 }
 
+// MARK: - Art
+
+/// The painted pictures, looked up once per frame. Buses and riders come in every colour of
+/// BusRushInk.busHex, in the same order.
+struct BusRushArt {
+    static let shortNames = (0..<6).map { "bus-rush-bus2-\($0)" }
+    static let longNames = (0..<6).map { "bus-rush-bus3-\($0)" }
+    static let riderNames = (0..<6).map { "bus-rush-rider-\($0)" }
+
+    let ground: GraphicsContext.ResolvedImage
+    let hedge: GraphicsContext.ResolvedImage
+    let bush: GraphicsContext.ResolvedImage
+    let sign: GraphicsContext.ResolvedImage
+    let short: [GraphicsContext.ResolvedImage]
+    let long: [GraphicsContext.ResolvedImage]
+    let riders: [GraphicsContext.ResolvedImage]
+
+    /// Width over height of the stop sign picture and of a rider picture.
+    static let signAspect: Double = 0.685
+    static let riderAspect: Double = 0.99
+
+    init(_ ctx: GraphicsContext) {
+        ground = ctx.resolve(Image("bus-rush-ground"))
+        hedge = ctx.resolve(Image("bus-rush-hedge"))
+        bush = ctx.resolve(Image("bus-rush-bush"))
+        sign = ctx.resolve(Image("bus-rush-sign"))
+        short = Self.shortNames.map { ctx.resolve(Image($0)) }
+        long = Self.longNames.map { ctx.resolve(Image($0)) }
+        riders = Self.riderNames.map { ctx.resolve(Image($0)) }
+    }
+
+    func bus(_ bus: BusRushBus) -> GraphicsContext.ResolvedImage {
+        let list = bus.length >= 3 ? long : short
+        return list[((bus.color % list.count) + list.count) % list.count]
+    }
+
+    func rider(_ color: Int) -> GraphicsContext.ResolvedImage {
+        riders[((color % riders.count) + riders.count) % riders.count]
+    }
+}
+
 // MARK: - Painter
 
 struct BusRushPainter {
@@ -767,12 +805,20 @@ struct BusRushPainter {
     }
 
     func draw(_ ctx: inout GraphicsContext) {
+        let art = BusRushArt(ctx)
         ctx.fill(Path(CGRect(x: 0, y: 0, width: L.W, height: L.H)), with: .color(Ink.ground))
-        drawPath(&ctx)
+        let size = art.ground.size
+        if size.width >= 1 && size.height >= 1 {
+            let k = Swift.max(L.W / Double(size.width), L.H / Double(size.height))
+            let w = Double(size.width) * k
+            let h = Double(size.height) * k
+            ctx.draw(art.ground, in: CGRect(x: (L.W - w) / 2, y: (L.H - h) / 2, width: w, height: h))
+        }
+        drawPath(&ctx, art)
         drawStation(&ctx)
         drawLot(&ctx)
-        drawBuses(&ctx)
-        drawRiders(&ctx)
+        drawBuses(&ctx, art)
+        drawRiders(&ctx, art)
         drawFloats(&ctx)
         drawClear(&ctx)
         if showHUD { drawHUD(&ctx) }
@@ -782,12 +828,11 @@ struct BusRushPainter {
 
     // MARK: Ground
 
-    private func drawPath(_ ctx: inout GraphicsContext) {
+    private func drawPath(_ ctx: inout GraphicsContext, _ art: BusRushArt) {
         let mid = (L.laneLow + L.laneHigh) / 2
         // A hedge between the two lanes of the queue.
-        let hedge = CGRect(x: L.frontX - 30 * s, y: mid - 8 * s, width: L.turnX - L.frontX + 30 * s, height: 16 * s)
-        ctx.fill(Path(roundedRect: hedge.offsetBy(dx: 0, dy: 2 * s), cornerRadius: 8 * s), with: .color(Ink.hedgeDark))
-        ctx.fill(Path(roundedRect: hedge, cornerRadius: 8 * s), with: .color(Ink.hedge))
+        let hedge = CGRect(x: L.frontX - 30 * s, y: mid - 10 * s, width: L.turnX - L.frontX + 30 * s, height: 21 * s)
+        ctx.draw(art.hedge, in: hedge)
 
         var road = Path()
         road.move(to: CGPoint(x: L.frontX - 12 * s, y: L.laneLow))
@@ -803,21 +848,15 @@ struct BusRushPainter {
         // Bushes on the free ground left of the front of the queue.
         for (fx, fy, r) in Self.bushes {
             let c = CGPoint(x: L.W * fx, y: L.laneHigh + 14 * s + (L.laneLow - L.laneHigh) * fy)
-            let rr = r * s
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - rr, y: c.y - rr + 2 * s, width: 2 * rr, height: 2 * rr)), with: .color(Ink.hedgeDark))
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - rr, y: c.y - rr, width: 2 * rr, height: 2 * rr)), with: .color(Ink.hedge))
+            let rr = r * s * 1.15
+            ctx.draw(art.bush, in: CGRect(x: c.x - rr, y: c.y - rr, width: 2 * rr, height: 2 * rr))
         }
 
         // The stop sign at the front of the queue.
         let pole = CGPoint(x: L.frontX - 22 * s, y: L.laneLow - 4 * s)
-        var post = Path()
-        post.move(to: CGPoint(x: pole.x, y: pole.y + 12 * s))
-        post.addLine(to: CGPoint(x: pole.x, y: pole.y - 8 * s))
-        ctx.stroke(post, with: .color(Ink.inkSoft), style: StrokeStyle(lineWidth: 2 * s, lineCap: .round))
-        let sign = CGRect(x: pole.x - 7 * s, y: pole.y - 20 * s, width: 14 * s, height: 14 * s)
-        ctx.fill(Path(roundedRect: sign, cornerRadius: 3.5 * s), with: .color(Ink.body[1]))
-        let glyph = CGRect(x: sign.minX + 3.5 * s, y: sign.minY + 3.5 * s, width: 7 * s, height: 5.5 * s)
-        ctx.fill(Path(roundedRect: glyph, cornerRadius: 1.5 * s), with: .color(.white))
+        let signH = 36 * s
+        let signW = signH * BusRushArt.signAspect
+        ctx.draw(art.sign, in: CGRect(x: pole.x - signW / 2, y: pole.y + 13 * s - signH, width: signW, height: signH))
     }
 
     private func drawStation(_ ctx: inout GraphicsContext) {
@@ -864,7 +903,7 @@ struct BusRushPainter {
     // MARK: Buses
 
     /// One bus, lying along its heading. Its seats fill with riders, front first.
-    func drawBus(_ ctx: inout GraphicsContext, _ bus: BusRushBus, at c: CGPoint, angle: Double, cell: Double,
+    func drawBus(_ ctx: inout GraphicsContext, _ art: BusRushArt, _ bus: BusRushBus, at c: CGPoint, angle: Double, cell: Double,
                  scale: Double = 1, alpha: Double = 1, seated: Int = 0, arrow: Double = 1, flash: Double = 0) {
         if alpha <= 0.01 || scale <= 0.01 { return }
         let k = cell * scale
@@ -883,14 +922,7 @@ struct BusRushPainter {
         g.rotate(by: .radians(angle))
         g.opacity = alpha
         let color = bus.color
-        g.fill(Path(roundedRect: box, cornerRadius: corner), with: .color(Ink.dark[color]))
-        g.fill(Path(roundedRect: box.insetBy(dx: 0.06 * k, dy: 0.06 * k), cornerRadius: corner * 0.8),
-               with: .color(Ink.body[color]))
-
-        let screen = CGRect(x: len / 2 - 0.21 * k, y: -wid / 2 + 0.1 * k, width: 0.12 * k, height: wid - 0.2 * k)
-        g.fill(Path(roundedRect: screen, cornerRadius: 0.04 * k), with: .color(Ink.glass))
-        let rear = CGRect(x: -len / 2 + 0.09 * k, y: -wid / 2 + 0.16 * k, width: 0.06 * k, height: wid - 0.32 * k)
-        g.fill(Path(roundedRect: rear, cornerRadius: 0.03 * k), with: .color(Ink.glass.opacity(0.65)))
+        g.draw(art.bus(bus), in: box)
 
         if arrow < 0.99 {
             let stripe = CGRect(x: -len / 2 + 0.24 * k, y: -0.06 * k, width: len - 0.56 * k, height: 0.12 * k)
@@ -899,7 +931,7 @@ struct BusRushPainter {
 
         let perSide = bus.capacity / 2
         let x0 = -len / 2 + 0.34 * k
-        let x1 = len / 2 - 0.4 * k
+        let x1 = len / 2 - 0.52 * k
         let step = perSide > 1 ? (x1 - x0) / Double(perSide - 1) : 0
         let seat = 0.15 * k
         for i in 0..<bus.capacity {
@@ -928,7 +960,7 @@ struct BusRushPainter {
         }
     }
 
-    private func drawBuses(_ ctx: inout GraphicsContext) {
+    private func drawBuses(_ ctx: inout GraphicsContext, _ art: BusRushArt) {
         let line = frame.line
         let level = line.level
         let t = frame.t
@@ -958,7 +990,7 @@ struct BusRushPainter {
                     flash = Swift.max(flash, M.smooth(0.15, 0.3, q) * (1 - M.smooth(0.45, 1, q)))
                 }
             }
-            drawBus(&ctx, bus, at: c, angle: bus.dir.angle, cell: L.cell, scale: scale, flash: flash)
+            drawBus(&ctx, art, bus, at: c, angle: bus.dir.angle, cell: L.cell, scale: scale, flash: flash)
         }
 
         // Parked, filling up.
@@ -977,7 +1009,7 @@ struct BusRushPainter {
                 }
             }
             let scale = 1 + 0.08 * exp(-16 * (t - last)) + 0.06 * exp(-14 * (t - arrived))
-            drawBus(&ctx, bus, at: L.parkedCentre(bus, slot: line.slot[id]), angle: -Double.pi / 2,
+            drawBus(&ctx, art, bus, at: L.parkedCentre(bus, slot: line.slot[id]), angle: -Double.pi / 2,
                     cell: L.slotCell, scale: scale, seated: seated, arrow: 0)
         }
 
@@ -1002,7 +1034,7 @@ struct BusRushPainter {
             let scale = 1 + 0.16 * sin(Double.pi * M.clamp(age / 0.2))
             let lift = M.easeIn((age - 0.08) / 0.42) * 120 * s
             let alpha = 1 - M.smooth(0.22, 0.5, age)
-            drawBus(&ctx, bus, at: CGPoint(x: home.x, y: Double(home.y) - lift), angle: -Double.pi / 2,
+            drawBus(&ctx, art, bus, at: CGPoint(x: home.x, y: Double(home.y) - lift), angle: -Double.pi / 2,
                     cell: L.slotCell, scale: scale, alpha: alpha, seated: bus.capacity, arrow: 0)
         }
 
@@ -1014,13 +1046,13 @@ struct BusRushPainter {
             let q = age / Line.drive
             let e = 1 - pow(1 - q, 2.2)
             let pose = L.ride(L.route(bus, slot: line.slot[id]), e)
-            drawBus(&ctx, bus, at: pose.p, angle: pose.angle, cell: pose.cell, arrow: 1 - M.smooth(0.45, 0.9, q))
+            drawBus(&ctx, art, bus, at: pose.p, angle: pose.angle, cell: pose.cell, arrow: 1 - M.smooth(0.45, 0.9, q))
         }
     }
 
     // MARK: Riders
 
-    private func drawRider(_ ctx: inout GraphicsContext, at p: CGPoint, color: Int, scale: Double = 1, front: Bool = false) {
+    private func drawRider(_ ctx: inout GraphicsContext, _ art: BusRushArt, at p: CGPoint, color: Int, scale: Double = 1, front: Bool = false) {
         let r = L.person * scale
         let x = Double(p.x)
         let y = Double(p.y)
@@ -1030,16 +1062,12 @@ struct BusRushPainter {
             let ring = r + 2.6 * s
             ctx.fill(Path(ellipseIn: CGRect(x: x - ring, y: y - ring, width: 2 * ring, height: 2 * ring)), with: .color(.white))
         }
-        ctx.fill(Path(ellipseIn: CGRect(x: x - r, y: y - r, width: 2 * r, height: 2 * r)), with: .color(Ink.dark[color]))
-        let body = r * 0.82
-        ctx.fill(Path(ellipseIn: CGRect(x: x - body, y: y - body - r * 0.12, width: 2 * body, height: 2 * body)),
-                 with: .color(Ink.body[color]))
-        let shine = r * 0.34
-        ctx.fill(Path(ellipseIn: CGRect(x: x - r * 0.42 - shine, y: y - r * 0.5 - shine, width: 2 * shine, height: 2 * shine)),
-                 with: .color(Ink.light[color]))
+        let picH = 2.3 * r
+        let picW = picH * BusRushArt.riderAspect
+        ctx.draw(art.rider(color), in: CGRect(x: x - picW / 2, y: y - picH * 0.52, width: picW, height: picH))
     }
 
-    private func drawRiders(_ ctx: inout GraphicsContext) {
+    private func drawRiders(_ ctx: inout GraphicsContext, _ art: BusRushArt) {
         let line = frame.line
         let queue = line.level.queue
         let t = frame.t
@@ -1061,7 +1089,7 @@ struct BusRushPainter {
                 var p = L.queuePoint(d)
                 if Double(p.x) < -L.person * 2 { break }
                 p.y += sin(frame.ambient * 9 + Double(k) * 0.9) * (0.5 + 1.1 * moving) * s
-                drawRider(&ctx, at: p, color: queue[k], front: k == n)
+                drawRider(&ctx, art, at: p, color: queue[k], front: k == n)
             }
         }
 
@@ -1075,7 +1103,7 @@ struct BusRushPainter {
                 let to = L.door(line.slot[line.rider[k]])
                 let x = Double(from.x) + Double(to.x - from.x) * q
                 let y = Double(from.y) + Double(to.y - from.y) * q - sin(Double.pi * q) * 16 * s
-                drawRider(&ctx, at: CGPoint(x: x, y: y), color: queue[k], scale: 1 - 0.3 * q)
+                drawRider(&ctx, art, at: CGPoint(x: x, y: y), color: queue[k], scale: 1 - 0.3 * q)
             }
             k += 1
         }

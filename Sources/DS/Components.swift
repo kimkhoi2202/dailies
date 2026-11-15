@@ -525,15 +525,41 @@ struct DLNavBar: View {
     private var placeholder: some View { Color.clear.frame(width: 40, height: 40) }
 }
 
-/// A sheet over the screen below: the screen dims, the sheet slides up, and a tap outside closes it.
+extension EnvironmentValues {
+    /// true inside the system sheet LiveRoot presents for a sheet route.
+    @Entry var dlInSystemSheet: Bool = false
+}
+
+/// A sheet over the screen below. A sheet route is shown as an iOS sheet: it follows a swipe down
+/// from anywhere on it, and closes on a tap outside. Shown any other way, it draws its own sheet
+/// that closes the same ways.
 struct DLSheet<Background: View, Content: View>: View {
     var height: CGFloat
     /// Kept for callers. The sheet covers whatever is already on screen.
     @ViewBuilder var background: () -> Background
     @ViewBuilder var content: () -> Content
     @State private var raised = false
+    @State private var pull: CGFloat = 0
+    @Environment(\.dlInSystemSheet) private var inSystemSheet
 
     var body: some View {
+        if inSystemSheet {
+            VStack(spacing: 0) {
+                content()
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 22)
+            .frame(maxWidth: .infinity)
+            .presentationDetents([.height(height + 14)])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(38)
+            .presentationBackground(DL.raised)
+        } else {
+            drawn
+        }
+    }
+
+    private var drawn: some View {
         ZStack(alignment: .bottom) {
             Color.black.opacity(0.45).ignoresSafeArea()
                 .contentShape(Rectangle())
@@ -548,7 +574,16 @@ struct DLSheet<Background: View, Content: View>: View {
             .frame(height: height)
             .background(DL.raised, in: RoundedRectangle(cornerRadius: 38, style: .continuous))
             .padding([.horizontal, .bottom], 8)
-            .offset(y: raised ? 0 : height + 40)
+            .offset(y: (raised ? 0 : height + 40) + pull)
+            .simultaneousGesture(DragGesture(minimumDistance: 12)
+                .onChanged { pull = max(0, $0.translation.height) }
+                .onEnded { drag in
+                    if drag.translation.height > 110 || drag.predictedEndTranslation.height > 260 {
+                        LiveNav.shared.back()
+                    } else {
+                        withAnimation(.snappy(duration: 0.25)) { pull = 0 }
+                    }
+                })
         }
         .ignoresSafeArea(.container)
         .onAppear {

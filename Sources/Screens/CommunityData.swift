@@ -48,6 +48,8 @@ struct CommunityPost: Identifiable, Equatable {
     var comments: Int
     /// true for a row the server knows, so reactions on it are sent on.
     var remote: Bool = false
+    /// What the friend wrote with a clip.
+    var caption: String = ""
 
     var game: MockGame { Mock.game(gameID) }
 
@@ -446,26 +448,35 @@ enum CommunitySeed {
     private static func minutes(_ m: Double) -> Date { Date().addingTimeInterval(-m * 60) }
 
     private static func post(_ id: Int, _ name: String, _ kind: CommunityPostKind, _ game: String, _ score: String, _ unit: String,
-                             rating: Double? = nil, _ ago: Double, _ reactions: [String: Int], comments: Int = 0) -> CommunityPost {
+                             rating: Double? = nil, _ ago: Double, _ reactions: [String: Int], comments: Int = 0,
+                             caption: String = "") -> CommunityPost {
         CommunityPost(id: "seed-\(id)", name: name, kind: kind, gameID: game, score: score, unit: unit, rating: rating,
-                      at: minutes(ago), reactions: reactions, mine: [], comments: comments)
+                      at: minutes(ago), reactions: reactions, mine: [], comments: comments, caption: caption)
     }
 
     static let posts: [CommunityPost] = [
-        post(1, "Dylan", .best, "five-up", "1,125", "points", 12, ["gg": 6, "fire": 9, "crown": 2, "clap": 3], comments: 4),
-        post(2, "Ben", .passed, "spiral-drop", "23", "floors", 34, ["gg": 3, "fire": 4, "crown": 0, "clap": 1], comments: 2),
-        post(3, "Khoi", .rated, "gulp-city", "", "", rating: 8.7, 51, ["gg": 1, "fire": 2, "crown": 0, "clap": 5]),
-        post(4, "Vanessa", .streak, "tippy-tower", "5", "", 75, ["gg": 0, "fire": 12, "crown": 1, "clap": 4], comments: 1),
-        post(5, "Nyx", .video, "lane-dash", "2,840", "m", 96, ["gg": 8, "fire": 15, "crown": 3, "clap": 2], comments: 7),
-        post(6, "Kiko", .best, "tippy-tower", "76", "floors", 130, ["gg": 4, "fire": 6, "crown": 5, "clap": 1], comments: 3),
-        post(7, "Khoi", .best, "inkland", "34.2%", "of the map", 170, ["gg": 2, "fire": 3, "crown": 1, "clap": 0]),
-        post(8, "Ben", .rated, "five-up", "", "", rating: 9.4, 215, ["gg": 2, "fire": 1, "crown": 0, "clap": 3]),
-        post(9, "Dylan", .video, "gulp-city", "87%", "of the block", 260, ["gg": 5, "fire": 7, "crown": 0, "clap": 2], comments: 2),
-        post(10, "Vanessa", .best, "spiral-drop", "31", "floors", 330, ["gg": 3, "fire": 2, "crown": 1, "clap": 1]),
-        post(11, "Nyx", .rated, "tippy-tower", "", "", rating: 8.9, 420, ["gg": 1, "fire": 1, "crown": 0, "clap": 2]),
-        post(12, "Kiko", .passed, "lane-dash", "3,110", "m", 510, ["gg": 6, "fire": 2, "crown": 1, "clap": 0], comments: 5),
-        post(13, "Khoi", .game, "spiral-drop", "", "", 640, ["gg": 9, "fire": 11, "crown": 4, "clap": 8], comments: 12),
-        post(14, "Ben", .best, "gulp-city", "92%", "of the block", 800, ["gg": 2, "fire": 3, "crown": 0, "clap": 1]),
+        post(1, "Nyx", .video, "lane-dash", "2,840", "m", 6, ["gg": 8, "fire": 15, "crown": 3, "clap": 2], comments: 7,
+             caption: "the near miss at the end. do not blink"),
+        post(2, "Dylan", .best, "five-up", "1,125", "points", 12, ["gg": 6, "fire": 9, "crown": 2, "clap": 3], comments: 4),
+        post(3, "Kiko", .video, "spiral-drop", "31", "floors", 24, ["gg": 4, "fire": 11, "crown": 1, "clap": 5], comments: 3,
+             caption: "eleven floors without touching red"),
+        post(4, "Ben", .passed, "spiral-drop", "23", "floors", 34, ["gg": 3, "fire": 4, "crown": 0, "clap": 1], comments: 2),
+        post(5, "Khoi", .video, "tippy-tower", "76", "floors", 47, ["gg": 9, "fire": 6, "crown": 5, "clap": 2], comments: 6,
+             caption: "76 floors. come and take it"),
+        post(6, "Vanessa", .video, "five-up", "1,310", "points", 63, ["gg": 3, "fire": 7, "crown": 1, "clap": 4], comments: 2,
+             caption: "got it in three. group chat is quiet now"),
+        post(7, "Khoi", .rated, "gulp-city", "", "", rating: 8.7, 81, ["gg": 1, "fire": 2, "crown": 0, "clap": 5]),
+        post(8, "Dylan", .video, "gulp-city", "87%", "of the block", 104, ["gg": 5, "fire": 7, "crown": 0, "clap": 2], comments: 2,
+             caption: "swallowed the whole block with two seconds left"),
+        post(9, "Ben", .video, "inkland", "34.2%", "of the map", 150, ["gg": 2, "fire": 3, "crown": 1, "clap": 0], comments: 1,
+             caption: "one loop, a fifth of the map"),
+        post(10, "Vanessa", .streak, "tippy-tower", "5", "", 190, ["gg": 0, "fire": 12, "crown": 1, "clap": 4], comments: 1),
+        post(11, "Nyx", .video, "tippy-tower", "58", "floors", 260, ["gg": 3, "fire": 5, "crown": 2, "clap": 1], comments: 3,
+             caption: "nine perfect drops in a row, then this"),
+        post(12, "Kiko", .best, "tippy-tower", "76", "floors", 330, ["gg": 4, "fire": 6, "crown": 5, "clap": 1], comments: 3),
+        post(13, "Dylan", .video, "lane-dash", "3,110", "m", 420, ["gg": 6, "fire": 2, "crown": 1, "clap": 0], comments: 5,
+             caption: "ramp, three gems, barrier. every time"),
+        post(14, "Ben", .rated, "five-up", "", "", rating: 9.4, 510, ["gg": 2, "fire": 1, "crown": 0, "clap": 3]),
     ]
 
     static let stories: [CommunityStory] = [

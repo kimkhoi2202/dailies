@@ -50,6 +50,8 @@ enum Route: Hashable {
     case notifications
     case story(Int)
     case rate(String)
+    /// Friends' videos full screen, starting at this feed entry.
+    case friendVideos(String)
     // messages
     case messages
     case chat(String)
@@ -68,7 +70,7 @@ enum Route: Hashable {
         switch self {
         case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room, .shop, .makeChat, .makePreview, .notifications:
             .push
-        case .story:
+        case .story, .friendVideos:
             .cover
         case .rate:
             .sheet
