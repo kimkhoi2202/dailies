@@ -15,6 +15,8 @@ export default defineSchema({
     seeded: v.boolean(),
     // Counts every change to this player's gold, so a phone can tell when its own change has landed.
     changes: v.optional(v.number()),
+    // A teammate's branch dresses each player; kept loose here so both backends accept the same rows.
+    avatar: v.optional(v.any()),
   }).index("by_handle", ["handle"]),
 
   games: defineTable({
