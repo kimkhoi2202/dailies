@@ -354,6 +354,8 @@ final class CommunityStore: ObservableObject {
         }
         let today = LiveStore.dayKey(Date())
         guard ratedToday[game.id] != today else { return }
+        // Asked at most once a game a day, so skipping it never brings it back over Play again.
+        ratedToday[game.id] = today
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
             if LiveNav.shared.topRoute == .results { LiveNav.shared.open(.rate(game.id)) }
         }

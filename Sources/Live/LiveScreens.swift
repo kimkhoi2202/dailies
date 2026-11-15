@@ -30,6 +30,11 @@ enum LiveBoard {
         "short-stack": ["kaz": 2460, "devon.plays": 1840, "tofu": 1310, "wordnerd.sam": 1120, "noor.runs": 920, "juno": 640],
     ]
 
+    /// The sample friends' scores for a game, best first. Empty for a game with none.
+    static func sampleScores(for game: MockGame) -> [(name: String, score: Int)] {
+        (friendScores[game.id] ?? [:]).map { (name: $0.key, score: $0.value) }.sorted { $0.score > $1.score }
+    }
+
     /// Everyone on the board, best score first. The server's board once it has answered; until then
     /// the sample scores above.
     private static func board(for game: MockGame) -> [Entry] {
@@ -86,7 +91,7 @@ enum LiveBoard {
     }
 
     /// The distance between two scores in words: "9 floors", "8.1%".
-    private static func gap(_ a: Int, _ b: Int, _ game: MockGame) -> String {
+    static func gap(_ a: Int, _ b: Int, _ game: MockGame) -> String {
         let apart = abs(a - b)
         switch game.kind {
         case .tippyTower: return apart == 1 ? "1 floor" : "\(apart) floors"
