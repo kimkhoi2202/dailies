@@ -8,11 +8,13 @@
 - **Frontend:** not deployed
 - **Convex deployment:** https://blissful-jackal-368.convex.cloud
 - **Components:** @convex-dev/auth (auth, authPassword, authUsername)
-- **Convex features:** schema, tables, indexes, queries, mutations, actions, scheduler, environment variables, realtime queries
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions, scheduler, environment variables, realtime queries
 - **Auth:** Convex Auth
 - **AI models:** gpt-6-luna (OpenAI Responses API, from a Convex action)
 - **Started:** 2026-11-15T18:02:39Z
 - **Last updated:** 2026-11-15T21:13:57Z
+
+- **Last updated:** 2026-11-15T22:57:48Z
 
 ## Log
 
@@ -160,3 +162,71 @@ fields on users, and ownership is a new `inventory` table
 (`convex/seed.ts`). A convex-test run covered buying, refusing short balances
 and repeat buys, and equipping only owned items. An earlier voxel version and an
 image-model turnaround were tried first and replaced after owner feedback.
+
+
+
+### 2026-11-15 - b72b9a1
+Tuned Short Stack. A sitting is seven hands. The other seats now stay in against
+a raise of any size once their hand is strong enough, so going all in on every
+hand stops working, and they take a little longer to act. Every seat has the same
+plate, and the seat to act wears a gold ring that runs down with its time. The
+game's clip in Videos is timed to the feed and lights the keys while the table
+waits for the player (`Sources/Games/ShortStackGame.swift`,
+`Sources/Games/ShortStackScene.swift`). The results screen has one Again key
+(`Sources/Screens/GameScreens.swift`).
+
+### 2026-11-15 - 271209b
+Renamed the app to DEGEN wherever a person reads the name: under the icon, in
+share text, in Settings and in accessibility labels. The logo on Home is drawn in
+code, the D mark followed by EGEN, in place of two lockup images
+(`Sources/DS/Components.swift`, `project.yml`). The repository, the Xcode
+target, the bundle id and the Convex project keep the name Dailies. Replaced the
+app icon with one 1024 px image
+(`Resources/Assets.xcassets/AppIcon.appiconset`). Prepared the app for App Store
+Connect: version 1.0.0, the games category, the export compliance answer, iPhone
+as the only device, and a privacy manifest that declares UserDefaults, no
+tracking and no collected data (`project.yml`, `Resources/PrivacyInfo.xcprivacy`).
+An archive of this commit, signed for the team's App Store Connect account under
+its own bundle id, was uploaded to TestFlight as 1.0.0 (3). It is available to
+the team's internal testers and is waiting for Apple's beta review, which the
+public TestFlight link needs before it opens. After the merge, `main` was built
+on Revyl and opened on a cloud iPhone, where Home loaded with all seven games.
+
+### 2026-11-15 - 285f965
+Added the studio's game creation pipeline, on the `game-creation` branch.
+From the studio a player says what game they want, or asks to be inspired, and
+talks to the studio until it has enough to build. The studio is an OpenAI model
+(`gpt-6-luna`, Responses API with a JSON schema) behind a Convex action that
+reads `OPENAI_API_KEY` from the Convex environment; each reply is a line with
+tappable choices, three ideas, or the finished design (`convex/ai.ts`). A
+creation and its conversation live in two new tables, the app watches them
+with live queries, and when the design is settled a scheduled mutation puts the
+game in the `games` table, private to its maker, playing on one of the six
+built-in engines with the studio's title, pitch, instructions and colour
+(`convex/creations.ts`, `convex/schema.ts`, `convex/games.ts`). In the app:
+the wish screen, the talk, the building screen and the game's preview with a
+Play key, plus the list of made games in the studio (`Sources/Screens/G4_Create.swift`,
+`Sources/Screens/G3_Studio.swift`, `Sources/Live/LiveStore.swift`). The whole
+talk was run against the deployment from the CLI: a wish for inspiration got
+four moods, a mood got three ideas, and picking one built a game on the Spiral
+Drop engine within ten seconds.
+
+### 2026-11-15 - 3c0aa23
+Added money through Whop, on the `whop-money` branch, in three parts. A player
+buys a gold pack: a Convex action opens an order and a Whop checkout, the app
+shows the checkout in the system browser, and gold is credited only when Whop's
+signed `payment.succeeded` webhook reaches the HTTP action at `/whop`
+(`convex/whop.ts`, `convex/http.ts`). A studio funds a creator program for one
+of its games the same way, choosing what it pays for 1,000 views and a budget.
+A clip of that game then earns its maker money for each new viewer, counted
+once per viewer and never for the maker, until the budget runs out
+(`convex/creators.ts`, new `orders`, `programs`, `clipViews` and `transfers`
+tables in `convex/schema.ts`). A creator sends what they have collected to a
+Whop account by username. Prices and credits are decided in Convex; the app
+holds no Whop key (`Sources/Screens/WhopMoney.swift`). Run against Whop's
+sandbox on the dev deployment: a gold pack paid with a test card from a cloud
+iPhone on Revyl landed as 500 gold on the phone, a funded program paid a test
+creator $1.00 for 20 viewers, and Whop refused the transfer out because the
+sandbox key lacks the transfer scope, which the app records and shows without
+taking the creator's money. Convex features: HTTP actions, actions, mutations,
+queries, indexes, environment variables.

@@ -84,6 +84,12 @@ final class ConvexLink {
         }
     }
 
+    /// Runs an action once the phone is signed in and returns its answer.
+    func act<Value: Decodable>(_ name: String, _ args: [String: ConvexEncodable?] = [:], as type: Value.Type) async throws -> Value {
+        await ready()
+        return try await client.action(name, with: args)
+    }
+
     /// Runs a mutation that has no answer.
     func mutate(_ name: String, _ args: [String: ConvexEncodable?] = [:]) async throws {
         let _: String? = try await mutate(name, args, as: String?.self)

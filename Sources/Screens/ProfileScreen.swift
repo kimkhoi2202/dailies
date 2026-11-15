@@ -201,6 +201,8 @@ struct ProfileScreen: View {
                     }
                 }
             }
+        case 1 where isMe:
+            WhopProfileClips()
         default:
             VStack(spacing: 8) {
                 Image(systemName: tab == 1 ? "film.stack" : "chart.bar.fill")

@@ -1,7 +1,7 @@
 import SwiftUI
 
 // SPEND: the one sheet a game may raise to ask for gold. It has two states. Either the balance
-// covers the price, or you are still saving. Neither one sells anything, because gold is never for sale.
+// covers the price, or you are still saving. Neither one sells anything: gold packs are on Your gold.
 
 enum G1SpendData {
     /// Slow slab, 8 gold.
@@ -111,7 +111,7 @@ struct G1SpendScreen: View {
                 DLTextKey(title: "Spend \(item.price) gold")
                     .padding(.top, 16)
                     .tap(buy)
-                Text("Gold can't be bought. You collect it by playing.")
+                Text("You collect gold by playing. Packs are on Your gold.")
                     .font(DL.text(13))
                     .foregroundStyle(DL.ink3)
                     .frame(maxWidth: .infinity)

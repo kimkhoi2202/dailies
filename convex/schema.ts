@@ -29,6 +29,10 @@ export default defineSchema({
     ),
     // Decor items placed in this player's profile room, in spot order.
     room: v.optional(v.object({ decor: v.array(v.string()) })),
+    // Money a creator's clips have brought in and not yet sent to Whop, in cents. Parts of a cent count.
+    cents: v.optional(v.number()),
+    centsAllTime: v.optional(v.number()),
+    whopUsername: v.optional(v.string()),
   }).index("by_handle", ["handle"]),
 
   games: defineTable({
@@ -155,7 +159,7 @@ export default defineSchema({
 
   ledger: defineTable({
     userId: v.id("users"),
-    kind: v.union(v.literal("round"), v.literal("spend")),
+    kind: v.union(v.literal("round"), v.literal("spend"), v.literal("buy")),
     title: v.string(),
     detail: v.string(),
     amount: v.number(),
@@ -178,6 +182,9 @@ export default defineSchema({
     visibility: v.union(v.literal("friends"), v.literal("everyone")),
     likes: v.number(),
     comments: v.number(),
+    // First views by other players, and what a creator program paid for them, in cents.
+    views: v.optional(v.number()),
+    cents: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_visibility", ["visibility"])
@@ -250,4 +257,43 @@ export default defineSchema({
     code: v.string(),
     expiresAt: v.number(),
   }).index("by_userId", ["userId"]),
+
+  // One Whop checkout: a gold pack for a player, or a budget for a studio's creator program.
+  orders: defineTable({
+    userId: v.id("users"),
+    kind: v.union(v.literal("gold"), v.literal("program")),
+    cents: v.number(),
+    gold: v.optional(v.number()),
+    gameSlug: v.optional(v.string()),
+    rate: v.optional(v.number()),
+    checkoutId: v.optional(v.string()),
+    paymentId: v.optional(v.string()),
+    status: v.union(v.literal("open"), v.literal("paid")),
+  }).index("by_user", ["userId"]),
+
+  // A studio pays creators for views of clips of one game. Rate is cents for 1,000 views.
+  programs: defineTable({
+    gameSlug: v.string(),
+    studio: v.string(),
+    ownerId: v.id("users"),
+    rate: v.number(),
+    budget: v.number(),
+    spent: v.number(),
+    views: v.number(),
+  }).index("by_gameSlug", ["gameSlug"]),
+
+  clipViews: defineTable({
+    clipId: v.id("clips"),
+    userId: v.id("users"),
+  }).index("by_clip_and_user", ["clipId", "userId"]),
+
+  // Creator earnings sent to a Whop account.
+  transfers: defineTable({
+    userId: v.id("users"),
+    cents: v.number(),
+    whopUsername: v.string(),
+    status: v.union(v.literal("sending"), v.literal("sent"), v.literal("failed")),
+    whopTransferId: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
 });

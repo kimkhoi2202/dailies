@@ -211,6 +211,14 @@ struct LayerView: View {
             MessagesWorkplaceScreen()
         case .playTogether(let id):
             MessagesPlayTogetherSheet(chatID: id)
+        case .buyGold:
+            WhopBuyGoldSheet()
+        case .earnings:
+            WhopEarningsScreen()
+        case .sendEarnings:
+            WhopSendSheet()
+        case .program(let gameID):
+            WhopProgramSheet(game: Mock.game(gameID))
         }
     }
 }
@@ -544,7 +552,8 @@ struct LiveResultsScreen: View {
 ///                       libraryGame:<game id>, myClip:<clip id>,
 ///                       messages, chat:<chat id>, newGroup, workplace,
 ///                       makeChat:<creation id>, makePreview:<creation id>,
-///                       shop, shop:closet, shop:<item id> (opens that item's sheet)
+///                       shop, shop:closet, shop:<item id> (opens that item's sheet),
+///                       buyGold, earnings, sendEarnings, program:<game id>
 ///   -tryon <item id>    in the Shop, try an item on without opening its sheet
 ///   -shopturn 1         in the Shop, turn the Dailie round to show its back
 ///   -demo 1             games play themselves (-lose <seconds> has the scripted player lose after that long)
@@ -614,6 +623,10 @@ enum LiveLaunch {
         case "chat": return .chat(value)
         case "newGroup": return .newGroup
         case "workplace": return .workplace
+        case "buyGold": return .buyGold
+        case "earnings": return .earnings
+        case "sendEarnings": return .sendEarnings
+        case "program": return .program(value)
         default: return nil
         }
     }

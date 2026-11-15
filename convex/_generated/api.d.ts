@@ -16,7 +16,9 @@ import type * as clips from "../clips.js";
 import type * as community from "../community.js";
 import type * as communitySchema from "../communitySchema.js";
 import type * as creations from "../creations.js";
+import type * as creators from "../creators.js";
 import type * as games from "../games.js";
+import type * as http from "../http.js";
 import type * as items from "../items.js";
 import type * as ledger from "../ledger.js";
 import type * as lib from "../lib.js";
@@ -29,6 +31,7 @@ import type * as seedCommunity from "../seedCommunity.js";
 import type * as shop from "../shop.js";
 import type * as social from "../social.js";
 import type * as users from "../users.js";
+import type * as whop from "../whop.js";
 
 import type {
   ApiFromModules,
@@ -45,7 +48,9 @@ declare const fullApi: ApiFromModules<{
   community: typeof community;
   communitySchema: typeof communitySchema;
   creations: typeof creations;
+  creators: typeof creators;
   games: typeof games;
+  http: typeof http;
   items: typeof items;
   ledger: typeof ledger;
   lib: typeof lib;
@@ -58,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   shop: typeof shop;
   social: typeof social;
   users: typeof users;
+  whop: typeof whop;
 }>;
 
 /**
