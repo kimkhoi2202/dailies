@@ -87,7 +87,9 @@ final class LiveStore: ObservableObject {
     // Straight from Convex, for screens that want more than `s` holds.
     @Published private(set) var signedIn = false
     @Published private(set) var me: ConvexMe?
-    @Published private(set) var catalog: [ConvexGame] = []
+    @Published private(set) var catalog: [ConvexGame] = [] { didSet { if catalog != oldValue { catalogVersion += 1 } } }
+    /// Goes up each time the catalog changes, so anything built from it knows to rebuild.
+    private(set) var catalogVersion = 0
     @Published private(set) var boards: [String: [ConvexRank]] = [:]
     @Published private(set) var gameComments: [String: [ConvexComment]] = [:]
 
@@ -254,12 +256,7 @@ final class LiveStore: ObservableObject {
             }
         }
 
-        if let liked = lastLiked {
-            // The server knows the player's own comments by its ids, the screens by the ids in `s.comments`.
-            var local: [String: String] = [:]
-            for row in lastMyComments ?? [] { local[row.id] = Self.stableID(row.id).uuidString }
-            v.likedComments = liked.map { local[$0] ?? $0 }
-        }
+        if let liked = lastLiked { v.likedComments = liked }
 
         setQuietly(v)
     }
@@ -292,17 +289,15 @@ final class LiveStore: ObservableObject {
         }
         if s.likedComments != old.likedComments {
             let now = Set(s.likedComments), before = Set(old.likedComments)
-            var remote: [String: String] = [:]
-            for row in lastMyComments ?? [] { remote[Self.stableID(row.id).uuidString] = row.id }
             for key in now.symmetricDifference(before) {
                 let liked = now.contains(key)
-                write { try await self.link.mutate("social:likeComment", ["key": remote[key] ?? key, "liked": liked]) }
+                write { try await self.link.mutate("social:likeComment", ["key": key, "liked": liked]) }
             }
         }
     }
 
     /// A stable local id for a row the server knows by a string id.
-    private static func stableID(_ text: String) -> UUID {
+    static func stableID(_ text: String) -> UUID {
         var a: UInt64 = 0xcbf2_9ce4_8422_2325, b: UInt64 = 0x9e37_79b9_7f4a_7c15
         for byte in text.utf8 {
             a = (a ^ UInt64(byte)) &* 0x100_0000_01b3

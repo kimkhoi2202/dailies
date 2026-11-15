@@ -93,6 +93,9 @@ struct G2HistoryScreen: View {
         let studios = Mock.studioCapsToday
         return VStack(alignment: .leading, spacing: 12) {
             Text("Today's limits by studio").dlLabel(10.5)
+            if studios.isEmpty {
+                Text("No gold from any studio yet today.").font(DL.text(15)).foregroundStyle(DL.ink2)
+            }
             ForEach(studios.indices, id: \.self) { index in
                 let entry = studios[index]
                 VStack(alignment: .leading, spacing: 6) {

@@ -146,13 +146,13 @@ struct G2SettingsScreen: View {
             HStack {
                 Text("Start over").font(DL.text(16, .medium)).foregroundStyle(DL.ink)
                 Spacer()
-                Text("412 gold, limits as new").font(DL.text(13)).foregroundStyle(DL.ink2)
+                Text("A new account with 0 gold").font(DL.text(13)).foregroundStyle(DL.ink2)
             }
             .frame(height: 42)
             .contentShape(Rectangle())
             .tap {
                 live.reset()
-                LiveNav.shared.say("Back to the start: 412 gold")
+                LiveNav.shared.say("Started over with a new account")
             }
         }
     }

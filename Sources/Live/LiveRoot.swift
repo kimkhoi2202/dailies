@@ -66,6 +66,8 @@ private extension Route.Style {
 /// One stacked screen.
 struct LayerView: View {
     let layer: Layer
+    /// Watched so a screen is handed its game again when the server's counts for it change.
+    @ObservedObject private var store = LiveStore.shared
 
     var body: some View {
         switch layer.route.style {
@@ -433,7 +435,7 @@ struct LiveResultsScreen: View {
 // MARK: Launch arguments
 
 /// Launch arguments, for testing and for recording the app. Normal use needs none of them.
-///   -fresh 1            go back to the starting story (412 gold)
+///   -fresh 1            start over with a new account
 ///   -scheme light|dark  appearance
 ///   -tab <0|1|2>        open on a tab
 ///   -video <n>          the clip showing in Videos
