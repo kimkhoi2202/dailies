@@ -655,7 +655,7 @@ struct DLMonogram: View {
     }
 
     /// The D: a tall stem with tight corners on the left and a wide bowl on the right.
-    private static let letter = Path { d in
+    fileprivate static let letter = Path { d in
         d.move(to: CGPoint(x: 0.277, y: 0.186))
         d.addLine(to: CGPoint(x: 0.527, y: 0.186))
         d.addQuadCurve(to: CGPoint(x: 0.771, y: 0.430), control: CGPoint(x: 0.771, y: 0.186))
@@ -668,23 +668,34 @@ struct DLMonogram: View {
         d.closeSubpath()
     }
 
-    private static let triangle = Path { t in
+    fileprivate static let triangle = Path { t in
         t.addLines([CGPoint(x: 0.420, y: 0.375), CGPoint(x: 0.625, y: 0.5), CGPoint(x: 0.420, y: 0.625)])
         t.closeSubpath()
     }
 }
 
-/// The logo: the mark on its gold key, then the rest of the name in the display face.
+/// The logo: the D of the mark, as tall as the capitals and standing on their baseline, then the
+/// rest of the name in the display face.
 struct DLLogo: View {
     var height: CGFloat = 30
 
     var body: some View {
-        HStack(alignment: .center, spacing: height * 0.09) {
-            DLMonogram(size: height * 0.94)
-                .background {
-                    RoundedRectangle(cornerRadius: height * 0.21, style: .continuous).fill(DL.goldLip).offset(y: height * 0.06)
-                }
-            Text("EGEN").font(DL.display(height * 1.16)).foregroundStyle(DL.ink)
+        let size = height * 1.16
+        let cap = UIFont(name: "BigShoulders-Black", size: size)?.capHeight ?? size * 0.7
+        // The D's box on the unit square the mark is drawn on.
+        let box = CGRect(x: 0.244, y: 0.186, width: 0.527, height: 0.628)
+        let scale = cap / box.height
+        HStack(alignment: .firstTextBaseline, spacing: cap * 0.1) {
+            Canvas { context, _ in
+                let fit = CGAffineTransform(translationX: -box.minX, y: -box.minY).concatenating(CGAffineTransform(scaleX: scale, y: scale))
+                context.fill(DLMonogram.letter.applying(fit), with: .color(DL.ink))
+                let triangle = DLMonogram.triangle.applying(fit)
+                context.fill(triangle, with: .color(DL.gold))
+                context.stroke(triangle, with: .color(DL.gold), style: StrokeStyle(lineWidth: 0.04 * scale, lineJoin: .round))
+            }
+            .frame(width: box.width * scale, height: cap)
+            .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
+            Text("EGEN").font(DL.display(size)).foregroundStyle(DL.ink)
         }
         .frame(height: height)
         .accessibilityElement(children: .ignore)
