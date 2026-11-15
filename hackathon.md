@@ -144,12 +144,13 @@ four moods, a mood got three ideas, and picking one built a game on the Spiral
 Drop engine within ten seconds.
 
 ### 2026-11-15 - avatar-room
-Added the player's avatar, a Profile room and a Shop. The avatar is a small
-low-poly chibi built in SceneKit from faceted shapes: 10 body colours, faces,
-hair, hats, outfits and held gadgets, all mixed on one figure that idles,
-blinks, turns 360 degrees and pops when it puts something on. Small spots such as
-the Home top bar and shop cards show a picture rendered from the same model
-(`Sources/Avatar/`). The Profile shows the avatar in a decorated room with a
+Added the player's avatar, a Profile room and a Shop. The avatar is a
+Bitmoji-style character: 14 generated full-body pictures with matching head
+pictures for small spots such as the Home top bar
+(`Resources/Avatars.xcassets`, `Sources/Avatar/BitmojiAvatar.swift`). A player
+switches character with one tap in the Closet, and the hats and gadgets they buy
+are drawn on the character. The room wall colour can be picked from seven
+colours. The Profile shows the avatar in a decorated room with a
 trophy shelf and the room decor the player has placed
 (`Sources/Screens/ProfileScreen.swift`, `Sources/Screens/RoomArt.swift`). The
 Shop sells items, room decor and bundles for gold, and the Closet equips them
@@ -160,8 +161,9 @@ placing decor check ownership (`convex/avatar.ts`). The look and placed decor ar
 fields on users, and ownership is a new `inventory` table
 (`convex/schema.ts`). Seeded players get their own looks and rooms
 (`convex/seed.ts`). A convex-test run covered buying, refusing short balances
-and repeat buys, and equipping only owned items. An earlier voxel version and an
-image-model turnaround were tried first and replaced after owner feedback.
+and repeat buys, and equipping only owned items. An earlier voxel version, an
+image-model turnaround and a low-poly SceneKit chibi were tried first and
+replaced after owner feedback.
 
 
 
