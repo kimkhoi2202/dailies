@@ -99,6 +99,22 @@ const GAMES = [
     dislikes: 94,
     scores: [1980, 1650, 2410, 760, 1180, 420],
   },
+  {
+    slug: "letter-rush",
+    title: "Letter Rush",
+    studio: "Paper Lantern",
+    pitch: "Sixteen letters. Eighty seconds.",
+    how: "Drag through touching letters, diagonals too, and lift to submit a word of three letters or more. Longer words score more. Friends get the same board.",
+    minPlayers: 1,
+    maxPlayers: 2,
+    mode: "competitive" as const,
+    category: "Word",
+    unit: "points",
+    goldPerMinute: 1.1,
+    likes: 275,
+    dislikes: 14,
+    scores: [4700, 6400, 2100, 3300, 5300, 4100],
+  },
 ];
 
 const PLAYERS = [
@@ -116,6 +132,7 @@ const COMMENTS: Record<string, string[]> = {
   "spiral-drop": ["eleven floors without touching red", "the combo smash is the best feeling in this app"],
   "gulp-city": ["swallowed the whole block with two seconds left", "started with a flower, ended with a bus"],
   inkland: ["took a fifth of the map in one loop", "got cut one step from home. again"],
+  "letter-rush": ["found PLANETS with one second left", "kaz keeps finding three letter words I never see"],
   "lane-dash": ["the near miss at the end. I stopped breathing", "ramp into three gems into a barrier. classic"],
 };
 
