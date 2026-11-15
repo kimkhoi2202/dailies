@@ -131,6 +131,22 @@ const GAMES = [
     dislikes: 42,
     scores: [2680, 1910, 1450, 980, 760, 530],
   },
+  {
+    slug: "wild-eights",
+    title: "Wild Eights",
+    studio: "Paper Lantern",
+    pitch: "Match the suit. Eights go anywhere.",
+    how: "Play a card that matches the top of the pile by suit or number, or draw one. An eight goes on anything and picks the next suit. Empty your hand first.",
+    minPlayers: 2,
+    maxPlayers: 4,
+    mode: "competitive" as const,
+    category: "Cards",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 261,
+    dislikes: 22,
+    scores: [126, 168, 44, 72, 141, 97],
+  },
 ];
 
 const PLAYERS = [
@@ -151,6 +167,7 @@ const COMMENTS: Record<string, string[]> = {
   "lane-dash": ["the near miss at the end. I stopped breathing", "ramp into three gems into a barrier. classic"],
   "slip-out": ["tapped the one arrow that was blocked. three times", "level nine with two seconds left"],
   "block-party": ["three rows at once and the whole board lit up", "saved the 3x3 for the corner. no regrets"],
+  "wild-eights": ["held my eight until the last card. nobody saw it coming", "drew six times in a row and still went out first"],
 };
 
 export const run = internalMutation({

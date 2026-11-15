@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights
 }
 
 struct MockGame: Identifiable {
@@ -57,6 +57,7 @@ struct MockGame: Identifiable {
         case .inkland: InklandScene(phase: moment, showHUD: showHUD)
         case .slipOut: SlipOutScene(phase: moment, showHUD: showHUD)
         case .blockParty: BlockPartyScene(phase: moment, showHUD: showHUD)
+        case .wildEights: WildEightsScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -210,7 +211,14 @@ enum Mock {
         plays: "612K", likes: "74.1K", dislikes: "4.2K", approval: 94,
         bestScore: "2,680 points", clipPhase: 0.85, tint: Color(red: 0.63, green: 0.42, blue: 1.0))
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty]
+    static let wildEights = MockGame(
+        id: "wild-eights", kind: .wildEights, title: "Wild Eights", tagline: "Match the suit. Eights go anywhere.",
+        category: "Cards", players: "2 to 4 players", mode: "Competitive", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 30s", seedEarned: 0,
+        plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
+        bestScore: "168 points", clipPhase: 0.85, tint: Color(red: 0.16, green: 0.64, blue: 0.57))
+
+    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights]
 
     // MARK: Videos
 
