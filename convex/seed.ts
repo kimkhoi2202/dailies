@@ -329,6 +329,15 @@ const LOOKS: Record<string, { body: string; face: string; hair?: string; hat?: s
   "wordnerd.sam": { body: "body.porcelain", face: "face.sleepy", hair: "hair.long", hat: "hat.wizard", outfit: "outfit.tux", gadget: "gadget.joystick" },
 };
 
+const ROOMS: Record<string, string[]> = {
+  "devon.plays": ["decor.arcade", "decor.neon", "decor.beanbag", "decor.lamp"],
+  kaz: ["decor.lavalamp", "decor.poster", "decor.robot", "decor.rug"],
+  "noor.runs": ["decor.plant", "decor.bookshelf", "decor.fridge"],
+  tofu: ["decor.cat", "decor.beanbag", "decor.plant", "decor.rug"],
+  juno: ["decor.goldtrophy", "decor.neon", "decor.lamp", "decor.plant"],
+  "wordnerd.sam": ["decor.bookshelf", "decor.lavalamp", "decor.cat"],
+};
+
 const COMMENTS: Record<string, string[]> = {
   "tippy-tower": ["the slab at floor 30 had no business landing like that", "held my breath for the whole last ten floors", "tried it straight after. 14 floors"],
   "five-up": ["got it in three and my group chat is furious", "two minutes left and I blanked on a word I use daily"],
@@ -379,8 +388,9 @@ export const run = internalMutation({
     for (const [index, player] of PLAYERS.entries()) {
       const look = LOOKS[player.handle];
       if (!look) continue;
-      await ctx.db.patch("users", playerIds[index], { avatar: look });
-      for (const itemId of Object.values(look)) {
+      const decor = ROOMS[player.handle] ?? [];
+      await ctx.db.patch("users", playerIds[index], { avatar: look, room: { decor } });
+      for (const itemId of [...Object.values(look), ...decor]) {
         const item = itemById(itemId);
         if (!item || item.price === 0) continue;
         const owned = await ctx.db

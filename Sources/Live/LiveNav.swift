@@ -36,6 +36,11 @@ enum Route: Hashable {
     case join
     case startRoom
     case room(String)
+    case libraryGame(String)
+    /// One of your own posted clips, by its id.
+    case myClip(String)
+    /// A list of clips full screen ("mine", "saved" or "user:<handle>"), starting at a clip.
+    case clipList(String, String)
     // the avatar
     /// An item id to open on its sheet, "closet" for the Closet, or nil.
     case shop(String?)
@@ -58,6 +63,11 @@ enum Route: Hashable {
     case newGroup
     case workplace
     case playTogether(String)
+    // money, through Whop
+    case buyGold
+    case earnings
+    case sendEarnings
+    case program(String)
 
     enum Style { case push, cover, sheet }
 
@@ -65,7 +75,7 @@ enum Route: Hashable {
         switch self {
         case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room, .shop, .makeChat, .makePreview, .notifications:
             .push
-        case .story, .friendVideos:
+        case .story, .friendVideos, .myClip, .clipList:
             .cover
         case .rate:
             .sheet
@@ -76,8 +86,10 @@ enum Route: Hashable {
             .sheet
         case .messages, .chat, .newGroup, .workplace:
             .push
-        case .playTogether:
+        case .playTogether, .libraryGame, .buyGold, .sendEarnings, .program:
             .sheet
+        case .earnings:
+            .push
         }
     }
 
@@ -98,7 +110,8 @@ final class LiveNav: ObservableObject {
     static let shared = LiveNav()
 
     /// 0 Community (in place of Home), 1 Videos, 2 You (out of the bar, shown as the profile), 3 Messages, 4 Library
-    @Published var tab = 0
+    /// The app opens on Reels.
+    @Published var tab = 1
     @Published var layers: [Layer] = []
     /// The clip on screen in Videos, as an index into its endless column.
     @Published var videoIndex: Int? = 0

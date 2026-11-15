@@ -15,13 +15,15 @@ struct LiveRoot: View {
         ZStack {
             // The system bar stays hidden. LiveTabBar draws the bar, with the Create key in its middle.
             TabView(selection: $nav.tab) {
-                Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().underTabBar() }
                 Tab("Reels", systemImage: "play.rectangle.on.rectangle.fill", value: 1) { LiveVideos().toolbar(.hidden, for: .tabBar) }
-                Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().toolbar(.hidden, for: .tabBar) }
-                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesInboxScreen(showsBack: false).toolbar(.hidden, for: .tabBar) }
-                Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().underTabBar() }
+                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesInboxScreen(showsBack: false).underTabBar() }
+                Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().underTabBar() }
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) { LiveTabBar() }
+            // An inset on the TabView never reaches the pages inside its tabs, so the bar floats over
+            // them and each page keeps its own room for it (underTabBar).
+            .overlay(alignment: .bottom) { LiveTabBar() }
 
             // Sheets are presented by iOS below, so they swipe down like any other sheet.
             ForEach(Array(nav.layers.enumerated()), id: \.element.id) { depth, layer in
@@ -58,6 +60,14 @@ struct LiveRoot: View {
         .statusBarHidden(nav.isPlaying)
         .persistentSystemOverlays(nav.isPlaying ? .hidden : .automatic)
         .defersSystemGestures(on: nav.isPlaying ? .all : [])
+    }
+}
+
+private extension View {
+    /// A tab's page: the system bar hidden, and room at the bottom so the last row scrolls clear of LiveTabBar.
+    func underTabBar() -> some View {
+        toolbar(.hidden, for: .tabBar)
+            .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: LiveTabBar.height) }
     }
 }
 
@@ -175,6 +185,12 @@ struct LayerView: View {
             StartRoomSheet()
         case .room(let code):
             RoomScreen(code: code)
+        case .libraryGame(let gameID):
+            LibraryGameSheet(game: Mock.game(gameID))
+        case .myClip(let clipID):
+            LibraryClipScreen(clipID: clipID)
+        case .clipList(let source, let start):
+            ClipsViewer(source: ClipSource(source), start: start)
         case .makeChat(let creationID):
             G4CreateChatScreen(creationID: creationID)
         case .makePreview(let creationID):
@@ -197,6 +213,14 @@ struct LayerView: View {
             MessagesWorkplaceScreen()
         case .playTogether(let id):
             MessagesPlayTogetherSheet(chatID: id)
+        case .buyGold:
+            WhopBuyGoldSheet()
+        case .earnings:
+            WhopEarningsScreen()
+        case .sendEarnings:
+            WhopSendSheet()
+        case .program(let gameID):
+            WhopProgramSheet(game: Mock.game(gameID))
         }
     }
 }
@@ -250,6 +274,8 @@ struct LiveVideos: View {
 struct LiveClipPage: View {
     let clip: MockClip
     let active: Bool
+    /// A catalog clip can be saved. A friend's post shown on the same page cannot.
+    var saveable = true
     @ObservedObject private var store = LiveStore.shared
     @State private var loopStart = Date()
 
@@ -262,17 +288,19 @@ struct LiveClipPage: View {
                 TimelineView(.animation(minimumInterval: 1.0 / 40)) { timeline in
                     let loops = timeline.date.timeIntervalSince(loopStart) / Self.loopSeconds
                     let phase = loops - loops.rounded(.towardZero)
-                    VideoPage(clip: clip, progress: CGFloat(phase), voted: vote, phase: phase)
+                    VideoPage(clip: clip, progress: CGFloat(phase), voted: vote, phase: phase, saveKey: saveKey)
                 }
             } else {
                 // At rest a clip shows its opening moment.
-                VideoPage(clip: clip, progress: 0, voted: vote, phase: 0.02)
+                VideoPage(clip: clip, progress: 0, voted: vote, phase: 0.02, saveKey: saveKey)
             }
         }
         .onChange(of: active) { _, isActive in
             if isActive { loopStart = Date() }
         }
     }
+
+    private var saveKey: String? { saveable ? CreateClips.sampleKey(clip.id) : nil }
 }
 
 // MARK: Playing
@@ -287,6 +315,8 @@ struct LivePlayScreen: View {
     /// Decided once, when the round opens.
     @State private var options: GameOptions
     @State private var asking = false
+    /// Set for a room round the player chose to film.
+    @State private var film: CreateFilmSession?
     @Environment(\.scenePhase) private var scenePhase
 
     init(game: MockGame, solo: Bool) {
@@ -297,6 +327,7 @@ struct LivePlayScreen: View {
         _options = State(initialValue: GameOptions(solo: solo, playerName: Mock.handle, friendNames: Mock.playFriends,
                                                    bestScore: LiveStore.shared.s.best[game.id] ?? 0,
                                                    seed: roomSeed ?? LiveLaunch.seed ?? timeSeed))
+        _film = State(initialValue: roomSeed != nil && CreateFilm.wanted ? CreateFilmSession() : nil)
     }
 
     var body: some View {
@@ -306,6 +337,7 @@ struct LivePlayScreen: View {
                 GameFactory.view(for: game.kind, options: options, link: link)
             }
             .ignoresSafeArea()
+            if let film { CreateFilmBubble(session: film) }
             HStack {
                 DLMediaButton(symbol: "xmark", size: 44)
                     .tap { pause() }
@@ -337,13 +369,23 @@ struct LivePlayScreen: View {
         TouchWatcher.install { clock.start() }
         if GameDemo.autopilot { clock.start() }
         CommunityStore.shared.startPresence(game.id)
+        if let film { Task { await film.begin() } }
         link.onFinish = { result in
             TouchWatcher.remove()
             LiveRoomRound.report(result.score)
             let summary = LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: result, solo: solo)
             if summary.gold > 0 { UINotificationFeedbackGenerator().notificationOccurred(.success) }
-            LiveNav.shared.replaceTop(.results)
             CommunityStore.shared.roundEnded(summary)
+            guard let film else { return LiveNav.shared.replaceTop(.results) }
+            // A filmed round goes to its clip, ready to caption and post.
+            let seconds = clock.seconds
+            Task { @MainActor in
+                let url = await film.finish()
+                CreateClips.shared.take = CreateTake(gameID: game.id, layout: .bubble, videoURL: url,
+                                                     cameraOnly: film.cameraOnly, result: result,
+                                                     isBest: summary.isBest, seconds: seconds)
+                LiveNav.shared.replaceTop(.createPreview)
+            }
         }
     }
 
@@ -360,6 +402,7 @@ struct LivePlayScreen: View {
 
     /// Leaving early still keeps the gold from the time played. The round has no score.
     private func leave() {
+        film?.discard()
         LiveRoomRound.report(0)
         if clock.seconds > 0 {
             LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: GameResult(score: 0, unit: ""), solo: solo)
@@ -503,7 +546,8 @@ struct LiveResultsScreen: View {
 /// Launch arguments, for testing and for recording the app. Normal use needs none of them.
 ///   -fresh 1            start over with a new account
 ///   -scheme light|dark  appearance
-///   -tab <0...4>        open on a tab: 0 Home, 1 Videos, 2 You, 3 Messages, 4 Library
+///   -tab <0...4>        open on a tab: 0 Community, 1 Reels (the default), 2 You, 3 Messages, 4 Library
+///   -scroll bottom      in the Library, open scrolled to the end
 ///   -video <n>          the clip showing in Videos
 ///   -play <game id>     open straight into a game (-solo 1 to play alone, -seed <n> for a fixed round)
 ///   -route <name>       open a screen: gold, history, streak, search, inbox, settings, saveGold, notify, studio,
@@ -511,9 +555,11 @@ struct LiveResultsScreen: View {
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
 ///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
 ///                       create[:<game id>], join, startRoom, profile:<handle>, room:<code>,
+///                       libraryGame:<game id>, myClip:<clip id>,
 ///                       messages, chat:<chat id>, newGroup, workplace,
 ///                       makeChat:<creation id>, makePreview:<creation id>,
-///                       shop, shop:closet, shop:<item id> (opens that item's sheet)
+///                       shop, shop:closet, shop:<item id> (opens that item's sheet),
+///                       buyGold, earnings, sendEarnings, program:<game id>
 ///   -tryon <item id>    in the Shop, try an item on without opening its sheet
 ///   -shopturn 1         in the Shop, turn the Dailie round to show its back
 ///   -demo 1             games play themselves (-lose <seconds> has the scripted player lose after that long)
@@ -576,11 +622,17 @@ enum LiveLaunch {
         case "profile": return .profile(value.isEmpty ? "me" : value)
         case "room": return .room(value)
         case "friendVideos": return .friendVideos(value)
+        case "libraryGame": return .libraryGame(value)
+        case "myClip": return .myClip(value)
         case "shop": return .shop(value.isEmpty ? nil : value)
         case "messages": return .messages
         case "chat": return .chat(value)
         case "newGroup": return .newGroup
         case "workplace": return .workplace
+        case "buyGold": return .buyGold
+        case "earnings": return .earnings
+        case "sendEarnings": return .sendEarnings
+        case "program": return .program(value)
         default: return nil
         }
     }

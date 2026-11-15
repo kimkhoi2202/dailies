@@ -1,73 +1,8 @@
 import SwiftUI
+import Combine
 
 // The profile: your Dailie standing in a dark little room, your name and numbers under it, and the
 // trophies you have earned. The Shop pill at the top right leads to the Shop.
-
-/// The room behind a Dailie: a dark wall with a night window and a gold GG sign, a plank floor and a
-/// spotlight. Drawn in code so it stays crisp at any size.
-struct AvatarRoom: View {
-    /// How far down the room the floor starts, 0 to 1.
-    var floorAt: CGFloat = 0.7
-
-    var body: some View {
-        Canvas { context, size in
-            let w = size.width, h = size.height
-            let floorY = h * floorAt
-            let wall = CGRect(x: 0, y: 0, width: w, height: floorY)
-            context.fill(Path(wall), with: .linearGradient(Gradient(colors: [Color(hex: "16130F"), Color(hex: "2B2622")]),
-                                                           startPoint: .zero, endPoint: CGPoint(x: 0, y: floorY)))
-            // wallpaper: faint pixel columns
-            var stripes = Path()
-            var x: CGFloat = 0
-            while x < w { stripes.addRect(CGRect(x: x, y: 0, width: 6, height: floorY)); x += 28 }
-            context.fill(stripes, with: .color(.white.opacity(0.025)))
-
-            // the window, top left, with gold pixel stars and a cream moon
-            let pane = CGRect(x: w * 0.08, y: h * 0.2, width: w * 0.22, height: h * 0.26)
-            context.fill(Path(roundedRect: pane.insetBy(dx: -5, dy: -5), cornerRadius: 8), with: .color(Color(hex: "3A332C")))
-            context.fill(Path(roundedRect: pane, cornerRadius: 5), with: .color(Color(hex: "0E0D0B")))
-            for (fx, fy) in [(0.2, 0.25), (0.65, 0.18), (0.4, 0.62), (0.8, 0.7), (0.15, 0.8)] {
-                context.fill(Path(CGRect(x: pane.minX + pane.width * fx, y: pane.minY + pane.height * fy, width: 3, height: 3)),
-                             with: .color(Color(hex: "FFC531")))
-            }
-            let moon = CGRect(x: pane.maxX - pane.width * 0.42, y: pane.minY + pane.height * 0.32, width: 14, height: 14)
-            context.fill(Path(ellipseIn: moon), with: .color(Color(hex: "F3F0E9")))
-            context.fill(Path(ellipseIn: moon.offsetBy(dx: 5, dy: -3)), with: .color(Color(hex: "0E0D0B")))
-            context.fill(Path(CGRect(x: pane.midX - 1.5, y: pane.minY, width: 3, height: pane.height)), with: .color(Color(hex: "3A332C")))
-            context.fill(Path(CGRect(x: pane.minX, y: pane.midY - 1.5, width: pane.width, height: 3)), with: .color(Color(hex: "3A332C")))
-
-            // a gold GG sign, top right, with a soft glow
-            let sign = CGPoint(x: w * 0.8, y: h * 0.3)
-            context.fill(Path(ellipseIn: CGRect(x: sign.x - 60, y: sign.y - 45, width: 120, height: 90)),
-                         with: .radialGradient(Gradient(colors: [Color(hex: "FFC531").opacity(0.22), .clear]),
-                                               center: sign, startRadius: 0, endRadius: 60))
-            context.draw(Text("GG").font(DL.display(44)).foregroundStyle(Color(hex: "FFC531")), at: sign)
-
-            // the spotlight from above onto the stage
-            var beam = Path()
-            beam.move(to: CGPoint(x: w * 0.44, y: 0))
-            beam.addLine(to: CGPoint(x: w * 0.56, y: 0))
-            beam.addLine(to: CGPoint(x: w * 0.78, y: floorY + h * 0.12))
-            beam.addLine(to: CGPoint(x: w * 0.22, y: floorY + h * 0.12))
-            beam.closeSubpath()
-            context.fill(beam, with: .linearGradient(Gradient(colors: [Color(hex: "FFC531").opacity(0.16), Color(hex: "FFC531").opacity(0.03)]),
-                                                     startPoint: CGPoint(x: 0, y: 0), endPoint: CGPoint(x: 0, y: floorY)))
-
-            // the floor: planks that run toward the back wall
-            let floor = CGRect(x: 0, y: floorY, width: w, height: h - floorY)
-            context.fill(Path(floor), with: .color(Color(hex: "1E1A16")))
-            var planks = Path()
-            for i in -6...6 {
-                let back = w / 2 + CGFloat(i) * w * 0.09
-                let front = w / 2 + CGFloat(i) * w * 0.26
-                planks.move(to: CGPoint(x: back, y: floorY))
-                planks.addLine(to: CGPoint(x: front, y: h))
-            }
-            context.stroke(planks, with: .color(.black.opacity(0.35)), lineWidth: 1.5)
-            context.fill(Path(CGRect(x: 0, y: floorY - 2, width: w, height: 4)), with: .color(Color(hex: "3A332C")))
-        }
-    }
-}
 
 struct ProfileScreen: View {
     let handle: String
@@ -75,6 +10,10 @@ struct ProfileScreen: View {
     @ObservedObject private var store = LiveStore.shared
     @StateObject private var loader: ProfileLoader
     @State private var tab = 0
+    @ObservedObject private var clips = CreateClips.shared
+    /// Someone else's clips, from the server. nil until the first answer.
+    @State private var userClips: [ConvexClip]?
+    @State private var clipsWatch: AnyCancellable?
     @State private var bubble: String?
     @State private var bubbleTurn = 0
 
@@ -93,6 +32,7 @@ struct ProfileScreen: View {
         var rounds: Int
         var look: AvatarLook
         var shirt: VoxelColor
+        var decor: [String]
         var bests: [Trophy]
     }
 
@@ -111,11 +51,11 @@ struct ProfileScreen: View {
                 return Trophy(game: game, text: unit.isEmpty || unit == "%" ? text : "\(text) \(unit)")
             }
             return Shown(name: Mock.displayName, handle: Mock.handle, gold: store.s.balance, streak: store.s.streak,
-                         rounds: store.s.rounds, look: avatars.look, shirt: avatars.shirt, bests: bests)
+                         rounds: store.s.rounds, look: avatars.look, shirt: avatars.shirt, decor: avatars.decor, bests: bests)
         }
         guard let p = loader.profile else {
             return Shown(name: handle, handle: handle, gold: 0, streak: 0, rounds: 0,
-                         look: AvatarLook.starter(handle: handle), shirt: VoxelPalette.purple, bests: [])
+                         look: AvatarLook.starter(handle: handle), shirt: VoxelPalette.purple, decor: [], bests: [])
         }
         let bests = p.bests.compactMap { best -> Trophy? in
             guard let game = Mock.games.first(where: { $0.id == best.gameSlug }) else { return nil }
@@ -124,7 +64,7 @@ struct ProfileScreen: View {
             return Trophy(game: game, text: unit.isEmpty || unit == "%" ? text : "\(text) \(unit)")
         }
         return Shown(name: p.name, handle: p.handle, gold: Int(p.gold), streak: Int(p.streak), rounds: Int(p.rounds),
-                     look: p.look, shirt: VoxelColor(hex: p.color), bests: bests)
+                     look: p.look, shirt: VoxelColor(hex: p.color), decor: p.decor ?? [], bests: bests)
     }
 
     var body: some View {
@@ -136,10 +76,10 @@ struct ProfileScreen: View {
                     room(info, top: top)
                     identity(info)
                         .padding(.horizontal, DL.margin).padding(.top, 16)
-                    G2Segmented(items: ["Trophies", "Clips", "Ranked"], selected: tab)
+                    G2Segmented(items: tabs, selected: tab)
                         .overlay {
                             HStack(spacing: 0) {
-                                ForEach(0..<3, id: \.self) { index in
+                                ForEach(tabs.indices, id: \.self) { index in
                                     Color.clear.contentShape(Rectangle()).tap { tab = index }
                                 }
                             }
@@ -153,17 +93,27 @@ struct ProfileScreen: View {
             .ignoresSafeArea(edges: .top)
         }
         .background(DL.body.ignoresSafeArea())
+        .onAppear {
+            guard !isMe, clipsWatch == nil else { return }
+            clipsWatch = clips.watchUser(handle) { rows in userClips = rows }
+        }
+        .onDisappear { clipsWatch?.cancel(); clipsWatch = nil }
     }
+
+    /// Your own profile also holds the clips you saved.
+    private var tabs: [String] { isMe ? ["Trophies", "Clips", "Saved", "Ranked"] : ["Trophies", "Clips", "Ranked"] }
 
     // MARK: Room
 
     private func room(_ info: Shown, top: CGFloat) -> some View {
         ZStack(alignment: .top) {
-            AvatarRoom(floorAt: 0.72)
-            AvatarStage(look: info.look, shirt: info.shirt, control: .turnOnly, distance: 7.0) {
+            AvatarRoom(floorAt: 0.72, decor: info.decor, trophies: info.bests.map(\.game.id),
+                       wall: isMe ? avatars.wallColor : nil)
+            BitmojiFigure(look: info.look, handle: info.handle, shirt: info.shirt) {
                 say(info)
             }
-            .padding(.top, top + 40)
+            .padding(.top, top + 74)
+            .padding(.bottom, 26)
             if let bubble {
                 Text(bubble)
                     .font(DL.text(15, .semibold)).foregroundStyle(DL.onGold)
@@ -188,7 +138,6 @@ struct ProfileScreen: View {
             DLMediaButton(symbol: "chevron.left").goesBack().accessibilityLabel("Back")
             Spacer()
             if isMe {
-                DLMediaButton(symbol: "pencil", size: 40).opens(.shop("closet")).accessibilityLabel("Edit your Dailie")
                 DLMediaButton(symbol: "square.and.arrow.up", size: 40)
                     .tap { LiveNav.shared.share("Come and see my Dailie. I am @\(Mock.handle) on DEGEN.") }
                     .accessibilityLabel("Share")
@@ -267,12 +216,38 @@ struct ProfileScreen: View {
                     }
                 }
             }
+        case 1 where isMe:
+            VStack(spacing: 14) {
+                if clips.mine.isEmpty {
+                    DLEmptyState(symbol: "video.fill", title: "No clips yet", detail: "Film yourself playing with the + button.",
+                                 key: "Open camera") { LiveNav.shared.open(.create(nil)) }
+                } else {
+                    ClipGrid(items: clips.mine.map { .posted($0) }, source: .mine)
+                }
+                WhopProfileClips(showsClips: false)
+            }
+        case 1:
+            if let rows = userClips, !rows.isEmpty {
+                ClipGrid(items: rows.map { .posted($0) }, source: .user(handle))
+            } else {
+                Text(userClips == nil ? "" : "No clips yet.")
+                    .font(DL.text(15)).foregroundStyle(DL.ink2)
+                    .frame(maxWidth: .infinity).padding(.vertical, 30)
+            }
+        case 2 where isMe:
+            if clips.saved.isEmpty {
+                DLEmptyState(symbol: "bookmark.fill", title: "Nothing saved yet",
+                             detail: "Tap the bookmark on a clip in Videos to keep it here.",
+                             key: "Go to Videos") { LiveNav.shared.goToTab(1) }
+            } else {
+                ClipGrid(items: clips.saved, source: .saved)
+            }
         default:
             VStack(spacing: 8) {
-                Image(systemName: tab == 1 ? "film.stack" : "chart.bar.fill")
+                Image(systemName: "chart.bar.fill")
                     .font(.system(size: 34, weight: .semibold)).foregroundStyle(DL.ink3)
                 Text("COMING SOON").font(DL.display(26)).foregroundStyle(DL.ink)
-                Text(tab == 1 ? "Clips you post show up here." : "Ranked seasons are on the way.")
+                Text("Ranked seasons are on the way.")
                     .font(DL.text(14)).foregroundStyle(DL.ink2)
             }
             .frame(maxWidth: .infinity)
@@ -317,6 +292,6 @@ struct MyAvatarHead: View {
     @ObservedObject private var avatars = AvatarStore.shared
 
     var body: some View {
-        AvatarHead(look: avatars.look, shirt: avatars.shirt, size: size)
+        AvatarHead(look: avatars.look, shirt: avatars.shirt, size: size, handle: Mock.handle)
     }
 }

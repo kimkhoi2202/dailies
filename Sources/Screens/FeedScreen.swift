@@ -26,6 +26,10 @@ struct VideoPage: View {
     var media: AnyView? = nil
     /// The run's score, for a player's clip.
     var tag: String? = nil
+    /// The key the bookmark saves this clip under. nil shows no bookmark.
+    var saveKey: String? = nil
+    /// For the poster's own clip: opens its menu to edit or delete it.
+    var onMore: (() -> Void)? = nil
 
     private var game: MockGame { clip.game }
 
@@ -159,6 +163,14 @@ struct VideoPage: View {
             counted(clip.shares) { DLMediaButton(symbol: "arrowshape.turn.up.right.fill", size: 46) }
                 .tap { LiveNav.shared.share("Watch @\(clip.player) play \(game.title) on DEGEN") }
                 .accessibilityLabel("Share")
+
+            if let saveKey { ClipSaveButton(key: saveKey) }
+
+            if let onMore {
+                DLMediaButton(symbol: "ellipsis", size: 46)
+                    .tap(onMore)
+                    .accessibilityLabel("Edit or delete your clip")
+            }
         }
         .frame(width: 72)
     }
@@ -172,6 +184,37 @@ struct VideoPage: View {
                 .monospacedDigit()
                 .foregroundStyle(.white)
         }
+    }
+}
+
+/// The bookmark on a clip. Gold once the clip is saved.
+struct ClipSaveButton: View {
+    let key: String
+    @ObservedObject private var clips = CreateClips.shared
+    @State private var pop = false
+
+    var body: some View {
+        let on = clips.isSaved(key)
+        VStack(spacing: 3) {
+            Image(systemName: on ? "bookmark.fill" : "bookmark")
+                .font(.system(size: 46 * 0.44, weight: .semibold))
+                .foregroundStyle(on ? DL.gold : .white)
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: 46, height: 46)
+                .background(MediaGlass(shape: Circle()))
+                .scaleEffect(pop ? 1.18 : 1)
+            Text(on ? "Saved" : "Save")
+                .font(DL.text(12, .semibold))
+                .foregroundStyle(.white)
+        }
+        .tap {
+            clips.toggleSave(key)
+            withAnimation(.spring(response: 0.18, dampingFraction: 0.4)) { pop = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.55)) { pop = false }
+            }
+        }
+        .accessibilityLabel(on ? "Saved" : "Save")
     }
 }
 

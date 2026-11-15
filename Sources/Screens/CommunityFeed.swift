@@ -1,7 +1,7 @@
 import SwiftUI
 
-// COMMUNITY's Friends feed: one calm column of what friends posted. Videos lead. Each row is a header
-// line, the media, and a slim row of actions, with a hairline between rows. A video plays muted while
+// COMMUNITY's Friends feed, laid out like Instagram: who posted at the top, the post edge to edge, then
+// like, comment, send and save, the likes, and the caption. Videos are tall, like Reels. A video plays muted while
 // it is on screen, and a tap opens every friend video full screen, one to a page, like Reels.
 
 /// One row of the feed: a clip a player posted with the camera, or a friend's post.
@@ -158,27 +158,32 @@ struct CommunityChallengeLine: View {
 struct CommunityFeedRow: View {
     let entry: CommunityEntry
     @State private var onScreen = false
-    @ObservedObject private var community = CommunityStore.shared
+    @State private var sending = false
+    @State private var heart = false
+    @ObservedObject private var memory = CommunityFeedMemory.shared
+    @ObservedObject private var clips = CreateClips.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 0) {
             header
+                .padding(.vertical, 10)
             media
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .padding(.horizontal, 10)
                 .onScrollVisibilityChange(threshold: 0.55) { visible in onScreen = visible }
-            if let caption, !caption.isEmpty {
-                Text(caption).font(DL.text(15)).foregroundStyle(DL.ink)
-                    .lineLimit(3)
-                    .padding(.horizontal, DL.margin)
-            }
             actions
+                .padding(.top, 8)
+            details
+                .padding(.top, 4)
         }
-        .padding(.top, 12)
-        .padding(.bottom, 8)
+        .padding(.bottom, 22)
+        .sheet(isPresented: $sending) {
+            CommunitySendSheet(game: Mock.game(entry.gameID), message: shareText)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(DL.raised)
+        }
     }
 
-    // MARK: Header
+    // MARK: Words
 
     private var name: String {
         switch entry {
@@ -187,56 +192,107 @@ struct CommunityFeedRow: View {
         }
     }
 
-    private var action: String {
+    private var caption: String {
         switch entry {
-        case .clip(let clip): "posted a clip of \(clip.gameTitle)"
-        case .post(let post): post.action
+        case .clip(let clip): clip.caption.isEmpty ? "Played \(clip.gameTitle)" : clip.caption
+        case .post(let post): post.caption.isEmpty ? post.action : post.caption
         }
     }
 
-    private var caption: String? {
+    private var comments: Int {
         switch entry {
-        case .clip(let clip): clip.caption
-        case .post(let post): post.caption
+        case .clip(let clip): Int(clip.comments)
+        case .post(let post): post.comments
         }
     }
+
+    private var likes: Int {
+        let base: Int = switch entry {
+        case .clip(let clip): Int(clip.likes)
+        case .post(let post): post.reactions.values.reduce(0, +)
+        }
+        return base + (memory.liked.contains(entry.id) ? 1 : 0)
+    }
+
+    /// Saved clips live in Convex. A friend's post is saved as its game's clip, so it shows in the Library.
+    private var saveKey: String {
+        switch entry {
+        case .clip(let clip): clip.saveKey
+        case .post(let post): "sample:" + (Mock.clips.first { $0.game.id == post.gameID }?.id ?? Mock.clips[0].id)
+        }
+    }
+
+    private var shareText: String {
+        let game = Mock.game(entry.gameID)
+        var text = "\(name) posted \(game.title) on DEGEN"
+        if case .clip(let clip) = entry, let url = clip.url { text += "\n" + url }
+        return text
+    }
+
+    // MARK: Header
 
     private var header: some View {
         HStack(spacing: 10) {
-            DLAvatar(name: name, size: 32)
-            Text("\(Text(name == Mock.handle ? "You" : name).fontWeight(.semibold)) \(Text(action).foregroundStyle(DL.ink2))")
-                .font(DL.text(14)).foregroundStyle(DL.ink)
-                .lineLimit(1)
+            DLAvatar(name: name, size: 34)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(Text(name).fontWeight(.semibold)) posted")
+                    .font(DL.text(14)).foregroundStyle(DL.ink)
+                    .lineLimit(1)
+                Text(Mock.game(entry.gameID).title)
+                    .font(DL.text(12)).foregroundStyle(DL.ink2)
+                    .lineLimit(1)
+                    .tap { LiveNav.shared.open(.gameReady(entry.gameID)) }
+            }
             Spacer(minLength: 6)
-            Text(CommunityStore.ago(entry.at)).dlLabel(10, color: DL.ink3).fixedSize()
+            Text("Play")
+                .font(DL.text(14, .semibold)).foregroundStyle(DL.goldText)
+                .padding(.horizontal, 6).frame(height: 32)
+                .tap { LiveNav.shared.open(.gameReady(entry.gameID)) }
+                .accessibilityLabel("Play \(Mock.game(entry.gameID).title)")
         }
-        .padding(.horizontal, DL.margin)
+        .padding(.horizontal, 14)
     }
 
     // MARK: Media
 
     @ViewBuilder private var media: some View {
-        if entry.isVideo {
-            videoMedia
-                .frame(height: 440)
-                .frame(maxWidth: .infinity)
-                .overlay(alignment: .topTrailing) {
-                    Image(systemName: "speaker.slash.fill")
-                        .font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                        .frame(width: 26, height: 26)
-                        .background(Circle().fill(.black.opacity(0.45)))
-                        .padding(10)
-                }
-                .overlay(alignment: .bottomLeading) { videoTags.padding(10) }
-                .contentShape(Rectangle())
-                .onTapGesture { LiveNav.shared.open(.friendVideos(entry.id)) }
-        } else if case .post(let post) = entry {
-            scoreCover(post)
-                .frame(height: 190)
-                .frame(maxWidth: .infinity)
-                .contentShape(Rectangle())
-                .onTapGesture { LiveNav.shared.open(.gameReady(post.gameID)) }
+        Group {
+            if entry.isVideo {
+                Color.black
+                    .aspectRatio(9 / 16, contentMode: .fit)
+                    .overlay { videoMedia }
+                    .overlay(alignment: .bottomTrailing) {
+                        Image(systemName: "speaker.slash.fill")
+                            .font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Circle().fill(.black.opacity(0.45)))
+                            .padding(12)
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        Image(systemName: "play.rectangle.on.rectangle.fill")
+                            .font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.4), radius: 4)
+                            .padding(12)
+                    }
+            } else if case .post(let post) = entry {
+                Color.black
+                    .aspectRatio(1, contentMode: .fit)
+                    .overlay { scoreCover(post) }
+            }
         }
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .overlay {
+            Image(systemName: "heart.fill")
+                .font(.system(size: 96)).foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.3), radius: 12)
+                .scaleEffect(heart ? 1 : 0.4)
+                .opacity(heart ? 1 : 0)
+                .allowsHitTesting(false)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { like(only: true) }
+        .onTapGesture { open() }
     }
 
     @ViewBuilder private var videoMedia: some View {
@@ -259,20 +315,7 @@ struct CommunityFeedRow: View {
         }
     }
 
-    @ViewBuilder private var videoTags: some View {
-        let score: String? = {
-            switch entry {
-            case .clip(let clip): return clip.scoreText
-            case .post(let post): return post.score.isEmpty ? nil : "\(post.score) \(post.unit)"
-            }
-        }()
-        HStack(spacing: 6) {
-            DLMediaTag(text: Mock.game(entry.gameID).title, symbol: "play.fill")
-            if let score { DLMediaTag(text: score) }
-        }
-    }
-
-    /// A score post: the game's art with the number laid on it, not a block of its own.
+    /// A score post: the game's art with the number laid on it.
     private func scoreCover(_ post: CommunityPost) -> some View {
         ZStack(alignment: .bottomLeading) {
             CommunityCoverArt(game: post.game, moving: false)
@@ -282,98 +325,205 @@ struct CommunityFeedRow: View {
                 case .rated:
                     CommunityScoreChip(score: post.rating ?? 0, size: 24)
                 case .streak:
-                    Text(post.score).font(DL.display(40)).foregroundStyle(.white)
-                    Text("DAY STREAK").font(DL.display(18)).foregroundStyle(.white.opacity(0.9))
+                    Text(post.score).font(DL.display(48)).foregroundStyle(.white)
+                    Text("DAY STREAK").font(DL.display(20)).foregroundStyle(.white.opacity(0.9))
                 case .game:
-                    Text("NEW GAME").font(DL.display(26)).foregroundStyle(.white)
+                    Text("NEW GAME").font(DL.display(30)).foregroundStyle(.white)
                 default:
-                    Text(post.score).font(DL.display(40)).foregroundStyle(.white)
-                    Text(post.unit.uppercased()).font(DL.display(18)).foregroundStyle(.white.opacity(0.9))
+                    Text(post.score).font(DL.display(48)).foregroundStyle(.white)
+                    Text(post.unit.uppercased()).font(DL.display(20)).foregroundStyle(.white.opacity(0.9))
                 }
                 Spacer(minLength: 0)
-                if post.kind == .best { CommunityArtTag(text: "New best", symbol: "arrow.up", gold: true) }
-                if post.kind == .passed { CommunityArtTag(text: "Passed you", symbol: "chevron.up.2", gold: true) }
             }
-            .padding(12)
+            .padding(16)
         }
     }
 
     // MARK: Actions
 
     private var actions: some View {
-        HStack(spacing: 14) {
-            switch entry {
-            case .post(let post):
-                ForEach(CommunityReaction.allCases, id: \.self) { reaction in
-                    CommunitySlimReaction(reaction: reaction, count: post.reactions[reaction.rawValue] ?? 0,
-                                          chosen: post.mine.contains(reaction.rawValue))
-                        .tap { community.toggle(reaction, on: post.id) }
-                }
-                count("bubble.right", post.comments)
-            case .clip(let clip):
-                count("hand.thumbsup", Int(clip.likes))
-                count("bubble.right", Int(clip.comments))
-            }
-            Image(systemName: "paperplane").font(.system(size: 15, weight: .semibold)).foregroundStyle(DL.ink2)
-                .tap { LiveNav.shared.share("\(name) \(action) on DEGEN") }
+        let liked = memory.liked.contains(entry.id)
+        let saved = clips.isSaved(saveKey)
+        return HStack(spacing: 18) {
+            Image(systemName: liked ? "heart.fill" : "heart")
+                .foregroundStyle(liked ? DL.danger : DL.ink)
+                .contentTransition(.symbolEffect(.replace))
+                .tap { like(only: false) }
+                .accessibilityLabel(liked ? "Unlike" : "Like")
+            Image(systemName: "bubble.right")
+                .tap { openComments() }
+                .accessibilityLabel("Comments")
+            Image(systemName: "paperplane")
+                .tap { sending = true }
                 .accessibilityLabel("Send")
             Spacer(minLength: 0)
-            HStack(spacing: 4) {
-                Image(systemName: "play.fill").font(.system(size: 10, weight: .black))
-                Text("PLAY").font(DL.display(15)).tracking(0.5)
-            }
-            .foregroundStyle(DL.onGold)
-            .padding(.horizontal, 12).frame(height: 30)
-            .background(Capsule().fill(DL.gold))
-            .background(Capsule().fill(DL.goldLip).offset(y: 2))
-            .tap { LiveNav.shared.open(.gameReady(entry.gameID)) }
-            .accessibilityLabel("Play \(Mock.game(entry.gameID).title)")
+            Image(systemName: saved ? "bookmark.fill" : "bookmark")
+                .contentTransition(.symbolEffect(.replace))
+                .tap { clips.toggleSave(saveKey) }
+                .accessibilityLabel(saved ? "Saved" : "Save")
         }
-        .padding(.horizontal, DL.margin)
-        .frame(height: 36)
+        .font(.system(size: 23, weight: .regular))
+        .foregroundStyle(DL.ink)
+        .padding(.horizontal, 14)
+        .frame(height: 40)
     }
 
-    private func count(_ symbol: String, _ value: Int) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: symbol).font(.system(size: 14, weight: .semibold))
-            if value > 0 { Text("\(value)").font(DL.label(11)).monospacedDigit() }
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            if likes > 0 {
+                Text(likes == 1 ? "1 like" : "\(groupedNumber(likes)) likes")
+                    .font(DL.text(14, .semibold)).foregroundStyle(DL.ink)
+                    .contentTransition(.numericText(value: Double(likes)))
+            }
+            Text("\(Text(name).fontWeight(.semibold)) \(caption)")
+                .font(DL.text(14)).foregroundStyle(DL.ink)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+            if comments > 0 {
+                Text(comments == 1 ? "View 1 comment" : "View all \(comments) comments")
+                    .font(DL.text(14)).foregroundStyle(DL.ink3)
+                    .tap { openComments() }
+            }
+            Text(CommunityStore.ago(entry.at).lowercased())
+                .font(DL.text(11)).foregroundStyle(DL.ink3)
+                .padding(.top, 1)
         }
-        .foregroundStyle(DL.ink2)
+        .padding(.horizontal, 14)
+        .animation(.snappy(duration: 0.2), value: likes)
+    }
+
+    // MARK: Doing
+
+    private func like(only: Bool) {
+        let liked = memory.liked.contains(entry.id)
+        if only {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.55)) { heart = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                withAnimation(.easeOut(duration: 0.25)) { heart = false }
+            }
+            if liked { return }
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        memory.toggleLike(entry.id)
+    }
+
+    private func open() {
+        if entry.isVideo {
+            LiveNav.shared.open(.friendVideos(entry.id))
+        } else {
+            LiveNav.shared.open(.gameReady(entry.gameID))
+        }
+    }
+
+    private func openComments() {
+        switch entry {
+        case .clip:
+            LiveNav.shared.open(.friendVideos(entry.id))
+        case .post(let post):
+            LiveNav.shared.open(.comments(Mock.clips.first { $0.game.id == post.gameID }?.id ?? Mock.clips[0].id))
+        }
     }
 }
 
-/// A reaction as a quiet icon and count, gold once it is yours. It pops when it lands.
-struct CommunitySlimReaction: View {
-    let reaction: CommunityReaction
-    let count: Int
-    let chosen: Bool
-    @State private var pop = false
+/// What this phone liked in the feed, kept between launches.
+final class CommunityFeedMemory: ObservableObject {
+    static let shared = CommunityFeedMemory()
+    private static let key = "degen.feed.liked"
+
+    @Published private(set) var liked: Set<String>
+
+    private init() {
+        liked = Set(UserDefaults.standard.stringArray(forKey: Self.key) ?? [])
+    }
+
+    func toggleLike(_ id: String) {
+        if liked.contains(id) { liked.remove(id) } else { liked.insert(id) }
+        UserDefaults.standard.set(Array(liked), forKey: Self.key)
+    }
+}
+
+/// Send a post to someone: iMessage, the system share sheet, or straight into a DEGEN chat.
+struct CommunitySendSheet: View {
+    let game: MockGame
+    let message: String
+    @ObservedObject private var social = MessagesStore.shared
+    @State private var sent: Set<String> = []
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        HStack(spacing: 3) {
-            Group {
-                if let symbol = reaction.symbol {
-                    Image(systemName: symbol).font(.system(size: 14, weight: .semibold))
-                } else {
-                    Text("GG").font(DL.display(15))
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Send")
+                .font(DL.text(17, .semibold)).foregroundStyle(DL.ink)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 22)
+            HStack(spacing: 22) {
+                target("message.fill", "iMessage", fill: DL.success) { openMessages() }
+                target("square.and.arrow.up", "More", fill: DL.sunken) {
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { LiveNav.shared.share(message) }
+                }
+                target("link", "Copy", fill: DL.sunken) {
+                    UIPasteboard.general.string = message
+                    LiveNav.shared.say("Copied")
                 }
             }
-            if count > 0 {
-                Text("\(count)").font(DL.label(11)).monospacedDigit()
-                    .contentTransition(.numericText(value: Double(count)))
+            .padding(.horizontal, 20)
+            DL.line.frame(height: 1)
+            Text("Your chats").dlLabel(11, color: DL.ink2).padding(.horizontal, 20)
+            ScrollView {
+                LazyVStack(spacing: 4) {
+                    ForEach(social.chats) { chat in row(chat) }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
             }
+            .scrollIndicators(.hidden)
         }
-        .foregroundStyle(chosen ? DL.goldText : DL.ink2)
-        .scaleEffect(pop ? 1.3 : 1)
-        .animation(.snappy(duration: 0.2), value: count)
-        .onChange(of: chosen) { _, now in
-            guard now else { return }
-            withAnimation(.spring(response: 0.18, dampingFraction: 0.4)) { pop = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.55)) { pop = false }
+    }
+
+    private func target(_ symbol: String, _ title: String, fill: Color, action: @escaping () -> Void) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(fill == DL.sunken ? DL.ink : .white)
+                .frame(width: 58, height: 58)
+                .background(Circle().fill(fill))
+            Text(title).font(DL.text(12)).foregroundStyle(DL.ink2)
+        }
+        .tap(action)
+    }
+
+    private func row(_ chat: ChatThread) -> some View {
+        let done = sent.contains(chat.id)
+        return HStack(spacing: 12) {
+            if let person = chat.person {
+                DLAvatar(name: person.name, size: 44)
+            } else {
+                Image(systemName: chat.icon)
+                    .font(.system(size: 17, weight: .semibold)).foregroundStyle(DL.ink)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(DL.sunken))
             }
+            Text(chat.name).font(DL.text(15, .semibold)).foregroundStyle(DL.ink).lineLimit(1)
+            Spacer(minLength: 6)
+            Text(done ? "Sent" : "Send")
+                .font(DL.text(14, .semibold))
+                .foregroundStyle(done ? DL.ink2 : DL.onGold)
+                .padding(.horizontal, 16).frame(height: 32)
+                .background(Capsule().fill(done ? DL.sunken : DL.gold))
+                .tap {
+                    guard !done else { return }
+                    social.share(kind: .post, game: game, body: message, to: chat.id)
+                    sent.insert(chat.id)
+                }
         }
-        .accessibilityLabel("\(reaction.label), \(count)")
+        .padding(.vertical, 6)
+    }
+
+    private func openMessages() {
+        let body = message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        guard let url = URL(string: "sms:&body=" + body) else { return }
+        UIApplication.shared.open(url)
     }
 }
 
@@ -428,7 +578,7 @@ struct CommunityVideoPlayer: View {
             LiveClipPage(clip: MockClip(id: commentsID, game: post.game, player: post.name, caption: post.caption,
                                         length: "", comments: groupedNumber(post.comments),
                                         shares: groupedNumber(post.reactions.values.reduce(0, +))),
-                         active: active)
+                         active: active, saveable: false)
         }
     }
 }

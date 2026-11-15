@@ -4,21 +4,25 @@ import Foundation
 // the app uses this list to draw items and show their prices.
 
 enum AvatarSlot: String, CaseIterable, Codable {
-    case body, face, hair, hat, outfit, gadget
+    case body, face, hair, hat, outfit, gadget, decor
 
     var title: String {
         switch self {
-        case .body: "Body"
+        case .body: "Looks"
         case .face: "Faces"
         case .hair: "Hair"
         case .hat: "Hats"
         case .outfit: "Outfits"
         case .gadget: "Gadgets"
+        case .decor: "Room"
         }
     }
 
     /// Body and face are never empty. The rest can be taken off.
     var removable: Bool { self != .body && self != .face }
+
+    /// Room decor is placed in the room, not worn.
+    var worn: Bool { self != .decor }
 }
 
 enum AvatarRarity: String, Codable {
@@ -38,6 +42,25 @@ struct AvatarItem: Identifiable, Hashable {
     var isFree: Bool { price == 0 }
 }
 
+/// Items sold together. Owned items are left out of the price, and the rest cost 20 percent less.
+struct AvatarBundle: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let detail: String
+    let items: [String]
+
+    static let discount = 0.8
+
+    func price(owned: Set<String>) -> Int {
+        let full = items.compactMap { AvatarCatalog.item($0) }.filter { !owned.contains($0.id) }.reduce(0) { $0 + $1.price }
+        return Int((Double(full) * Self.discount).rounded(.down))
+    }
+
+    func fullPrice(owned: Set<String>) -> Int {
+        items.compactMap { AvatarCatalog.item($0) }.filter { !owned.contains($0.id) }.reduce(0) { $0 + $1.price }
+    }
+}
+
 /// What a Dailie wears: one item id per slot.
 struct AvatarLook: Codable, Equatable, Hashable {
     var body: String
@@ -55,6 +78,7 @@ struct AvatarLook: Codable, Equatable, Hashable {
         case .hat: hat
         case .outfit: outfit
         case .gadget: gadget
+        case .decor: nil
         }
     }
 
@@ -68,15 +92,16 @@ struct AvatarLook: Codable, Equatable, Hashable {
         case .hat: next.hat = id
         case .outfit: next.outfit = id
         case .gadget: next.gadget = id
+        case .decor: break
         }
         return next
     }
 
     func wearing(_ item: AvatarItem) -> AvatarLook { with(item.slot, item.id) }
 
-    /// The same pick as defaultLook in convex/items.ts, so a new player looks the same before the server answers.
+    /// A player's look before they pick one: a character picked from the handle.
     static func starter(handle: String) -> AvatarLook {
-        let bodies = ["body.porcelain", "body.peach", "body.honey", "body.umber", "body.cocoa"]
+        let bodies = [Bitmoji.character(handle: handle)]
         let hair = ["hair.short", "hair.bob", "hair.spiky", "hair.bun"]
         var sum = 0
         for unit in handle.utf16 { sum = (sum * 31 + Int(unit)) % 100003 }
@@ -87,16 +112,20 @@ struct AvatarLook: Codable, Equatable, Hashable {
 
 enum AvatarCatalog {
     static let items: [AvatarItem] = [
-        AvatarItem(id: "body.porcelain", slot: .body, name: "Porcelain", price: 0, rarity: .common, detail: "A light skin tone."),
-        AvatarItem(id: "body.peach", slot: .body, name: "Peach", price: 0, rarity: .common, detail: "A warm skin tone."),
-        AvatarItem(id: "body.honey", slot: .body, name: "Honey", price: 0, rarity: .common, detail: "A golden skin tone."),
-        AvatarItem(id: "body.umber", slot: .body, name: "Umber", price: 0, rarity: .common, detail: "A deep skin tone."),
-        AvatarItem(id: "body.cocoa", slot: .body, name: "Cocoa", price: 0, rarity: .common, detail: "A rich dark skin tone."),
-        AvatarItem(id: "body.mint", slot: .body, name: "Mint", price: 0, rarity: .common, detail: "For a day off from being human."),
-        AvatarItem(id: "body.sky", slot: .body, name: "Sky", price: 0, rarity: .common, detail: "Calm and blue."),
-        AvatarItem(id: "body.lilac", slot: .body, name: "Lilac", price: 0, rarity: .common, detail: "Soft purple, like dusk."),
-        AvatarItem(id: "body.coral", slot: .body, name: "Coral", price: 0, rarity: .common, detail: "Bright and friendly."),
-        AvatarItem(id: "body.gold", slot: .body, name: "Gold", price: 0, rarity: .common, detail: "Our colour, head to toe."),
+        AvatarItem(id: "char.me", slot: .body, name: "Grey Hoodie", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.khoi", slot: .body, name: "Specs", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.ben", slot: .body, name: "Ginger Flannel", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.dylan", slot: .body, name: "Orange Tee", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.nyx", slot: .body, name: "Purple Punk", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.kiko", slot: .body, name: "Pink Pigtails", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.vanessa", slot: .body, name: "Cream Cardigan", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.kaz", slot: .body, name: "Puffer Vest", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.devon", slot: .body, name: "Varsity", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.noor", slot: .body, name: "Green Hijab", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.tofu", slot: .body, name: "Silver Hair", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.juno", slot: .body, name: "Curly Denim", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.sam", slot: .body, name: "Sweater Vest", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.blond", slot: .body, name: "Blond Tee", price: 0, rarity: .common, detail: "A whole look, head to toe."),
 
         AvatarItem(id: "face.happy", slot: .face, name: "Happy", price: 0, rarity: .common, detail: "Big eyes and a big smile."),
         AvatarItem(id: "face.smirk", slot: .face, name: "Smirk", price: 0, rarity: .common, detail: "You know something they do not."),
@@ -117,12 +146,18 @@ enum AvatarCatalog {
 
         AvatarItem(id: "hat.party", slot: .hat, name: "Party Hat", price: 60, rarity: .common, detail: "Striped, with a gold pom."),
         AvatarItem(id: "hat.beanie", slot: .hat, name: "Beanie", price: 70, rarity: .common, detail: "A teal knit with a cream pom."),
-        AvatarItem(id: "hat.cap", slot: .hat, name: "Cap", price: 80, rarity: .common, detail: "An ink cap with a gold bill."),
+        AvatarItem(id: "hat.cap", slot: .hat, name: "Cap", price: 80, rarity: .common, detail: "A teal cap with a gold bill."),
         AvatarItem(id: "hat.catears", slot: .hat, name: "Cat Ears", price: 150, rarity: .rare, detail: "Ears that hear a combo coming."),
         AvatarItem(id: "hat.headset", slot: .hat, name: "Gamer Headset", price: 180, rarity: .rare, detail: "Gold cups and a mic for callouts."),
         AvatarItem(id: "hat.halo", slot: .hat, name: "Halo", price: 300, rarity: .epic, detail: "A floating gold ring. Very well behaved."),
         AvatarItem(id: "hat.wizard", slot: .hat, name: "Wizard Hat", price: 350, rarity: .epic, detail: "Purple, tall and full of stars."),
         AvatarItem(id: "hat.crown", slot: .hat, name: "Crown", price: 800, rarity: .legendary, detail: "Solid gold with three gems."),
+        AvatarItem(id: "hat.bucket", slot: .hat, name: "Bucket Hat", price: 70, rarity: .common, detail: "Soft cream bucket hat for sunny days."),
+        AvatarItem(id: "hat.chef", slot: .hat, name: "Chef Hat", price: 90, rarity: .common, detail: "Tall, white and ready to cook."),
+        AvatarItem(id: "hat.bunny", slot: .hat, name: "Bunny Ears", price: 120, rarity: .rare, detail: "Long ears with pink insides."),
+        AvatarItem(id: "hat.flowers", slot: .hat, name: "Flower Crown", price: 140, rarity: .rare, detail: "A ring of pink and gold flowers."),
+        AvatarItem(id: "hat.pirate", slot: .hat, name: "Pirate Hat", price: 260, rarity: .epic, detail: "Ink tricorn with a gold trim."),
+        AvatarItem(id: "hat.viking", slot: .hat, name: "Viking Helmet", price: 380, rarity: .epic, detail: "Silver dome with two cream horns."),
 
         AvatarItem(id: "outfit.tee", slot: .outfit, name: "Signature Tee", price: 0, rarity: .common, detail: "A tee in your own colour."),
         AvatarItem(id: "outfit.overalls", slot: .outfit, name: "Overalls", price: 70, rarity: .common, detail: "Teal overalls over a cream tee."),
@@ -133,6 +168,11 @@ enum AvatarCatalog {
         AvatarItem(id: "outfit.cape", slot: .outfit, name: "Hero Cape", price: 200, rarity: .rare, detail: "A red cape and a gold star."),
         AvatarItem(id: "outfit.tux", slot: .outfit, name: "Tux", price: 320, rarity: .epic, detail: "Ink tux and a gold bow tie."),
         AvatarItem(id: "outfit.astronaut", slot: .outfit, name: "Astronaut Suit", price: 900, rarity: .legendary, detail: "White suit, gold panel, air for days."),
+        AvatarItem(id: "outfit.pajamas", slot: .outfit, name: "Star Pajamas", price: 80, rarity: .common, detail: "Sky blue with little gold stars."),
+        AvatarItem(id: "outfit.denim", slot: .outfit, name: "Denim Jacket", price: 90, rarity: .common, detail: "Blue denim over a cream tee."),
+        AvatarItem(id: "outfit.jersey", slot: .outfit, name: "Gold Jersey", price: 120, rarity: .rare, detail: "Number 1, in our gold."),
+        AvatarItem(id: "outfit.puffer", slot: .outfit, name: "Puffer Jacket", price: 150, rarity: .rare, detail: "Puffy coral jacket, warm all day."),
+        AvatarItem(id: "outfit.dino", slot: .outfit, name: "Dino Onesie", price: 340, rarity: .epic, detail: "Green onesie with a row of spikes."),
 
         AvatarItem(id: "gadget.phone", slot: .gadget, name: "Phone", price: 50, rarity: .common, detail: "For one more round on the bus."),
         AvatarItem(id: "gadget.controller", slot: .gadget, name: "Controller", price: 60, rarity: .common, detail: "An ink pad with gold and teal buttons."),
@@ -141,7 +181,41 @@ enum AvatarCatalog {
         AvatarItem(id: "gadget.mic", slot: .gadget, name: "Microphone", price: 130, rarity: .rare, detail: "For the post-game speech."),
         AvatarItem(id: "gadget.trophy", slot: .gadget, name: "Trophy Cup", price: 260, rarity: .epic, detail: "A gold cup to hold up high."),
         AvatarItem(id: "gadget.goldpad", slot: .gadget, name: "Golden Controller", price: 700, rarity: .legendary, detail: "Solid gold pad with ink buttons."),
+        AvatarItem(id: "gadget.icecream", slot: .gadget, name: "Ice Cream", price: 50, rarity: .common, detail: "Two scoops in a crispy cone."),
+        AvatarItem(id: "gadget.balloon", slot: .gadget, name: "Gold Balloon", price: 60, rarity: .common, detail: "A shiny balloon on a string."),
+        AvatarItem(id: "gadget.plush", slot: .gadget, name: "Plush Bear", price: 90, rarity: .common, detail: "A soft bear to hug after a close round."),
+        AvatarItem(id: "gadget.camera", slot: .gadget, name: "Camera", price: 120, rarity: .rare, detail: "For clips worth keeping."),
+        AvatarItem(id: "gadget.wand", slot: .gadget, name: "Star Wand", price: 300, rarity: .epic, detail: "A wand with a glowing gold star."),
+
+        AvatarItem(id: "decor.plant", slot: .decor, name: "Potted Plant", price: 40, rarity: .common, detail: "A leafy friend for the corner."),
+        AvatarItem(id: "decor.lamp", slot: .decor, name: "Floor Lamp", price: 50, rarity: .common, detail: "Warm light for late rounds."),
+        AvatarItem(id: "decor.rug", slot: .decor, name: "Round Rug", price: 60, rarity: .common, detail: "A soft striped rug."),
+        AvatarItem(id: "decor.beanbag", slot: .decor, name: "Bean Bag", price: 70, rarity: .common, detail: "Sink in and play one more."),
+        AvatarItem(id: "decor.poster", slot: .decor, name: "Game Poster", price: 80, rarity: .common, detail: "Tippy Tower, framed."),
+        AvatarItem(id: "decor.fridge", slot: .decor, name: "Mini Fridge", price: 90, rarity: .common, detail: "Snacks within reach."),
+        AvatarItem(id: "decor.lavalamp", slot: .decor, name: "Lava Lamp", price: 120, rarity: .rare, detail: "Slow purple blobs."),
+        AvatarItem(id: "decor.bookshelf", slot: .decor, name: "Bookshelf", price: 140, rarity: .rare, detail: "Books, games and a tiny cactus."),
+        AvatarItem(id: "decor.neon", slot: .decor, name: "GG Neon Sign", price: 180, rarity: .rare, detail: "Glowing gold letters for the wall."),
+        AvatarItem(id: "decor.arcade", slot: .decor, name: "Arcade Cabinet", price: 300, rarity: .epic, detail: "Your own cabinet with a glowing screen."),
+        AvatarItem(id: "decor.cat", slot: .decor, name: "Pet Cat", price: 360, rarity: .epic, detail: "An orange cat that naps on the floor."),
+        AvatarItem(id: "decor.robot", slot: .decor, name: "Pet Robot", price: 420, rarity: .epic, detail: "A little robot with a blinking light."),
+        AvatarItem(id: "decor.goldtrophy", slot: .decor, name: "Gold Trophy Stand", price: 800, rarity: .legendary, detail: "A tall gold cup on a stand."),
     ]
+
+    /// Sets of items sold together for less. The price is worked out on the server.
+    static let bundles: [AvatarBundle] = [
+        AvatarBundle(id: "bundle.arcade", name: "Arcade Kid", detail: "Headset, gold hoodie, controller and an arcade cabinet.",
+                     items: ["hat.headset", "outfit.hoodie", "gadget.controller", "decor.arcade"]),
+        AvatarBundle(id: "bundle.cozy", name: "Cozy Day", detail: "Beanie, cozy sweater, bubble tea and a bean bag.",
+                     items: ["hat.beanie", "outfit.sweater", "gadget.boba", "decor.beanbag"]),
+        AvatarBundle(id: "bundle.royal", name: "Royal Court", detail: "Crown, tux, trophy cup and a gold trophy stand.",
+                     items: ["hat.crown", "outfit.tux", "gadget.trophy", "decor.goldtrophy"]),
+    ]
+
+    static func bundle(_ id: String) -> AvatarBundle? { bundles.first { $0.id == id } }
+
+    /// A room holds this many decor items at once.
+    static let roomSpots = 4
 
     static func item(_ id: String?) -> AvatarItem? {
         guard let id else { return nil }
@@ -152,7 +226,7 @@ enum AvatarCatalog {
 
     /// Today's three drops. Everyone sees the same three, picked from the day number, and they leave at midnight.
     static func drops(day: Int) -> [AvatarItem] {
-        let paid = items.filter { !$0.isFree }
+        let paid = items.filter { !$0.isFree && [.hat, .gadget, .decor].contains($0.slot) }
         guard !paid.isEmpty else { return [] }
         var picks: [AvatarItem] = []
         var index = (day * 7) % paid.count

@@ -39,6 +39,130 @@ enum CreateLength: String, CaseIterable {
     var seconds: Double { self == .short ? 15 : 60 }
 }
 
+/// The frame around the camera when it is not a green screen. Tapping the shape key again moves to the next one.
+enum CreateShape: CaseIterable {
+    case circle, square, tall, wide
+
+    var title: String {
+        switch self {
+        case .circle: "Circle"
+        case .square: "Square"
+        case .tall: "Tall"
+        case .wide: "Wide"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .circle: "circle"
+        case .square: "square"
+        case .tall: "rectangle.portrait"
+        case .wide: "rectangle"
+        }
+    }
+
+    /// Wide is the band across the top, with no outline.
+    var layout: CreateLayout {
+        switch self {
+        case .circle: .bubble
+        case .square, .tall: .window
+        case .wide: .top
+        }
+    }
+
+    var next: CreateShape {
+        let all = Self.allCases
+        return all[(all.firstIndex(of: self)! + 1) % all.count]
+    }
+}
+
+/// Where the player sits and how big they are, for each layout. Kept apart from the camera screen and read only
+/// by the player's own view, so moving and sizing them redraws the player and never the game underneath.
+@Observable final class CreateFace {
+    var at: [CreateLayout: CGPoint] = [.cutout: CGPoint(x: 0.5, y: 0.62), .window: CGPoint(x: 0.5, y: 0.68),
+                                       .bubble: CGPoint(x: 0.78, y: 0.2)]
+    var scale: [CreateLayout: CGFloat] = [.cutout: 0.62, .window: 0.42, .bubble: 1]
+    /// The finger's travel during a drag, and the pinch's size during a pinch.
+    var drag: CGSize = .zero
+    var pinch: CGFloat = 1
+
+    func rect(_ layout: CreateLayout, square: Bool = false, in size: CGSize) -> CGRect {
+        let w = size.width, h = size.height
+        let at = at[layout] ?? CGPoint(x: 0.5, y: 0.5)
+        let scale = scale[layout] ?? 1
+        if layout == .bubble {
+            let side = min(w * 0.9, max(72, 120 * scale * pinch))
+            return CGRect(x: at.x * w - side / 2, y: at.y * h - side / 2, width: side, height: side)
+        }
+        let width = w * min(1.1, max(0.25, scale * pinch))
+        let height = square ? width : width * 16 / 9
+        return CGRect(x: at.x * w - width / 2, y: at.y * h - height / 2, width: width, height: height)
+    }
+
+    /// Ends a pinch: the size it reached is kept.
+    func keepPinch(_ layout: CreateLayout, _ magnification: CGFloat) {
+        let now = (scale[layout] ?? 1) * magnification
+        scale[layout] = layout == .bubble ? min(2.6, max(0.6, now)) : min(1.1, max(0.25, now))
+        pinch = 1
+    }
+}
+
+/// The player over the game, dragged with one finger. Pinching is caught by the whole card.
+private struct CreateFaceView<Camera: View>: View {
+    let face: CreateFace
+    let layout: CreateLayout
+    let size: CGSize
+    let movable: Bool
+    var square = false
+    @ViewBuilder let camera: () -> Camera
+
+    var body: some View {
+        let rect = face.rect(layout, square: square, in: size)
+        let corner: CGFloat = layout == .bubble ? rect.width / 2 : (layout == .window ? (square ? 18 : 22) : 0)
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
+        camera()
+            .frame(width: rect.width, height: rect.height)
+            .clipShape(shape)
+            .overlay {
+                if layout != .cutout { shape.strokeBorder(.white.opacity(0.85), lineWidth: 2) }
+            }
+            .contentShape(shape)
+            .gesture(move)
+            .offset(face.drag)
+            .position(x: rect.midX, y: rect.midY)
+            // While recording every touch goes to the game.
+            .allowsHitTesting(movable)
+    }
+
+    /// The translation is measured on the screen, not on the moving view, so the view follows the finger
+    /// without feeding its own movement back into the gesture.
+    private var move: some Gesture {
+        DragGesture(minimumDistance: 1, coordinateSpace: .global)
+            .onChanged { value in
+                guard face.pinch == 1 else { return }
+                var still = Transaction()
+                still.disablesAnimations = true
+                withTransaction(still) { face.drag = value.translation }
+            }
+            .onEnded { _ in
+                let from = face.at[layout] ?? CGPoint(x: 0.5, y: 0.5)
+                let moved = face.drag
+                var still = Transaction()
+                still.disablesAnimations = true
+                withTransaction(still) {
+                    face.at[layout] = CGPoint(x: from.x + moved.width / size.width, y: from.y + moved.height / size.height)
+                    face.drag = .zero
+                }
+                // Pulled back on screen with a spring if it was let go past an edge.
+                let to = face.at[layout] ?? from
+                let kept = CGPoint(x: min(0.92, max(0.08, to.x)), y: min(0.92, max(0.08, to.y)))
+                if kept != to {
+                    withAnimation(.spring(duration: 0.35, bounce: 0.25)) { face.at[layout] = kept }
+                }
+            }
+    }
+}
+
 /// A rounded dark backing for controls that sit on the camera.
 private struct CreateGlass: ViewModifier {
     func body(content: Content) -> some View {
@@ -60,7 +184,8 @@ struct CreateCameraScreen: View {
     @State private var centeredID: String?
     @State private var userPicked = false
     @State private var cleared = false
-    @State private var layout: CreateLayout = .cutout
+    @State private var layout: CreateLayout = .bubble
+    @State private var shape: CreateShape = .circle
     @State private var length: CreateLength = .long
     @State private var timer = 0
     @State private var flash = false
@@ -77,14 +202,15 @@ struct CreateCameraScreen: View {
     @State private var nameToken = UUID()
     @State private var toast: String?
     @State private var toastToken = UUID()
-    @State private var drag: CGSize = .zero
-    /// Where the cutout's centre sits, as a fraction of the card. Pinching changes its size.
-    @State private var cutoutAt = CGPoint(x: 0.5, y: 0.62)
-    @State private var cutoutScale: CGFloat = 0.62
-    @State private var bubbleAt = CGPoint(x: 0.78, y: 0.2)
-    /// 1 is a 120 point bubble.
-    @State private var bubbleScale: CGFloat = 1
-    @State private var pinch: CGFloat = 1
+    /// Held as plain state and never read in this body, so dragging the player does not redraw the game.
+    @State private var face = CreateFace()
+    /// Game Off films only you, with the game you picked tagged on the clip. Game On films you over the game.
+    @State private var gameOn = true
+    /// Camera Off records only the game, for people who do not want to film themselves.
+    @State private var cameraOn = false
+    /// Whether the recording under way has the game in it, and the player.
+    @State private var recordPlaying = false
+    @State private var recordCamera = false
     @State private var frozen: UIImage?
     @State private var snapping = false
     @State private var shutter = false
@@ -100,6 +226,9 @@ struct CreateCameraScreen: View {
         _options = State(initialValue: Self.playOptions(Mock.game(startGameID ?? Mock.games.first?.id ?? ""), seed: 1))
         _centeredID = State(initialValue: startGameID ?? Mock.games.first?.id)
         _userPicked = State(initialValue: startGameID != nil)
+        // `-gameOn 1` opens with the game on and `-layout <name>` picks the layout, for checking the camera without tapping.
+        _gameOn = State(initialValue: MockArgs.value("-gameOn").map { $0 == "1" } ?? true)
+        _layout = State(initialValue: MockArgs.value("-layout").flatMap(CreateLayout.init(rawValue:)) ?? .bubble)
     }
 
     private var selected: MockGame? {
@@ -149,7 +278,7 @@ struct CreateCameraScreen: View {
                     .id(beat)
                     .transition(.scale(scale: 0.4).combined(with: .opacity))
             }
-            if camera.access == .denied && chromeShown { deniedCard }
+            if camera.access == .denied && cameraOn && chromeShown { deniedCard }
             if let toast {
                 Text(toast)
                     .font(DL.label(13)).foregroundStyle(.white).textCase(.uppercase)
@@ -162,66 +291,54 @@ struct CreateCameraScreen: View {
         }
     }
 
-    /// The game fills the card. The player sits on it: cut out of the background, or in a bubble.
+    /// Game Off: the camera fills the card. Game On: the game fills it and the player sits on it, cut out of
+    /// their background, in a card with their background, in a bubble, or in a band across the top.
     /// Before recording, drag the player anywhere, and pinch with two fingers anywhere on the card to size them.
     private func stage(_ size: CGSize) -> some View {
         let w = size.width, h = size.height
-        let isBubble = layout == .bubble
-        let at = isBubble ? bubbleAt : cutoutAt
-        let rect: CGRect
-        if isBubble {
-            let side = min(w * 0.9, max(72, 120 * bubbleScale * pinch))
-            rect = CGRect(x: at.x * w - side / 2, y: at.y * h - side / 2, width: side, height: side)
-        } else {
-            let width = w * min(1.1, max(0.3, cutoutScale * pinch))
-            let height = width * 16 / 9
-            rect = CGRect(x: at.x * w - width / 2, y: at.y * h - height / 2, width: width, height: height)
-        }
-        return ZStack {
-            gameView.frame(width: w, height: h)
-            cameraView(layout: layout)
-                .frame(width: rect.width, height: rect.height)
-                .clipShape(RoundedRectangle(cornerRadius: isBubble ? rect.width / 2 : 0, style: .continuous))
-                .overlay {
-                    if isBubble { Circle().strokeBorder(.white.opacity(0.8), lineWidth: 2) }
+        return ZStack(alignment: .top) {
+            if !showsGame {
+                cameraView(cutout: false).frame(width: w, height: h)
+            } else if !showsCamera {
+                gameView.frame(width: w, height: h)
+            } else if layout == .top {
+                VStack(spacing: 0) {
+                    cameraView(cutout: false).frame(width: w, height: h * 0.34).clipped()
+                    gameView.frame(width: w, height: h * 0.66).clipped()
                 }
-                .contentShape(isBubble ? AnyShape(Circle()) : AnyShape(Rectangle()))
-                .gesture(faceMove(size))
-                .offset(drag)
-                .position(x: rect.midX, y: rect.midY)
-                // While recording every touch goes to the game.
-                .allowsHitTesting(phase == .idle)
+            } else {
+                gameView.frame(width: w, height: h)
+                CreateFaceView(face: face, layout: layout, size: size, movable: phase == .idle, square: shape == .square) {
+                    cameraView(cutout: layout == .cutout)
+                }
+            }
         }
         .frame(width: w, height: h)
         .clipped()
         .animation(.snappy(duration: 0.4), value: layout)
+        .animation(.snappy(duration: 0.4), value: showsGame)
+        .animation(.snappy(duration: 0.4), value: showsCamera)
+        .animation(.snappy(duration: 0.4), value: shape)
     }
 
-    /// Drag the player to move them.
-    private func faceMove(_ size: CGSize) -> some Gesture {
-        DragGesture()
-            .onChanged { drag = $0.translation }
-            .onEnded { value in
-                let isBubble = layout == .bubble
-                let from = isBubble ? bubbleAt : cutoutAt
-                let to = CGPoint(x: min(0.95, max(0.05, from.x + value.translation.width / size.width)),
-                                 y: min(0.95, max(0.08, from.y + value.translation.height / size.height)))
-                if isBubble { bubbleAt = to } else { cutoutAt = to }
-                drag = .zero
-            }
-    }
+    /// The game is on the card: Game On before recording, or a recording made with it.
+    private var showsGame: Bool { isRecording ? recordPlaying : gameOn }
+    private var showsCamera: Bool { isRecording ? recordCamera : cameraOn }
 
     /// Two fingers anywhere on the card size the player.
     private var facePinch: some Gesture {
-        MagnifyGesture()
-            .onChanged { pinch = $0.magnification }
+        MagnifyGesture(minimumScaleDelta: 0.01)
+            .onChanged { value in
+                guard gameOn, cameraOn, layout.movable else { return }
+                var still = Transaction()
+                still.disablesAnimations = true
+                withTransaction(still) { face.pinch = value.magnification }
+            }
             .onEnded { value in
-                if layout == .bubble {
-                    bubbleScale = min(2.6, max(0.6, bubbleScale * value.magnification))
-                } else {
-                    cutoutScale = min(1.1, max(0.3, cutoutScale * value.magnification))
-                }
-                pinch = 1
+                guard gameOn, cameraOn, layout.movable else { return }
+                var still = Transaction()
+                still.disablesAnimations = true
+                withTransaction(still) { face.keepPinch(layout, value.magnification) }
             }
     }
 
@@ -237,9 +354,9 @@ struct CreateCameraScreen: View {
         }
     }
 
-    @ViewBuilder private func cameraView(layout: CreateLayout) -> some View {
+    @ViewBuilder private func cameraView(cutout: Bool) -> some View {
         if !CreateCamera.hasHardware {
-            if layout == .bubble {
+            if !cutout {
                 LinearGradient(colors: [DL.sunken, Color.black], startPoint: .top, endPoint: .bottom)
                     .overlay(Image(systemName: "camera.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(.white.opacity(0.6)))
             } else {
@@ -259,10 +376,26 @@ struct CreateCameraScreen: View {
                 }
             }
         } else {
-            CreateCameraView(camera: camera, cutout: layout == .cutout)
+            CreateCameraView(camera: camera, cutout: cutout)
                 .overlay {
-                    if let frozen, layout == .bubble { Image(uiImage: frozen).resizable().scaledToFill() }
+                    // A photo freezes the frame, so the still of the screen holds it.
+                    if let frozen, !cutout { Image(uiImage: frozen).resizable().scaledToFill() }
                 }
+                .overlay {
+                    // While the camera turns round, the last frame stays up, blurred, until the other camera is ready.
+                    if camera.flipping, let still = camera.flipStill {
+                        Group {
+                            if cutout {
+                                Image(uiImage: still).resizable().scaledToFit()
+                            } else {
+                                Image(uiImage: still).resizable().scaledToFill()
+                            }
+                        }
+                        .blur(radius: 22, opaque: !cutout)
+                        .transition(.opacity)
+                    }
+                }
+                .animation(.easeOut(duration: 0.22), value: camera.flipping)
         }
     }
 
@@ -273,13 +406,15 @@ struct CreateCameraScreen: View {
             VStack(spacing: 0) {
                 topBar
                 HStack(alignment: .top) {
+                    modeColumn
                     Spacer()
                     rail
                 }
+                .padding(.leading, 14)
                 .padding(.trailing, 12).padding(.top, 10)
                 Spacer()
             }
-            if selected != nil {
+            if selected != nil && gameOn {
                 Text(length == .photo ? "TAP FOR A PHOTO" : "RECORD TO START")
                     .font(DL.display(24)).tracking(0.6)
                     .foregroundStyle(.white)
@@ -365,13 +500,63 @@ struct CreateCameraScreen: View {
                         }
                     }
                     .tap(cycleTimer).accessibilityLabel("Timer")
-                DLMediaButton(symbol: layout.symbol, size: 44)
-                    .tap(cycleLayout).accessibilityLabel("Layout")
             }
             DLMediaButton(symbol: railOpen ? "chevron.up" : "chevron.down", size: 44)
                 .tap { withAnimation(.snappy(duration: 0.3)) { railOpen.toggle() } }
                 .accessibilityLabel(railOpen ? "Hide tools" : "Show tools")
         }
+    }
+
+    /// Down the left: the game and the camera, each on or off, and with both on, how you sit on the game.
+    private var modeColumn: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            modeSwitch(symbol: "gamecontroller.fill", title: gameOn ? "Game on" : "Game off", on: gameOn, action: toggleGame)
+            modeSwitch(symbol: cameraOn ? "video.fill" : "video.slash.fill", title: cameraOn ? "Camera on" : "Camera off",
+                       on: cameraOn, action: toggleCamera)
+            if gameOn && cameraOn {
+                modePill(symbol: "person.fill", title: "Green screen", on: layout == .cutout, action: pickGreenScreen)
+                modePill(symbol: shape.symbol, title: shape.title, on: layout != .cutout, action: tapShape)
+            }
+        }
+        .animation(.snappy(duration: 0.3), value: gameOn)
+        .animation(.snappy(duration: 0.3), value: cameraOn)
+    }
+
+    private func modeSwitch(symbol: String, title: String, on: Bool, action: @escaping () -> Void) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: symbol).font(.system(size: 13, weight: .semibold))
+            Text(title).font(DL.label(12)).textCase(.uppercase)
+            Capsule()
+                .fill(on ? DL.onGold.opacity(0.85) : .white.opacity(0.3))
+                .frame(width: 30, height: 18)
+                .overlay(alignment: on ? .trailing : .leading) {
+                    Circle().fill(on ? DL.gold : .white).frame(width: 14, height: 14).padding(2)
+                }
+        }
+        .foregroundStyle(on ? DL.onGold : .white)
+        .padding(.leading, 12).padding(.trailing, 8)
+        .frame(height: 36)
+        .background(Capsule().fill(on ? DL.gold : .black.opacity(0.5)))
+        .contentShape(Capsule())
+        .onTapGesture(perform: action)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private func modePill(symbol: String, title: String, on: Bool, action: @escaping () -> Void) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
+            Text(title).font(DL.label(11)).textCase(.uppercase)
+        }
+        .foregroundStyle(on ? Color.black : .white)
+        .padding(.horizontal, 11)
+        .frame(height: 32)
+        .background(Capsule().fill(on ? Color.white : .black.opacity(0.5)))
+        .contentShape(Capsule())
+        .onTapGesture(perform: action)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
+        .transition(.move(edge: .leading).combined(with: .opacity))
     }
 
     private var lengths: some View {
@@ -429,15 +614,18 @@ struct CreateCameraScreen: View {
             HStack {
                 Spacer()
                 PhotosPicker(selection: $picked, matching: .videos) {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(.black.opacity(0.55))
-                        .overlay(Image(systemName: "photo.on.rectangle").font(.system(size: 18, weight: .semibold)).foregroundStyle(.white))
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.7), lineWidth: 1.5))
-                        .frame(width: 48, height: 48)
+                    VStack(spacing: 4) {
+                        Image(systemName: "square.and.arrow.up").font(.system(size: 17, weight: .bold))
+                        Text("Upload").font(DL.label(10)).textCase(.uppercase)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(width: 58, height: 58)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(white: 0.08)))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.8), lineWidth: 1.5))
                 }
-                .accessibilityLabel("Post a clip from your camera roll")
+                .accessibilityLabel("Upload a video and tag it with the game")
             }
-            .padding(.trailing, 18)
+            .padding(.trailing, 12)
         }
         .frame(height: 100)
     }
@@ -522,8 +710,7 @@ struct CreateCameraScreen: View {
     // MARK: Actions
 
     private func appear() {
-        Task { await camera.start(ownAudio: !CreateScreenRecorder.isAvailable) }
-        camera.cutout = layout == .cutout
+        syncCamera()
         historyWatch = ConvexLink.shared.watch("rounds:history", as: [CreateHistoryRow].self) { rows in
             var counts: [String: Int] = [:]
             for row in rows { counts[row.gameSlug, default: 0] += 1 }
@@ -581,17 +768,20 @@ struct CreateCameraScreen: View {
 
     private func flipCamera() {
         guard CreateCamera.hasHardware else { return say("Camera needs a real phone") }
+        guard cameraOn else { return say("Turn the camera on first") }
         flash = false
         camera.flip()
     }
 
     private func rotateCamera() {
         guard CreateCamera.hasHardware else { return say("Camera needs a real phone") }
+        guard cameraOn else { return say("Turn the camera on first") }
         camera.rotate()
     }
 
     private func toggleFlash() {
         guard CreateCamera.hasHardware else { return say("Camera needs a real phone") }
+        guard cameraOn else { return say("Turn the camera on first") }
         if camera.setFlash(!flash) {
             flash.toggle()
             say(flash ? "Flash on" : "Flash off")
@@ -605,11 +795,54 @@ struct CreateCameraScreen: View {
         say(timer == 0 ? "Timer off" : "\(timer) second timer")
     }
 
-    private func cycleLayout() {
-        layout = layout.next
-        camera.cutout = layout == .cutout
-        drag = .zero
-        say(layout.title)
+    private func toggleGame() {
+        UISelectionFeedbackGenerator().selectionChanged()
+        withAnimation(.snappy(duration: 0.35)) {
+            gameOn.toggle()
+            if !gameOn { cameraOn = true }
+        }
+        syncCamera()
+    }
+
+    /// With the game off the camera is all there is, so turning the camera off turns the game on.
+    private func toggleCamera() {
+        UISelectionFeedbackGenerator().selectionChanged()
+        withAnimation(.snappy(duration: 0.35)) {
+            cameraOn.toggle()
+            if !cameraOn { gameOn = true }
+        }
+        syncCamera()
+    }
+
+    /// Runs the camera only while it is on, and cuts the player out only for the green screen.
+    private func syncCamera() {
+        camera.cutout = gameOn && cameraOn && layout == .cutout
+        if cameraOn {
+            Task { await camera.start(ownAudio: !CreateScreenRecorder.isAvailable) }
+        } else {
+            flash = false
+            camera.stop()
+        }
+    }
+
+    private func pickGreenScreen() {
+        guard layout != .cutout else { return }
+        setLayout(.cutout)
+    }
+
+    /// The first tap leaves the green screen for the shape. Each tap after that moves to the next shape.
+    private func tapShape() {
+        if layout != .cutout { shape = shape.next }
+        setLayout(shape.layout)
+        say(shape.title)
+    }
+
+    private func setLayout(_ option: CreateLayout) {
+        UISelectionFeedbackGenerator().selectionChanged()
+        face.drag = .zero
+        face.pinch = 1
+        layout = option
+        camera.cutout = option == .cutout
     }
 
     private func recordTapped() {
@@ -632,27 +865,35 @@ struct CreateCameraScreen: View {
             guard token == mine else { return }
         }
         if length == .photo { return await takePhoto(game) }
+        let playing = gameOn
+        recordPlaying = playing
+        recordCamera = cameraOn
         withAnimation(.easeOut(duration: 0.2)) { phase = .starting }
 
+        // Game Off films only the player, so no round is started and no gold is counted.
         let day = LiveStore.dayKey(Date())
-        async let opened = CreateWait.within(6) {
-            try await ConvexLink.shared.mutate("rounds:start", ["slug": game.id, "day": day], as: ConvexRoundStart.self)
-        }
+        let opening = playing ? Task {
+            await CreateWait.within(6) {
+                try await ConvexLink.shared.mutate("rounds:start", ["slug": game.id, "day": day], as: ConvexRoundStart.self)
+            }
+        } : nil
         var kind: Recording = .none
         if CreateScreenRecorder.isAvailable, (try? await CreateScreenRecorder.start(mic: camera.micGranted)) != nil {
             kind = .screen
-        } else if CreateCamera.hasHardware && camera.access == .granted {
+        } else if cameraOn && CreateCamera.hasHardware && camera.access == .granted {
             camera.startRecording()
             kind = .camera
         }
-        let started = await opened
+        let started = await opening?.value ?? nil
         guard token == mine else { return }
 
-        let round = GameLink()
-        round.onFinish = { result in Task { @MainActor in await end(result: result) } }
-        let seed = started.map { UInt64(max(1, $0.seed)) } ?? (UInt64(Date().timeIntervalSince1970 * 1000) & 0xFFFF_FFFF)
-        options = Self.playOptions(game, seed: seed)
-        link = round
+        if playing {
+            let round = GameLink()
+            round.onFinish = { result in Task { @MainActor in await end(result: result) } }
+            let seed = started.map { UInt64(max(1, $0.seed)) } ?? (UInt64(Date().timeIntervalSince1970 * 1000) & 0xFFFF_FFFF)
+            options = Self.playOptions(game, seed: seed)
+            link = round
+        }
         roundID = started?.roundId
         recording = kind
         recordStart = Date()
@@ -699,9 +940,10 @@ struct CreateCameraScreen: View {
             if (answer?.gold ?? 0) > 0 { UINotificationFeedbackGenerator().notificationOccurred(.success) }
         }
 
-        CreateClips.shared.take = CreateTake(gameID: recordGameID, layout: layout, videoURL: url,
-                                             cameraOnly: recording == .camera, roundID: roundID, result: result,
-                                             isBest: isBest, seconds: seconds)
+        // A Game Off recording is the camera alone, which is the whole clip.
+        CreateClips.shared.take = CreateTake(gameID: recordGameID, layout: recordPlaying ? layout : .window, videoURL: url,
+                                             cameraOnly: recordPlaying && recording == .camera, roundID: roundID,
+                                             result: result, isBest: isBest, seconds: seconds)
         LiveNav.shared.replaceTop(.createPreview)
     }
 
@@ -716,7 +958,7 @@ struct CreateCameraScreen: View {
         withAnimation(.easeOut(duration: 0.08)) { shutter = true }
         try? await Task.sleep(for: .milliseconds(140))
         withAnimation(.easeOut(duration: 0.25)) { shutter = false }
-        CreateClips.shared.take = CreateTake(gameID: game.id, layout: layout, photo: shot)
+        CreateClips.shared.take = CreateTake(gameID: game.id, layout: gameOn ? layout : .window, photo: shot)
         LiveNav.shared.replaceTop(.createPreview)
     }
 
@@ -736,7 +978,7 @@ struct CreateCameraScreen: View {
             guard let movie = try? await item.loadTransferable(type: CreateMovie.self) else {
                 return say("Could not open that video")
             }
-            CreateClips.shared.take = CreateTake(gameID: gameID, layout: layout, videoURL: movie.url)
+            CreateClips.shared.take = CreateTake(gameID: gameID, layout: .window, videoURL: movie.url)
             LiveNav.shared.replaceTop(.createPreview)
         }
     }

@@ -7,29 +7,35 @@ import ConvexMobile
 
 /// How the player sits on the game, which always fills the screen.
 enum CreateLayout: String, CaseIterable {
-    /// The player cut out of the camera's background, dragged and pinched anywhere over the game.
+    /// Green screen: the player cut out of the camera's background, dragged and pinched anywhere over the game.
     case cutout
+    /// The whole camera, background and all, in a card dragged and pinched anywhere over the game.
+    case window
     /// The player's face in a circle that sits in a corner.
     case bubble
+    /// The camera in a band across the top third, the game below it.
+    case top
 
     var title: String {
         switch self {
-        case .cutout: "Cutout"
+        case .cutout: "Green screen"
+        case .window: "Background"
         case .bubble: "Bubble"
+        case .top: "Cam on top"
         }
     }
 
     var symbol: String {
         switch self {
-        case .cutout: "person.crop.rectangle"
+        case .cutout: "person.fill"
+        case .window: "person.crop.rectangle"
         case .bubble: "pip"
+        case .top: "rectangle.split.1x2"
         }
     }
 
-    var next: CreateLayout {
-        let all = Self.allCases
-        return all[(all.firstIndex(of: self)! + 1) % all.count]
-    }
+    /// The player can be dragged and pinched.
+    var movable: Bool { self != .top }
 }
 
 /// One recording, on its way from the camera to the preview.
@@ -68,17 +74,22 @@ struct ConvexClip: Decodable, Equatable, Identifiable {
     let caption: String
     let layout: String
     let durationMs: Double
+    let visibility: String
     let likes: Double
     let comments: Double
     let handle: String
     let color: String
     let mine: Bool
+    let overlay: String?
 
     private enum CodingKeys: String, CodingKey {
         case id = "_id"
-        case at, gameSlug, gameTitle, unit, kind, url, score, seed, caption, layout, durationMs, likes, comments,
-             handle, color, mine
+        case at, gameSlug, gameTitle, unit, kind, url, score, seed, caption, layout, durationMs, visibility, likes,
+             comments, handle, color, mine, overlay
     }
+
+    /// The key this clip is saved under.
+    var saveKey: String { id }
 
     var scoreText: String? {
         guard let score, score > 0 else { return nil }
@@ -87,31 +98,121 @@ struct ConvexClip: Decodable, Equatable, Identifiable {
     }
 }
 
+/// `clips:saved`: one saved clip. A catalog clip has a "sample:<id>" key and no clip.
+struct ConvexSavedClip: Decodable, Equatable {
+    let key: String
+    let clip: ConvexClip?
+}
+
+/// A clip in a grid or the full-screen viewer: one a player posted, or a catalog clip from Videos.
+enum ClipItem: Identifiable, Equatable {
+    case posted(ConvexClip)
+    case sample(MockClip)
+
+    var id: String {
+        switch self {
+        case .posted(let clip): clip.id
+        case .sample(let clip): CreateClips.sampleKey(clip.id)
+        }
+    }
+
+    var gameID: String {
+        switch self {
+        case .posted(let clip): clip.gameSlug
+        case .sample(let clip): clip.game.id
+        }
+    }
+
+    static func == (a: ClipItem, b: ClipItem) -> Bool {
+        switch (a, b) {
+        case (.posted(let x), .posted(let y)): x == y
+        case (.sample(let x), .sample(let y)): x.id == y.id
+        default: false
+        }
+    }
+}
+
 final class CreateClips: ObservableObject {
     static let shared = CreateClips()
 
     /// Newest first.
     @Published private(set) var feed: [ConvexClip] = []
+    /// The player's own clips, newest first.
+    @Published private(set) var mine: [ConvexClip] = []
+    /// What the player saved, newest first.
+    @Published private(set) var saved: [ClipItem] = []
+    /// Every saved key, changed at once on a tap and then by the server.
+    @Published private(set) var savedKeys: Set<String> = []
     /// The recording waiting in the preview.
     @Published var take: CreateTake?
 
     private let link = ConvexLink.shared
     private var bag = Set<AnyCancellable>()
-    private var watch: AnyCancellable?
+    private var watches: [AnyCancellable] = []
+
+    static func sampleKey(_ id: String) -> String { "sample:" + id }
 
     private init() {
         guard !ProcessInfo.processInfo.arguments.contains("-screen") else { return }
         link.signedIn.sink { [weak self] on in
             guard let self else { return }
-            self.watch = on ? self.link.watch("clips:feed", as: [ConvexClip].self) { [weak self] rows in
-                self?.feed = rows
-            } : nil
+            guard on else { return self.watches = [] }
+            self.watches = [
+                self.link.watch("clips:feed", as: [ConvexClip].self) { [weak self] rows in self?.feed = rows },
+                self.link.watch("clips:mine", as: [ConvexClip].self) { [weak self] rows in self?.mine = rows },
+                self.link.watch("clips:saved", as: [ConvexSavedClip].self) { [weak self] rows in
+                    guard let self else { return }
+                    self.saved = rows.compactMap { row in
+                        if let clip = row.clip { return .posted(clip) }
+                        let id = String(row.key.dropFirst("sample:".count))
+                        return Mock.clips.first { $0.id == id }.map { .sample($0) }
+                    }
+                    self.savedKeys = Set(rows.map(\.key))
+                },
+            ]
         }
         .store(in: &bag)
     }
 
+    /// The clips a player posted that someone else can see, or all of them for the player.
+    func watchUser(_ handle: String, _ rows: @escaping ([ConvexClip]) -> Void) -> AnyCancellable {
+        link.watch("clips:byUser", ["handle": handle], as: [ConvexClip].self, onValue: rows)
+    }
+
+    func isSaved(_ key: String) -> Bool { savedKeys.contains(key) }
+
+    func toggleSave(_ key: String) {
+        let now = !savedKeys.contains(key)
+        if now { savedKeys.insert(key) } else { savedKeys.remove(key) }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        LiveNav.shared.say(now ? "Saved" : "Removed from saved")
+        Task {
+            do {
+                _ = try await link.mutate("clips:toggleSave", ["key": key], as: Bool.self)
+            } catch {
+                await MainActor.run {
+                    if now { self.savedKeys.remove(key) } else { self.savedKeys.insert(key) }
+                    LiveNav.shared.say("Could not save. Try again")
+                }
+            }
+        }
+    }
+
+    func update(_ clip: ConvexClip, caption: String, everyone: Bool) async throws {
+        try await link.mutate("clips:update", [
+            "clipId": clip.id,
+            "caption": String(caption.trimmingCharacters(in: .whitespacesAndNewlines).prefix(140)),
+            "visibility": everyone ? "everyone" : "friends",
+        ])
+    }
+
+    func remove(_ clip: ConvexClip) async throws {
+        try await link.mutate("clips:remove", ["clipId": clip.id])
+    }
+
     /// Uploads the take and posts it. `progress` runs from 0 to 1 on the main thread. Returns the clip's id.
-    func post(_ take: CreateTake, caption: String, everyone: Bool, progress: @escaping (Double) -> Void) async throws -> String {
+    func post(_ take: CreateTake, caption: String, overlay: String = "", everyone: Bool,
+              progress: @escaping (Double) -> Void) async throws -> String {
         var storageID: String?
         var kind = "video"
         if let photo = take.photo {
@@ -128,6 +229,7 @@ final class CreateClips: ObservableObject {
             "gameSlug": take.gameID,
             "kind": kind,
             "caption": String(caption.trimmingCharacters(in: .whitespacesAndNewlines).prefix(140)),
+            "overlay": String(overlay.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80)),
             "layout": take.layout.rawValue,
             "durationMs": (take.seconds * 1000).rounded(),
             "visibility": everyone ? "everyone" : "friends",
