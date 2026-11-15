@@ -14,7 +14,7 @@ final class BusRushModel {
     enum Stage { case ready, playing, clearing, ending, finished }
 
     /// What the last step or tap deserves as a haptic. A stronger one replaces a weaker one.
-    enum Feedback: Int { case none, launch, leave, bump, clear, lost }
+    enum Feedback: Int { case none, launch, leave, bump, clear, timeUp, lost }
 
     typealias Line = BusRushTimeline
 
@@ -220,7 +220,7 @@ final class BusRushModel {
             time += dt
             advance(dt)
             if time >= Self.roundLength {
-                end("Time is up")
+                end("Time is up", .timeUp)
             } else if isCleared() {
                 stage = .clearing
                 clearAge = 0
@@ -230,7 +230,7 @@ final class BusRushModel {
                 jamFor += dt
                 if jamFor >= Self.jamDelay {
                     jammed = true
-                    end("Lot jammed")
+                    end("Lot jammed", .lost)
                 }
             } else {
                 jamFor = 0
@@ -241,7 +241,7 @@ final class BusRushModel {
             let age = (clearAge ?? 0) + dt
             clearAge = age
             if time >= Self.roundLength {
-                end("Time is up")
+                end("Time is up", .timeUp)
             } else if age >= Self.clearLength {
                 nextLevel()
             }
@@ -348,13 +348,13 @@ final class BusRushModel {
         stage = .playing
     }
 
-    private func end(_ text: String) {
+    private func end(_ text: String, _ kind: Feedback) {
         stage = .ending
         endAge = 0
         endText = text
         clearAge = nil
         note = nil
-        owe(.lost)
+        owe(kind)
     }
 }
 
@@ -568,6 +568,7 @@ final class BusRushRunner: ObservableObject {
     private func settle(_ link: GameLink) {
         switch model.takeFeedback() {
         case .lost: GameHaptics.fail()
+        case .timeUp: GameHaptics.success()
         case .clear:
             GameHaptics.heavy()
             GameHaptics.success()
