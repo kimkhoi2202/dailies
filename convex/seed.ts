@@ -99,6 +99,22 @@ const GAMES = [
     dislikes: 94,
     scores: [1980, 1650, 2410, 760, 1180, 420],
   },
+  {
+    slug: "daily-grid",
+    title: "Daily Grid",
+    studio: "Paper Lantern",
+    pitch: "Six crowns. No touching.",
+    how: "Put one crown in every row, column and colour, with no two crowns touching. Tap once for a cross, twice for a crown. Solve as many boards as you can in three minutes.",
+    minPlayers: 1,
+    maxPlayers: 4,
+    mode: "casual" as const,
+    category: "Puzzle",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 286,
+    dislikes: 14,
+    scores: [544, 812, 160, 305, 418, 690],
+  },
 ];
 
 const PLAYERS = [
@@ -117,6 +133,7 @@ const COMMENTS: Record<string, string[]> = {
   "gulp-city": ["swallowed the whole block with two seconds left", "started with a flower, ended with a bus"],
   inkland: ["took a fifth of the map in one loop", "got cut one step from home. again"],
   "lane-dash": ["the near miss at the end. I stopped breathing", "ramp into three gems into a barrier. classic"],
+  "daily-grid": ["five boards in three minutes and not one wrong crown", "the lilac region got me twice"],
 };
 
 export const run = internalMutation({
