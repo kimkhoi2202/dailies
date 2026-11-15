@@ -5,7 +5,8 @@ import SwiftUI
 // CanCannonPainter paints a CanCannonModel into one Canvas: the beach, the shelves, the pieces, the
 // ball and its aim line, the cannon, the score and the banners. The playable game hands it the live
 // model. The clip in the video feed builds a model, lets the scripted pilot clear a five-row pyramid
-// in three shots, and stops the clock at the phase. No assets, any frame size.
+// in three shots, and stops the clock at the phase. The beach, the cans, crates, stones, ball and
+// cannon are pictures in Resources/GameArt; shelves, aim, effects and words are drawn here.
 
 public struct CanCannonScene: View {
     public var phase: Double
@@ -84,15 +85,6 @@ enum CanCannonMath {
     static func easeOut(_ v: Double) -> Double {
         let rest = 1 - clamp(v)
         return 1 - rest * rest * rest
-    }
-
-    /// A fixed number in 0 ..< 1 for a pair of integers. Scenery uses it so nothing is stored.
-    static func hash(_ k: Int, _ salt: Int) -> Double {
-        var v = UInt64(truncatingIfNeeded: k) &* 0x9E37_79B9_7F4A_7C15 &+ UInt64(truncatingIfNeeded: salt) &* 0xD1B5_4A32_D192_ED03
-        v = (v ^ (v >> 30)) &* 0xBF58_476D_1CE4_E5B9
-        v = (v ^ (v >> 27)) &* 0x94D0_49BB_1331_11EB
-        v ^= v >> 31
-        return Double(v >> 11) / 9_007_199_254_740_992.0
     }
 
     /// 1240 as "1,240".
@@ -182,22 +174,6 @@ enum CanCannonPalette {
 
     static func index(_ i: Int) -> Int { ((i % cans.count) + cans.count) % cans.count }
 
-    // Gradients are made once and shared by every piece in every frame.
-    static let canBodies: [Gradient] = cans.map { (tint: CanCannonTint) -> Gradient in
-        let deep = tint.scaled(0.62)
-        return Gradient(colors: [deep.color(), tint.color(), tint.mix(.white, 0.42).color(), tint.color(), deep.scaled(0.9).color()])
-    }
-    static let paper = Gradient(colors: [CanCannonTint.white.scaled(0.72).color(), Color.white, Color.white,
-                                         CanCannonTint.white.scaled(0.68).color()])
-    static let metal = Gradient(colors: [CanCannonTint(hex: 0x7E8792).color(), CanCannonTint(hex: 0xE3E8EE).color(), Color.white,
-                                         CanCannonTint(hex: 0xC2C9D2).color(), CanCannonTint(hex: 0x737C88).color()])
-    static let lidInner = CanCannonTint(hex: 0xAEB6C0).color()
-    static let crateOuter = Gradient(colors: [CanCannonTint(hex: 0xFFC56B).color(), CanCannonTint(hex: 0xEE9B36).color(),
-                                              CanCannonTint(hex: 0xD27E25).color()])
-    static let crateInner = Gradient(colors: [CanCannonTint(hex: 0xE89632).color(), CanCannonTint(hex: 0xC97520).color()])
-    static let stoneBody = Gradient(colors: [CanCannonTint(hex: 0x8495DE).color(), CanCannonTint(hex: 0x5A6BB6).color(),
-                                             CanCannonTint(hex: 0x45529A).color()])
-
     /// The colour of a chip or puff.
     static func shard(_ code: Int) -> CanCannonTint {
         switch code {
@@ -208,6 +184,43 @@ enum CanCannonPalette {
         default: return can(code)
         }
     }
+}
+
+// MARK: - Art
+
+/// The painted pictures, looked up once per frame. Cans come in every colour of CanCannonPalette.cans.
+struct CanCannonArt {
+    static let canNames = (0..<6).map { "can-cannon-can-\($0)" }
+    /// Where the horizon sits in the backdrop picture, from the top.
+    static let horizon: Double = 0.238
+    /// How far the lid in a can picture rises above the can's box, over its height.
+    static let canLid: Double = 0.08
+    /// The cannon base picture's height over its width.
+    static let baseAspect: Double = 0.538
+
+    let backdrop: GraphicsContext.ResolvedImage
+    let cans: [GraphicsContext.ResolvedImage]
+    let crate: GraphicsContext.ResolvedImage
+    let crateLong: GraphicsContext.ResolvedImage
+    let stone: GraphicsContext.ResolvedImage
+    let stoneLong: GraphicsContext.ResolvedImage
+    let ball: GraphicsContext.ResolvedImage
+    let barrel: GraphicsContext.ResolvedImage
+    let base: GraphicsContext.ResolvedImage
+
+    init(_ ctx: GraphicsContext) {
+        backdrop = ctx.resolve(Image("can-cannon-backdrop"))
+        cans = Self.canNames.map { ctx.resolve(Image($0)) }
+        crate = ctx.resolve(Image("can-cannon-crate"))
+        crateLong = ctx.resolve(Image("can-cannon-crate-long"))
+        stone = ctx.resolve(Image("can-cannon-stone"))
+        stoneLong = ctx.resolve(Image("can-cannon-stone-long"))
+        ball = ctx.resolve(Image("can-cannon-ball"))
+        barrel = ctx.resolve(Image("can-cannon-barrel"))
+        base = ctx.resolve(Image("can-cannon-base"))
+    }
+
+    func can(_ tint: Int) -> GraphicsContext.ResolvedImage { cans[CanCannonPalette.index(tint)] }
 }
 
 // MARK: - Stage
@@ -313,17 +326,18 @@ struct CanCannonPainter {
             let t = model.ambient
             world.translateBy(x: sin(t * 83) * a, y: cos(t * 71) * a * 0.7)
         }
-        drawBackdrop(&world)
+        let art = CanCannonArt(ctx)
+        drawBackdrop(&world, art)
         drawShadows(&world)
-        drawPieces(&world, behind: true)
+        drawPieces(&world, behind: true, art)
         let ballBehind = model.ball.active && model.ball.z > Model.shelfZ + Model.shelfDepth
-        if ballBehind { drawBall(&world) }
+        if ballBehind { drawBall(&world, art) }
         drawShelves(&world)
-        drawPieces(&world, behind: false)
+        drawPieces(&world, behind: false, art)
         drawShards(&world)
         if model.aiming && model.stage == .playing { drawAim(&world) }
-        if !ballBehind { drawBall(&world) }
-        drawCannon(&world)
+        if !ballBehind { drawBall(&world, art) }
+        drawCannon(&world, art)
         drawPopups(&world)
 
         drawConfetti(&ctx)
@@ -334,150 +348,18 @@ struct CanCannonPainter {
 
     // MARK: Beach
 
-    private func drawBackdrop(_ ctx: inout GraphicsContext) {
+    private func drawBackdrop(_ ctx: inout GraphicsContext, _ art: CanCannonArt) {
         let pad = 16 * u
-        let hy = stage.horizonY
-        let seaLow = hy + 22 * u
-
-        ctx.fill(Path(CGRect(x: -pad, y: -pad, width: W + pad * 2, height: hy + pad)),
-                 with: down(0, hy, [Tint(hex: 0x58B4EC).color(), Tint(hex: 0x95D3F4).color(), Tint(hex: 0xDDF2FB).color()]))
-
-        // Sun glow, top right, background only.
-        let sun = pt(W * 0.8, hy * 0.42)
-        ctx.fill(ellipse(Double(sun.x), Double(sun.y), 90 * u, 90 * u),
-                 with: .radialGradient(Gradient(colors: [Color.white.opacity(0.85), Color.white.opacity(0)]),
-                                       center: sun, startRadius: 8 * u, endRadius: 90 * u))
-
-        // Clouds drift slowly.
-        for k in 0..<3 {
-            let speed = (3 + 2 * Double(k)) * u
-            let span = W + 160 * u
-            var x = M.hash(k, 11) * span + model.ambient * speed
-            x = x.truncatingRemainder(dividingBy: span) - 80 * u
-            let y = hy * (0.22 + 0.42 * M.hash(k, 12))
-            let r = (18 + 10 * M.hash(k, 13)) * u
-            var cloud = Path()
-            cloud.addEllipse(in: CGRect(x: x - r * 1.6, y: y - r * 0.5, width: r * 3.2, height: r * 1.1))
-            cloud.addEllipse(in: CGRect(x: x - r * 0.9, y: y - r * 1.05, width: r * 1.5, height: r * 1.4))
-            cloud.addEllipse(in: CGRect(x: x - r * 0.1, y: y - r * 0.8, width: r * 1.3, height: r * 1.1))
-            ctx.fill(cloud, with: .color(Color.white.opacity(0.88)))
-        }
-
-        // A green headland on the left of the sea.
-        var land = Path()
-        land.move(to: pt(-pad, hy + 2 * u))
-        land.addQuadCurve(to: pt(W * 0.34, hy + 2 * u), control: pt(W * 0.1, hy - 30 * u))
-        land.closeSubpath()
-        ctx.fill(land, with: .color(Tint(hex: 0x5DB57A).color()))
-
-        // Sea and foam.
-        ctx.fill(Path(CGRect(x: -pad, y: hy, width: W + pad * 2, height: seaLow - hy + 2 * u)),
-                 with: down(hy, seaLow, [Tint(hex: 0x1C97BC).color(), Tint(hex: 0x4FCAD6).color()]))
-        for k in 0..<7 {
-            let sx = M.hash(k, 21) * W
-            let sy = hy + 4 * u + M.hash(k, 22) * (seaLow - hy - 8 * u)
-            let glint = 0.35 + 0.35 * sin(model.ambient * 2 + Double(k) * 1.7)
-            ctx.fill(Path(CGRect(x: sx, y: sy, width: 10 * u, height: 1.6 * u)), with: .color(Color.white.opacity(glint)))
-        }
-
-        // Sand.
-        ctx.fill(Path(CGRect(x: -pad, y: seaLow, width: W + pad * 2, height: H - seaLow + pad)),
-                 with: down(seaLow, H, [Tint(hex: 0xF9E6BC).color(), Tint(hex: 0xF2D49B).color(), Tint(hex: 0xE7BF82).color()]))
-        var foam = Path()
-        let wave = sin(model.ambient * 1.3) * 2 * u
-        foam.move(to: pt(-pad, seaLow + wave))
-        var fx = -pad
-        while fx <= W + pad {
-            fx += 24 * u
-            foam.addQuadCurve(to: pt(fx, seaLow + wave), control: pt(fx - 12 * u, seaLow + wave + 5 * u))
-        }
-        ctx.stroke(foam, with: .color(Color.white.opacity(0.85)), lineWidth: 3 * u)
-
-        // Ripples in the sand, wider nearer the camera.
-        let ripple = Tint(hex: 0xD6AA66).color(0.45)
-        for k in 0..<16 {
-            let depth = M.hash(k, 31)
-            let y = seaLow + 26 * u + depth * (H - seaLow - 40 * u)
-            let x = M.hash(k, 32) * W
-            let half = (14 + 26 * depth) * u
-            var line = Path()
-            line.move(to: pt(x - half, y))
-            line.addQuadCurve(to: pt(x + half, y), control: pt(x, y - 5 * u * (0.5 + depth)))
-            ctx.stroke(line, with: .color(ripple), style: StrokeStyle(lineWidth: (1 + depth) * u, lineCap: .round))
-        }
-
-        drawPalm(&ctx, x: W * 0.05, base: seaLow + 10 * u, height: 128 * u, lean: 1)
-        drawPalm(&ctx, x: W * 0.95, base: seaLow + 6 * u, height: 112 * u, lean: -1)
-        if hy - 40 * u >= Double(GameLayout.topBand) + 72 * u { drawBunting(&ctx, y: hy - 40 * u) }
-
-        // A starfish and two shells, away from the cannon.
-        drawStarfish(&ctx, x: W * 0.12, y: H * 0.79, r: 11 * u, turn: 0.3)
-        drawStarfish(&ctx, x: W * 0.88, y: H * 0.71, r: 9 * u, turn: -0.4)
-        drawShell(&ctx, x: W * 0.86, y: H * 0.87, r: 9 * u)
-        drawShell(&ctx, x: W * 0.2, y: H * 0.66, r: 7 * u)
-    }
-
-    private func drawPalm(_ ctx: inout GraphicsContext, x: Double, base: Double, height: Double, lean: Double) {
-        let top = pt(x + lean * height * 0.28, base - height)
-        var trunk = Path()
-        trunk.move(to: pt(x, base))
-        trunk.addQuadCurve(to: top, control: pt(x + lean * height * 0.02, base - height * 0.6))
-        ctx.stroke(trunk, with: .color(Tint(hex: 0x9C6B3F).color()), style: StrokeStyle(lineWidth: 7 * u, lineCap: .round))
-        ctx.stroke(trunk, with: .color(Tint(hex: 0xB98552).color()), style: StrokeStyle(lineWidth: 2.5 * u, lineCap: .round, dash: [4 * u, 5 * u]))
-        let sway = sin(model.ambient * 1.1 + x) * 0.05
-        for k in 0..<6 {
-            let a = -Double.pi / 2 + (Double(k) - 2.5) * 0.52 + sway
-            var leaf = ctx
-            leaf.translateBy(x: top.x, y: top.y)
-            leaf.rotate(by: .radians(a + Double.pi / 2))
-            let length = height * 0.42
-            var frond = Path()
-            frond.move(to: .zero)
-            frond.addQuadCurve(to: pt(0, -length), control: pt(length * 0.32, -length * 0.5))
-            frond.addQuadCurve(to: .zero, control: pt(-length * 0.12, -length * 0.55))
-            leaf.fill(frond, with: .color(Tint(hex: k % 2 == 0 ? 0x2E9E5B : 0x3DBA6C).color()))
-        }
-    }
-
-    private func drawBunting(_ ctx: inout GraphicsContext, y: Double) {
-        let x0 = W * 0.16
-        let x1 = W * 0.84
-        let sag = 16 * u
-        var rope = Path()
-        rope.move(to: pt(x0, y))
-        rope.addQuadCurve(to: pt(x1, y), control: pt((x0 + x1) / 2, y + sag * 2))
-        ctx.stroke(rope, with: .color(Tint.ink.color(0.35)), lineWidth: 1.2 * u)
-        let flags = 9
-        for k in 0..<flags {
-            let t = (Double(k) + 0.5) / Double(flags)
-            let fx = x0 + (x1 - x0) * t
-            let fy = y + sag * 2 * 2 * t * (1 - t)
-            let wobble = sin(model.ambient * 2.4 + Double(k)) * 1.5 * u
-            let colour = CanCannonPalette.can(k)
-            ctx.fill(shape([pt(fx - 7 * u, fy), pt(fx + 7 * u, fy), pt(fx + wobble, fy + 15 * u)]), with: .color(colour.color()))
-        }
-    }
-
-    private func drawStarfish(_ ctx: inout GraphicsContext, x: Double, y: Double, r: Double, turn: Double) {
-        var star = Path()
-        for k in 0..<10 {
-            let a = turn + Double(k) * Double.pi / 5 - Double.pi / 2
-            let rr = k % 2 == 0 ? r : r * 0.45
-            let p = pt(x + cos(a) * rr, y + sin(a) * rr * 0.62)
-            if k == 0 { star.move(to: p) } else { star.addLine(to: p) }
-        }
-        star.closeSubpath()
-        ctx.fill(star, with: .color(Tint(hex: 0xF27A4F).color()))
-        ctx.stroke(star, with: .color(Tint(hex: 0xC8552F).color(0.7)), lineWidth: 1 * u)
-    }
-
-    private func drawShell(_ ctx: inout GraphicsContext, x: Double, y: Double, r: Double) {
-        var fan = Path()
-        fan.move(to: pt(x, y + r * 0.4))
-        fan.addArc(center: pt(x, y + r * 0.4), radius: r, startAngle: .degrees(200), endAngle: .degrees(340), clockwise: false)
-        fan.closeSubpath()
-        ctx.fill(fan, with: .color(Tint(hex: 0xFFF3E4).color()))
-        ctx.stroke(fan, with: .color(Tint(hex: 0xD9B99A).color()), lineWidth: 1 * u)
+        ctx.fill(Path(CGRect(x: -pad, y: -pad, width: W + pad * 2, height: H + pad * 2)), with: .color(CanCannonPalette.sand.color()))
+        let size = art.backdrop.size
+        if size.width < 1 || size.height < 1 { return }
+        // Big enough to cover the screen, and to put the picture's horizon on the stage's horizon.
+        let k = Swift.max((W + pad * 2) / Double(size.width), (H + pad * 2) / Double(size.height),
+                          (stage.horizonY + pad) / (CanCannonArt.horizon * Double(size.height)))
+        let w = Double(size.width) * k
+        let h = Double(size.height) * k
+        let y = M.clamp(stage.horizonY - CanCannonArt.horizon * h, H + pad - h, -pad)
+        ctx.draw(art.backdrop, in: CGRect(x: (W - w) / 2, y: y, width: w, height: h))
     }
 
     // MARK: Shelves
@@ -556,16 +438,16 @@ struct CanCannonPainter {
     // MARK: Pieces
 
     /// Pieces knocked off the back are drawn behind the shelves, the rest in front.
-    private func drawPieces(_ ctx: inout GraphicsContext, behind: Bool) {
+    private func drawPieces(_ ctx: inout GraphicsContext, behind: Bool, _ art: CanCannonArt) {
         for p in model.pieces {
             if p.pose == .gone { continue }
             let isBehind = p.z > Model.shelfDepth + 0.05
             if isBehind != behind { continue }
-            drawPiece(&ctx, p)
+            drawPiece(&ctx, p, art)
         }
     }
 
-    private func drawPiece(_ ctx: inout GraphicsContext, _ p: CanCannonPiece) {
+    private func drawPiece(_ ctx: inout GraphicsContext, _ p: CanCannonPiece, _ art: CanCannonArt) {
         var alpha = 1.0
         if p.pose == .blasted { alpha = 1 - M.smooth(1.0, 1.4, p.age) }
         if p.pose == .grounded { alpha = 1 - M.smooth(1.9, 2.5, p.age) }
@@ -592,9 +474,13 @@ struct CanCannonPainter {
         c.scaleBy(x: s, y: s)
         if angle != 0 { c.rotate(by: .radians(-angle)) }
         switch p.kind {
-        case .can: drawCan(&c, w: p.w, h: p.h, tint: p.tint)
-        case .crate: drawCrate(&c, w: p.w, h: p.h)
-        case .stone: drawStone(&c, w: p.w, h: p.h)
+        case .can:
+            let lid = p.h * CanCannonArt.canLid
+            c.draw(art.can(p.tint), in: CGRect(x: -p.w / 2, y: -p.h / 2 - lid, width: p.w, height: p.h + lid))
+        case .crate:
+            c.draw(p.w > p.h * 1.8 ? art.crateLong : art.crate, in: CGRect(x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h))
+        case .stone:
+            c.draw(p.w > p.h * 1.8 ? art.stoneLong : art.stone, in: CGRect(x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h))
         }
         if model.aiming && model.stage == .playing && (p.pose == .resting || p.pose == .falling) && aimed(p) {
             let glow = 0.32 + 0.12 * sin(model.ambient * 10)
@@ -611,88 +497,9 @@ struct CanCannonPainter {
         return dx * dx + dy * dy <= Model.ballR * Model.ballR
     }
 
-    /// A can, in shelf units around its middle, y down.
-    private func drawCan(_ c: inout GraphicsContext, w: Double, h: Double, tint: Int) {
-        let x0 = -w / 2
-        let x1 = w / 2
-        let top = -h / 2
-        let rect = CGRect(x: x0, y: top, width: w, height: h)
-        let body = Path(roundedRect: rect, cornerRadius: w * 0.1)
-        c.fill(body, with: across(x0, x1, 0, CanCannonPalette.canBodies[CanCannonPalette.index(tint)]))
-
-        // A white wave across the label.
-        let waveTop = -h * 0.06
-        let thick = h * 0.2
-        var wave = Path()
-        let samples = 8
-        for k in 0...samples {
-            let f = Double(k) / Double(samples)
-            let wx = x0 + w * f
-            let wy = waveTop + sin(f * 6.283 + 0.6) * h * 0.07
-            if k == 0 { wave.move(to: pt(wx, wy)) } else { wave.addLine(to: pt(wx, wy)) }
-        }
-        for k in stride(from: samples, through: 0, by: -1) {
-            let f = Double(k) / Double(samples)
-            let wx = x0 + w * f
-            let wy = waveTop + thick + sin(f * 6.283 + 1.4) * h * 0.06
-            wave.addLine(to: pt(wx, wy))
-        }
-        wave.closeSubpath()
-        c.fill(wave, with: across(x0, x1, 0, CanCannonPalette.paper))
-
-        // Metal rims and the lid.
-        let metal = CanCannonPalette.metal
-        let rim = h * 0.075
-        c.fill(Path(CGRect(x: x0, y: top, width: w, height: rim)), with: across(x0, x1, 0, metal))
-        c.fill(Path(roundedRect: CGRect(x: x0, y: h / 2 - rim, width: w, height: rim), cornerRadius: w * 0.06),
-               with: across(x0, x1, 0, metal))
-        let lid = w * 0.2
-        c.fill(Path(ellipseIn: CGRect(x: x0, y: top - lid / 2, width: w, height: lid)), with: across(x0, x1, 0, metal))
-        c.fill(Path(ellipseIn: CGRect(x: x0 + w * 0.12, y: top - lid * 0.32, width: w * 0.76, height: lid * 0.64)),
-               with: .color(CanCannonPalette.lidInner))
-        c.stroke(body, with: .color(Tint.ink.color(0.32)), lineWidth: 0.03)
-    }
-
-    private func drawCrate(_ c: inout GraphicsContext, w: Double, h: Double) {
-        let rect = CGRect(x: -w / 2, y: -h / 2, width: w, height: h)
-        let outer = Path(roundedRect: rect, cornerRadius: 0.06)
-        c.fill(outer, with: down(-h / 2, h / 2, CanCannonPalette.crateOuter))
-        let b = Swift.min(w, h) * 0.14
-        let inner = CGRect(x: -w / 2 + b, y: -h / 2 + b, width: w - 2 * b, height: h - 2 * b)
-        c.fill(Path(roundedRect: inner, cornerRadius: 0.03),
-               with: down(-h / 2, h / 2, CanCannonPalette.crateInner))
-        let lines = Swift.max(1, Int((h - 2 * b) / 0.22))
-        var planks = Path()
-        for k in 1...lines {
-            let ly = -h / 2 + b + (h - 2 * b) * Double(k) / Double(lines + 1)
-            planks.move(to: pt(-w / 2 + b, ly))
-            planks.addLine(to: pt(w / 2 - b, ly))
-        }
-        c.stroke(planks, with: .color(Tint(hex: 0xA65A16).color(0.75)), lineWidth: 0.025)
-        let nail = 0.035
-        for corner in [pt(-w / 2 + b * 0.5, -h / 2 + b * 0.5), pt(w / 2 - b * 0.5, -h / 2 + b * 0.5),
-                       pt(-w / 2 + b * 0.5, h / 2 - b * 0.5), pt(w / 2 - b * 0.5, h / 2 - b * 0.5)] {
-            c.fill(ellipse(Double(corner.x), Double(corner.y), nail, nail), with: .color(Tint(hex: 0x7C4312).color()))
-        }
-        c.stroke(outer, with: .color(Tint.ink.color(0.35)), lineWidth: 0.03)
-    }
-
-    private func drawStone(_ c: inout GraphicsContext, w: Double, h: Double) {
-        let rect = CGRect(x: -w / 2, y: -h / 2, width: w, height: h)
-        let outer = Path(roundedRect: rect, cornerRadius: 0.07)
-        c.fill(outer, with: down(-h / 2, h / 2, CanCannonPalette.stoneBody))
-        let b = 0.07
-        c.stroke(Path(roundedRect: rect.insetBy(dx: b, dy: b), cornerRadius: 0.05), with: .color(Tint(hex: 0xA4B2EE).color(0.7)), lineWidth: 0.03)
-        let r = Swift.min(w, h) * 0.18
-        let gem = shape([pt(0, -r), pt(r * 1.2, 0), pt(0, r), pt(-r * 1.2, 0)])
-        c.fill(gem, with: .color(Tint(hex: 0x6C7DCB).color()))
-        c.stroke(gem, with: .color(Tint(hex: 0x35407A).color()), lineWidth: 0.04)
-        c.stroke(outer, with: .color(Tint.ink.color(0.38)), lineWidth: 0.03)
-    }
-
     // MARK: Ball, aim, cannon
 
-    private func drawBall(_ ctx: inout GraphicsContext) {
+    private func drawBall(_ ctx: inout GraphicsContext, _ art: CanCannonArt) {
         let b = model.ball
         if !b.active { return }
         var alpha = 1.0
@@ -714,12 +521,7 @@ struct CanCannonPainter {
         let p = stage.point(b.x, b.y, b.z)
         let x = Double(p.x)
         let y = Double(p.y)
-        let lightAt = pt(x - r * 0.35, y - r * 0.4)
-        c.fill(ellipse(x, y, r, r), with: .radialGradient(
-            Gradient(colors: [Tint(hex: 0x6A7290).color(), CanCannonPalette.ballDark.color(), Tint(hex: 0x0D0E14).color()]),
-            center: lightAt, startRadius: 0, endRadius: r * 1.5))
-        c.fill(ellipse(x - r * 0.38, y - r * 0.42, r * 0.26, r * 0.18), with: .color(Color.white.opacity(0.75)))
-        c.stroke(ellipse(x, y, r, r), with: .color(Tint.ink.color(0.6)), lineWidth: 1 * u)
+        c.draw(art.ball, in: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2))
     }
 
     private func drawAim(_ ctx: inout GraphicsContext) {
@@ -754,7 +556,7 @@ struct CanCannonPainter {
         ctx.fill(ellipse(x, y, 2.6 * u, 2.6 * u), with: .color(Color.white))
     }
 
-    private func drawCannon(_ ctx: inout GraphicsContext) {
+    private func drawCannon(_ ctx: inout GraphicsContext, _ art: CanCannonArt) {
         let muzzle = stage.point(0, Model.muzzleY, Model.muzzleZ)
         let pivotX = W / 2
         // On a short screen the barrel gets shorter so the housing and wheels stay in view.
@@ -785,36 +587,14 @@ struct CanCannonPainter {
                  with: down(pivotY - 30 * u, pivotY + 90 * u, [Tint(hex: 0xE4B979).color(), Tint(hex: 0xC99A5A).color()]))
         ctx.stroke(ellipse(pivotX, pivotY + 30 * u, 128 * u, 50 * u), with: .color(Tint(hex: 0xB07D42).color(0.7)), lineWidth: 3 * u)
 
-        // Back wheels.
-        for side in [-1.0, 1.0] {
-            let wx = pivotX + side * 58 * u
-            let wy = pivotY + 18 * u
-            ctx.fill(ellipse(wx, wy, 27 * u, 27 * u), with: .color(Tint(hex: 0x2B2A33).color()))
-            ctx.stroke(ellipse(wx, wy, 20 * u, 20 * u), with: .color(Tint(hex: 0x4A4957).color()), lineWidth: 3 * u)
-            ctx.fill(ellipse(wx, wy, 8 * u, 8 * u), with: .color(CanCannonPalette.card.color()))
-        }
-
         // The barrel, turned toward the aim.
         var barrel = ctx
         barrel.translateBy(x: pivotX, y: pivotY)
         barrel.rotate(by: .radians(turn))
         let tipY = -length + recoil
-        let baseHalf = 36 * u
-        let tipHalf = 27 * u
-        let tube = shape([pt(-baseHalf, 14 * u), pt(baseHalf, 14 * u), pt(tipHalf, tipY), pt(-tipHalf, tipY)])
-        barrel.fill(tube, with: across(-baseHalf, baseHalf, 0, [
-            Tint(hex: 0x10506A).color(), Tint(hex: 0x2A8FB5).color(), Tint(hex: 0x74CDE9).color(),
-            Tint(hex: 0x2A8FB5).color(), Tint(hex: 0x0E4458).color(),
-        ]))
-        let bandY = tipY + (14 * u - tipY) * 0.42
-        let bandHalf = tipHalf + (baseHalf - tipHalf) * 0.42 + 2 * u
-        barrel.fill(Path(roundedRect: CGRect(x: -bandHalf, y: bandY - 6 * u, width: bandHalf * 2, height: 12 * u), cornerRadius: 3 * u),
-                    with: across(-bandHalf, bandHalf, 0, [Tint(hex: 0xCFC8BA).color(), CanCannonPalette.card.color(), Tint(hex: 0xBDB6A8).color()]))
-        let ringHalf = tipHalf + 5 * u
-        barrel.fill(Path(roundedRect: CGRect(x: -ringHalf, y: tipY - 4 * u, width: ringHalf * 2, height: 17 * u), cornerRadius: 5 * u),
-                    with: across(-ringHalf, ringHalf, 0, [Tint(hex: 0xC8402F).color(), Tint(hex: 0xFF7B63).color(), Tint(hex: 0xC8402F).color()]))
-        barrel.fill(ellipse(0, tipY - 4 * u, tipHalf * 0.92, 7.5 * u), with: .color(Tint.ink.color()))
-        barrel.stroke(tube, with: .color(Tint.ink.color(0.4)), lineWidth: 1.2 * u)
+        let barrelW = 64 * u
+        let barrelTop = tipY - 8 * u
+        barrel.draw(art.barrel, in: CGRect(x: -barrelW / 2, y: barrelTop, width: barrelW, height: 30 * u - barrelTop))
         if since < 0.14 {
             let k = since / 0.14
             let r = (18 + 26 * k) * u
@@ -823,14 +603,10 @@ struct CanCannonPainter {
                 center: pt(0, tipY - 10 * u - 10 * u * k), startRadius: 0, endRadius: r))
         }
 
-        // The round housing over the base of the barrel.
-        let dome = ellipse(pivotX, pivotY + 18 * u, 50 * u, 34 * u)
-        ctx.fill(dome, with: down(pivotY - 16 * u, pivotY + 52 * u, [Tint(hex: 0xFF8A70).color(), Tint(hex: 0xE5533F).color(), Tint(hex: 0xB8392A).color()]))
-        var stripe = Path()
-        stripe.move(to: pt(pivotX - 44 * u, pivotY + 12 * u))
-        stripe.addQuadCurve(to: pt(pivotX + 44 * u, pivotY + 12 * u), control: pt(pivotX, pivotY - 6 * u))
-        ctx.stroke(stripe, with: .color(CanCannonPalette.card.color(0.9)), lineWidth: 4 * u)
-        ctx.stroke(dome, with: .color(Tint.ink.color(0.35)), lineWidth: 1.2 * u)
+        // The housing and the wheels, over the base of the barrel.
+        let baseW = 184 * u
+        let baseH = baseW * CanCannonArt.baseAspect
+        ctx.draw(art.base, in: CGRect(x: pivotX - baseW / 2, y: pivotY + 20 * u - baseH / 2, width: baseW, height: baseH))
     }
 
     // MARK: Effects
