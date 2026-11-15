@@ -165,8 +165,6 @@ export default defineSchema({
   }).index("by_user", ["userId"]),
 
   clips: defineTable({
-    cents: v.optional(v.number()),
-    views: v.optional(v.number()),
     userId: v.id("users"),
     gameSlug: v.string(),
     kind: v.union(v.literal("video"), v.literal("photo")),
