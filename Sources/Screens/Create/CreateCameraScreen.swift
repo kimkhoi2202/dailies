@@ -189,7 +189,7 @@ struct CreateCameraScreen: View {
                 .contentShape(isBubble ? AnyShape(Circle()) : AnyShape(Rectangle()))
                 .offset(drag)
                 .position(x: rect.midX, y: rect.midY)
-                .gesture(isBubble ? AnyGesture(bubbleDrag(size).map { _ in () }) : AnyGesture(cutoutMove(size)))
+                .gesture(isBubble ? AnyGesture(bubbleDrag(size).map { _ in () }) : cutoutMove(size))
                 // While recording every touch goes to the game.
                 .allowsHitTesting(phase == .idle)
         }
@@ -200,7 +200,7 @@ struct CreateCameraScreen: View {
     }
 
     /// Drag to move the cutout, pinch to size it.
-    private func cutoutMove(_ size: CGSize) -> some Gesture {
+    private func cutoutMove(_ size: CGSize) -> AnyGesture<Void> {
         let move = DragGesture()
             .onChanged { drag = $0.translation }
             .onEnded { value in
@@ -214,7 +214,7 @@ struct CreateCameraScreen: View {
                 cutoutScale = min(1.1, max(0.3, cutoutScale * value.magnification))
                 pinch = 1
             }
-        return move.simultaneously(with: size).map { _ in () }
+        return AnyGesture(move.simultaneously(with: size).map { _ in () })
     }
 
     @ViewBuilder private var gameView: some View {
