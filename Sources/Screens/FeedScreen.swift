@@ -132,7 +132,7 @@ struct VideoPage: View {
                 .accessibilityLabel("Comments")
 
             counted(clip.shares) { DLMediaButton(symbol: "arrowshape.turn.up.right.fill", size: 46) }
-                .tap { LiveNav.shared.share("Watch @\(clip.player) play \(game.title) on Dailies") }
+                .tap { LiveNav.shared.share("Watch @\(clip.player) play \(game.title) on DEGEN") }
                 .accessibilityLabel("Share")
         }
         .frame(width: 72)

@@ -122,7 +122,7 @@ struct G2SettingsScreen: View {
                         .foregroundStyle(DL.ink2)
                         .notYet("Deleting your account")
                     Spacer()
-                    Text("Dailies 1.0").dlLabel(10, color: DL.ink3)
+                    Text("DEGEN 1.0").dlLabel(10, color: DL.ink3)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, -2)

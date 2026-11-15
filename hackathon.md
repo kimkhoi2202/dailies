@@ -1,6 +1,6 @@
 # Hackathon log
 
-- **Project:** Dailies
+- **Project:** DEGEN (first called Dailies)
 - **Event:** The Consumer Mobile Hackathon
 - **What it does:** A daily feed of small phone games where playing collects gold, with likes, comments, leaderboards and rooms for playing the same level with friends.
 - **Live app:** not deployed

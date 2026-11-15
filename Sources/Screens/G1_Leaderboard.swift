@@ -93,7 +93,7 @@ struct G1LeaderboardScreen: View {
         DLTabs(selected: 1) {
             DLPage(spacing: 12, bottomInset: 150) {
                 DLNavBar(title: game.title, trailingSymbol: "person.badge.plus", trailingAction: {
-                    LiveNav.shared.share("Come and play \(game.title) with me on Dailies")
+                    LiveNav.shared.share("Come and play \(game.title) with me on DEGEN")
                 })
                 Text("LEADERBOARD")
                     .font(DL.display(44))
