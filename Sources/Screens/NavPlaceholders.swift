@@ -1,7 +1,7 @@
 import SwiftUI
 
 // Screens the tab bar and the Home avatar lead to before their own features land:
-// the camera (Create), Messages and the profile.
+// the camera (Create) and Messages.
 
 /// What the Create key opens until the camera is built.
 struct CreatePlaceholderScreen: View {
@@ -40,17 +40,5 @@ struct MessagesTabScreen: View {
                 LiveNav.shared.share("Come and play with me on Dailies")
             }
         }
-    }
-}
-
-/// The profile the Home avatar opens. Until the avatar room is built it shows the You screen.
-struct ProfilePlaceholderScreen: View {
-    var body: some View {
-        VStack(spacing: 0) {
-            DLNavBar(title: "Profile")
-                .padding(.horizontal, DL.margin).padding(.top, 4).padding(.bottom, 4)
-            G2YouScreen()
-        }
-        .background(DL.body.ignoresSafeArea())
     }
 }

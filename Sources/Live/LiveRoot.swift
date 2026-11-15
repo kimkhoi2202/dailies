@@ -151,8 +151,10 @@ struct LayerView: View {
             G3ReviewChangesScreen()
         case .create:
             CreatePlaceholderScreen()
-        case .profile:
-            ProfilePlaceholderScreen()
+        case .profile(let handle):
+            ProfileScreen(handle: handle)
+        case .shop(let focus):
+            ShopScreen(focus: focus)
         case .join:
             JoinRoomSheet()
         case .startRoom:
@@ -457,7 +459,10 @@ struct LiveResultsScreen: View {
 ///                       reviewProgress, reviewResult, reviewChanges, or one that takes a value:
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
 ///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
-///                       create, join, startRoom, profile:<handle>, room:<code>
+///                       create, join, startRoom, profile:<handle>, room:<code>,
+///                       shop, shop:closet, shop:<item id> (opens that item's sheet)
+///   -tryon <item id>    in the Shop, try an item on without opening its sheet
+///   -shopturn 1         in the Shop, turn the Dailie round to show its back
 ///   -demo 1             games play themselves (-lose <seconds> has the scripted player lose after that long)
 ///   -gamescale <x>      draw games on a canvas x times smaller and scale it up, to measure drawing cost
 enum LiveLaunch {
@@ -514,6 +519,7 @@ enum LiveLaunch {
         case "startRoom": return .startRoom
         case "profile": return .profile(value.isEmpty ? "me" : value)
         case "room": return .room(value)
+        case "shop": return .shop(value.isEmpty ? nil : value)
         default: return nil
         }
     }
@@ -562,7 +568,7 @@ final class LiveHost: UIHostingController<LiveRoot> {
     override var preferredStatusBarStyle: UIStatusBarStyle {
         // A sheet leaves the screen under it showing, so the top screen that is not a sheet decides.
         switch LiveNav.shared.layers.last(where: { $0.route.style != .sheet })?.route {
-        case .gameReady, .play, .results, .gameDetail: .lightContent
+        case .gameReady, .play, .results, .gameDetail, .profile, .shop: .lightContent
         case nil: LiveNav.shared.tab == 1 ? .lightContent : .default
         default: .default
         }

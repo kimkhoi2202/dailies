@@ -1,5 +1,6 @@
 import type { Id } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
+import { itemById } from "./items";
 
 const GAMES = [
   {
@@ -110,6 +111,16 @@ const PLAYERS = [
   { handle: "wordnerd.sam", color: "#FF7AB6" },
 ];
 
+/** Fun looks for the seeded players, so visiting a friend's profile looks good in the demo. */
+const LOOKS: Record<string, { body: string; face: string; hair?: string; hat?: string; outfit?: string; gadget?: string }> = {
+  "devon.plays": { body: "body.honey", face: "face.wink", hair: "hair.spiky", hat: "hat.headset", outfit: "outfit.hoodie", gadget: "gadget.controller" },
+  kaz: { body: "body.lilac", face: "face.shades", hair: "hair.mohawk", outfit: "outfit.varsity", gadget: "gadget.mic" },
+  "noor.runs": { body: "body.cocoa", face: "face.determined", hair: "hair.bun", hat: "hat.cap", outfit: "outfit.tracksuit", gadget: "gadget.phone" },
+  tofu: { body: "body.peach", face: "face.happy", hair: "hair.bob", hat: "hat.catears", outfit: "outfit.sweater", gadget: "gadget.boba" },
+  juno: { body: "body.mint", face: "face.stars", hair: "hair.curly", hat: "hat.crown", outfit: "outfit.cape", gadget: "gadget.trophy" },
+  "wordnerd.sam": { body: "body.porcelain", face: "face.sleepy", hair: "hair.long", hat: "hat.wizard", outfit: "outfit.tux", gadget: "gadget.joystick" },
+};
+
 const COMMENTS: Record<string, string[]> = {
   "tippy-tower": ["the slab at floor 30 had no business landing like that", "held my breath for the whole last ten floors", "tried it straight after. 14 floors"],
   "five-up": ["got it in three and my group chat is furious", "two minutes left and I blanked on a word I use daily"],
@@ -142,6 +153,21 @@ export const run = internalMutation({
             seeded: true,
           })),
       );
+    }
+
+    for (const [index, player] of PLAYERS.entries()) {
+      const look = LOOKS[player.handle];
+      if (!look) continue;
+      await ctx.db.patch("users", playerIds[index], { avatar: look });
+      for (const itemId of Object.values(look)) {
+        const item = itemById(itemId);
+        if (!item || item.price === 0) continue;
+        const owned = await ctx.db
+          .query("inventory")
+          .withIndex("by_user_and_item", (q) => q.eq("userId", playerIds[index]).eq("itemId", itemId))
+          .unique();
+        if (owned === null) await ctx.db.insert("inventory", { userId: playerIds[index], itemId, price: item.price });
+      }
     }
 
     let created = 0;
