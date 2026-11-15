@@ -697,7 +697,8 @@ struct BrickOutPainter {
     private func drawHUD(_ ctx: inout GraphicsContext, _ f: BrickOutFrame) {
         let cx = W / 2
         // The clock, between the app's corners.
-        let pill = CGRect(x: cx - 66 * u, y: 66 * u, width: 132 * u, height: 38 * u)
+        let pillY = Swift.max(Double(GameLayout.statusBarHeight) + 4, 66 * u)
+        let pill = CGRect(x: cx - 66 * u, y: pillY, width: 132 * u, height: 38 * u)
         let low = f.timeLeft < 10 && !f.frozen
         let pulse = low ? 0.5 + 0.5 * sin(f.ambient * 9) : 0
         let edge = f.frozen ? P.ice : (low ? P.brick(0) : P.frameLight)

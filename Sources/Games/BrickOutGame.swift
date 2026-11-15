@@ -295,6 +295,15 @@ final class BrickOutModel {
         if movesLeft <= 0 { end("Out of moves") }
     }
 
+    /// The touch was taken away (the app paused the game, the system cancelled it). The brick
+    /// eases back to its cell and no move is spent.
+    func cancelDrag() {
+        guard let d = drag else { return }
+        drag = nil
+        guard d.axis >= 0, d.index < blocks.count else { return }
+        glides.append(BrickOutGlide(id: blocks[d.index].id, axis: d.axis, offset: d.shift, age: 0))
+    }
+
     /// One of the three buttons at the bottom.
     func useBooster(_ k: Int) {
         guard stage == .ready || stage == .playing, k >= 0, k < 3 else { return }
@@ -599,6 +608,8 @@ struct BrickOutPilot {
         var fingerX: Double
         var fingerY: Double
         var shift = 0.0
+        /// The slide takes the brick out through a gate.
+        var exits = false
     }
 
     private var rng: BrickOutRandom
@@ -622,6 +633,13 @@ struct BrickOutPilot {
                 slide = nil
                 model.touchUp()
                 wait = losing ? 0.15 : rng.range(0.35, 0.7)
+                return
+            }
+            if losing, s.exits {
+                // The time to lose came mid-slide: the brick goes back and stays on the board.
+                slide = nil
+                model.cancelDrag()
+                wait = 0.15
                 return
             }
             let step = (losing ? 2.0 : 1.0) * Self.speed * dt
@@ -648,13 +666,27 @@ struct BrickOutPilot {
             return
         }
 
-        if losing || (moves >= 2 && rng.chance(0.1)) {
+        // Losing on purpose: spend the moves and never let a brick out, so no board is cleared.
+        if losing {
             if let s = wasted(model) {
                 start(s, model)
-                return
+            } else if let s = approach(model) {
+                start(s, model)
+            } else {
+                wait = 0.3
             }
+            return
         }
-        if let s = solving(model) {
+
+        if moves >= 2, rng.chance(0.1), let s = wasted(model) {
+            start(s, model)
+            return
+        }
+        if let s = exitSlide(model) {
+            start(s, model)
+            return
+        }
+        if let s = approach(model) {
             start(s, model)
             return
         }
@@ -675,10 +707,9 @@ struct BrickOutPilot {
         moves += 1
     }
 
-    /// A slide of a brick toward its gate.
-    private mutating func solving(_ model: BrickOutModel) -> Slide? {
+    /// A slide that takes a brick out through its gate, earliest in the solving order first.
+    private mutating func exitSlide(_ model: BrickOutModel) -> Slide? {
         let level = model.level
-        // Bricks that can go straight out, earliest in the solving order first.
         for id in level.solution {
             guard let index = model.blocks.firstIndex(where: { $0.id == id }) else { continue }
             let b = model.blocks[index]
@@ -689,10 +720,17 @@ struct BrickOutPilot {
                 let before = Double(pos) + Double(size) * 0.5 + 0.4
                 let after = Double(lane - pos - size) + Double(size) * 0.5 + 0.4
                 let reach = b.exit.dir < 0 ? before : after
-                return make(index, b, axis: b.exit.axis, target: b.exit.dir * reach)
+                var s = make(index, b, axis: b.exit.axis, target: b.exit.dir * reach)
+                s.exits = true
+                return s
             }
         }
-        // Otherwise a brick that can at least get closer to its gate.
+        return nil
+    }
+
+    /// A slide that brings a brick closer to its gate and stops inside the board.
+    private mutating func approach(_ model: BrickOutModel) -> Slide? {
+        let level = model.level
         for id in level.solution {
             guard let index = model.blocks.firstIndex(where: { $0.id == id }) else { continue }
             let b = model.blocks[index]
@@ -704,7 +742,8 @@ struct BrickOutPilot {
         return nil
     }
 
-    /// A slide that changes nothing for the better: a brick moved away from its gate.
+    /// A slide that changes nothing for the better and stays inside the board: a brick moved away
+    /// from its gate, or failing that, sideways across its lane.
     private mutating func wasted(_ model: BrickOutModel) -> Slide? {
         let count = model.blocks.count
         if count == 0 { return nil }
@@ -716,6 +755,15 @@ struct BrickOutPilot {
             let pos = b.exit.axis == 0 ? b.x : b.y
             let away = b.exit.dir < 0 ? r.hi : r.lo
             if away != pos { return make(index, b, axis: b.exit.axis, target: Double(away - pos)) }
+        }
+        for k in 0..<count {
+            let index = (from + k) % count
+            let b = model.blocks[index]
+            let axis = 1 - b.exit.axis
+            let r = model.range(of: index, axis: axis)
+            let pos = axis == 0 ? b.x : b.y
+            if r.lo != pos { return make(index, b, axis: axis, target: Double(r.lo - pos)) }
+            if r.hi != pos { return make(index, b, axis: axis, target: Double(r.hi - pos)) }
         }
         return nil
     }
@@ -774,6 +822,8 @@ final class BrickOutRunner: ObservableObject {
 
     func down(at p: CGPoint, in size: CGSize, link: GameLink) {
         if link.paused || link.isFinished { return }
+        // A touch the system cancelled never reached up(), so its drag may still be held.
+        model.cancelDrag()
         let lay = layout(size)
         let k = lay.booster(at: p)
         if k >= 0 {
@@ -794,6 +844,11 @@ final class BrickOutRunner: ObservableObject {
 
     func up(link: GameLink) {
         model.touchUp()
+        settle(link)
+    }
+
+    func cancel(link: GameLink) {
+        model.cancelDrag()
         settle(link)
     }
 
@@ -836,7 +891,7 @@ public struct BrickOutGame: View {
 private struct BrickOutRound: View {
     @ObservedObject var link: GameLink
     @StateObject private var runner: BrickOutRunner
-    @State private var isDown = false
+    @GestureState private var touching = false
 
     init(options: GameOptions, link: GameLink) {
         self.link = link
@@ -850,25 +905,23 @@ private struct BrickOutRound: View {
             }
             .contentShape(Rectangle())
             .gesture(
+                // The flag clears itself when the touch ends or is cancelled, so a new touch always
+                // starts with down().
                 DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                    .onChanged { value in
-                        if !isDown {
-                            isDown = true
+                    .updating($touching) { value, down, _ in
+                        if !down {
+                            down = true
                             runner.down(at: value.startLocation, in: geo.size, link: link)
                         }
                         runner.move(to: value.location, in: geo.size, link: link)
                     }
                     .onEnded { _ in
-                        isDown = false
                         runner.up(link: link)
                     }
             )
         }
         .onChange(of: link.paused) { _, paused in
-            if paused {
-                isDown = false
-                runner.up(link: link)
-            }
+            if paused { runner.cancel(link: link) }
         }
         .ignoresSafeArea()
         .accessibilityElement()
