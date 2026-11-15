@@ -9,7 +9,6 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut
     case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide, busRush
 }
 
@@ -360,6 +359,26 @@ enum Mock {
                  caption: "eleven floors without touching red", length: "0:35", comments: "198", shares: "977"),
         (id: "c6", game: "gulp-city", player: "tofu",
                  caption: "swallowed the whole block with two seconds left", length: "0:29", comments: "88", shares: "412"),
+        (id: "c7", game: "block-party", player: "tofu",
+                 caption: "cleared three lines with one L piece", length: "0:33", comments: "142", shares: "720"),
+        (id: "c8", game: "slip-out", player: "juno",
+                 caption: "forty arrows, not one bump", length: "0:28", comments: "64", shares: "310"),
+        (id: "c9", game: "wild-eights", player: "kaz",
+                 caption: "held the eight until the very last card", length: "0:36", comments: "97", shares: "455"),
+        (id: "c10", game: "brick-out", player: "devon.plays",
+                 caption: "the whole board out in nine moves", length: "0:34", comments: "118", shares: "590"),
+        (id: "c11", game: "daily-grid", player: "wordnerd.sam",
+                 caption: "six crowns in fifty one seconds", length: "0:24", comments: "203", shares: "1.1K"),
+        (id: "c12", game: "letter-rush", player: "wordnerd.sam",
+                 caption: "found PANEL with one second left", length: "0:30", comments: "176", shares: "880"),
+        (id: "c13", game: "pour-party", player: "noor.runs",
+                 caption: "five pours. that is the whole level", length: "0:29", comments: "81", shares: "402"),
+        (id: "c14", game: "deep-end", player: "kaz",
+                 caption: "typed kakapo and sank past everyone", length: "0:37", comments: "154", shares: "760"),
+        (id: "c15", game: "jam-slide", player: "juno",
+                 caption: "the blue gate said 1 and I made it count", length: "0:31", comments: "58", shares: "287"),
+        (id: "c16", game: "bus-rush", player: "tofu",
+                 caption: "every bus left full and the lot was empty", length: "0:35", comments: "91", shares: "448"),
     ]
     static var clips: [MockClip] { refresh(); return counted.clips }
 
