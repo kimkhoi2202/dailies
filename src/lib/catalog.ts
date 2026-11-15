@@ -35,6 +35,11 @@ export const catalog: Record<string, CatalogEntry> = {
     icon: require('@/assets/games/lane-dash-icon.png'),
     tint: '#6B2A8C',
   },
+  'deep-end': {
+    cover: require('@/assets/games/deep-end-cover.png'),
+    icon: require('@/assets/games/deep-end-icon.png'),
+    tint: '#173F66',
+  },
 };
 
 export type Clip = { id: string; slug: string; author: string; caption: string; seed: number };
@@ -52,4 +57,5 @@ export const clips: Clip[] = [
   { id: 'c10', slug: 'gulp-city', author: 'noor.runs', caption: 'started with a flower, ended with a bus', seed: 104 },
   { id: 'c11', slug: 'inkland', author: 'tofu', caption: 'one step from home and still made it', seed: 131 },
   { id: 'c12', slug: 'five-up', author: 'kaz', caption: 'second guess was a gift', seed: 150 },
+  { id: 'c13', slug: 'deep-end', author: 'juno', caption: 'everyone said ramen. I said khao soi', seed: 33 },
 ];
