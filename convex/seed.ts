@@ -99,6 +99,22 @@ const GAMES = [
     dislikes: 94,
     scores: [1980, 1650, 2410, 760, 1180, 420],
   },
+  {
+    slug: "daily-grid",
+    title: "Daily Grid",
+    studio: "Paper Lantern",
+    pitch: "One grid a day. Same for everyone.",
+    how: "Place one crown in every row, column and colour. Crowns never touch, not even at corners. Tap once for a cross, twice for a crown.",
+    minPlayers: 1,
+    maxPlayers: 4,
+    mode: "casual" as const,
+    category: "Puzzle",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 286,
+    dislikes: 11,
+    scores: [716, 792, 588, 520, 664, 444],
+  },
 ];
 
 const PLAYERS = [
@@ -116,6 +132,7 @@ const COMMENTS: Record<string, string[]> = {
   "spiral-drop": ["eleven floors without touching red", "the combo smash is the best feeling in this app"],
   "gulp-city": ["swallowed the whole block with two seconds left", "started with a flower, ended with a bus"],
   inkland: ["took a fifth of the map in one loop", "got cut one step from home. again"],
+  "daily-grid": ["solved it before my coffee was ready", "the corner region had me stuck for a full minute"],
   "lane-dash": ["the near miss at the end. I stopped breathing", "ramp into three gems into a barrier. classic"],
 };
 

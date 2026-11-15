@@ -20,6 +20,7 @@ enum LiveBoard {
         "lane-dash": ["noor.runs": 2410, "devon.plays": 1980, "kaz": 1650, "juno": 1180, "tofu": 760, "wordnerd.sam": 420],
         "inkland": ["juno": 342, "kaz": 281, "devon.plays": 236, "tofu": 174, "noor.runs": 152, "wordnerd.sam": 96],
         "spiral-drop": ["kaz": 742, "devon.plays": 651, "wordnerd.sam": 518, "noor.runs": 434, "tofu": 371, "juno": 196],
+        "daily-grid": ["kaz": 792, "devon.plays": 716, "juno": 664, "noor.runs": 588, "tofu": 520, "wordnerd.sam": 444],
         "gulp-city": ["tofu": 87, "juno": 74, "noor.runs": 61, "devon.plays": 52, "kaz": 38, "wordnerd.sam": 24],
     ]
 
@@ -38,6 +39,7 @@ enum LiveBoard {
         case .laneDash: "metres"
         case .inkland: "share of the land"
         case .gulpCity: "share of the city"
+        case .dailyGrid: "points"
         }
     }
 
@@ -58,6 +60,7 @@ enum LiveBoard {
         case .fiveUp, .spiralDrop: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .laneDash: return "\(groupedNumber(apart)) m"
         case .inkland, .gulpCity: return text(apart, game)
+        case .dailyGrid: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         }
     }
 
