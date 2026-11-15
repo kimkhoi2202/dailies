@@ -296,7 +296,7 @@ struct ShortStackFrame {
     var messageAge = 100.0
     var messageLife = 2.0
     var hand = 1
-    var hands = 8
+    var hands = 7
     var small = 10
     var big = 20
     var controls = ShortStackControls()
@@ -626,45 +626,60 @@ struct ShortStackPainter {
         words(&ctx, "D", x, y, size: 11.5, weight: .heavy, color: Ink.ink)
     }
 
+    /// A seat: its cards, its plate (name over chips, the same for all six) and, for the five
+    /// others, a badge. The seat whose turn it is glows and wears a ring that runs down with its time.
     private func drawSeat(_ ctx: inout GraphicsContext, _ f: ShortStackFrame, _ k: Int) {
         let seat = f.seats[k]
         let at = Lay.seats[k]
         let quiet = seat.out ? 0.35 : 1 - 0.45 * seat.folded
         let isTurn = seat.turn >= 0
+        let pulse = 0.5 + 0.5 * sin(f.clock * 6.5)
+        let left = Swift.max(0.02, Swift.min(1, seat.turn))
+        let plateY = k == 0 ? at.y : at.y + 38
         drawHole(&ctx, seat, k)
 
+        let plate = pill(at.x, plateY, 100, 38, radius: 12)
+        let around = pill(at.x, plateY, 110, 48, radius: 17)
+        if isTurn {
+            ctx.stroke(around, with: .color(Ink.gold.opacity(0.2 + 0.2 * pulse)), lineWidth: (k == 0 ? 7 : 5) * u)
+        }
+        ctx.fill(plate, with: .color(Ink.plate))
+        if isTurn {
+            ctx.stroke(plate, with: .color(Ink.gold), lineWidth: 2.6 * u)
+        } else if k == 0 {
+            // The player's plate keeps a thin gold edge, so it is told apart by colour and not by size.
+            ctx.stroke(plate, with: .color(Ink.gold.opacity(0.5 + 0.5 * seat.glow)), lineWidth: 1.4 * u)
+        } else {
+            ctx.stroke(plate, with: .color(Color.white.opacity(0.14 + 0.6 * seat.glow)), lineWidth: 1 * u)
+        }
+        if k != 0, !seat.hand.isEmpty {
+            words(&ctx, seat.hand, at.x, plateY - 8, size: seat.hand.count > 14 ? 10 : 11.5, weight: .heavy, color: Ink.gold)
+        } else {
+            words(&ctx, String(seat.name.prefix(12)), at.x, plateY - 8, size: 11.5, weight: .semibold,
+                  color: .white.opacity(0.82 * quiet))
+        }
+        words(&ctx, seat.out ? "Out" : M.grouped(seat.chips), at.x, plateY + 7.5, size: 14, weight: .heavy,
+              color: Ink.gold.opacity(quiet))
+
         if k == 0 {
-            let plate = pill(at.x, at.y, 198, 38, radius: 13)
-            ctx.fill(plate, with: .color(Ink.plate))
-            ctx.stroke(plate, with: .color(isTurn ? Ink.gold : Color.white.opacity(0.14 + 0.6 * seat.glow)),
-                       lineWidth: (isTurn ? 2 : 1.2) * u)
-            words(&ctx, String(seat.name.prefix(13)), at.x - 86, at.y, size: 14, weight: .semibold,
-                  color: .white.opacity(0.86 * quiet), anchor: .leading)
-            words(&ctx, seat.out ? "Out" : M.grouped(seat.chips), at.x + 86, at.y, size: 18, weight: .heavy,
-                  color: Ink.gold.opacity(quiet), anchor: .trailing)
+            // The player has no badge, so the ring runs round the plate.
+            if isTurn {
+                ctx.stroke(around.trimmedPath(from: 0, to: left), with: .color(Ink.gold),
+                           style: StrokeStyle(lineWidth: 3.6 * u, lineCap: .round))
+            }
             if !seat.hand.isEmpty, seat.folded < 0.5 {
                 let w = 20 + 7.2 * Double(seat.hand.count)
-                ctx.fill(pill(at.x, 607, w, 22), with: .color(Ink.hex(0x0A0F18, 0.88)))
-                words(&ctx, seat.hand, at.x, 607, size: 12.5, weight: .heavy, color: Ink.gold)
+                ctx.fill(pill(at.x, 602, w, 22), with: .color(Ink.hex(0x0A0F18, 0.88)))
+                words(&ctx, seat.hand, at.x, 602, size: 12.5, weight: .heavy, color: Ink.gold)
             }
-            if seat.button { drawDealer(&ctx, x: at.x - 112, y: at.y) }
+            if seat.button { drawDealer(&ctx, x: at.x - 70, y: at.y) }
             drawLabel(&ctx, seat, x: 332, y: 574)
             return
         }
 
-        let plate = pill(at.x, at.y + 38, 100, 38, radius: 12)
-        ctx.fill(plate, with: .color(Ink.plate))
-        ctx.stroke(plate, with: .color(isTurn ? Ink.gold : Color.white.opacity(0.14 + 0.6 * seat.glow)),
-                   lineWidth: (isTurn ? 1.8 : 1) * u)
-        if seat.hand.isEmpty {
-            words(&ctx, String(seat.name.prefix(12)), at.x, at.y + 30, size: 11.5, weight: .semibold,
-                  color: .white.opacity(0.82 * quiet))
-        } else {
-            words(&ctx, seat.hand, at.x, at.y + 30, size: seat.hand.count > 14 ? 10 : 11.5, weight: .heavy, color: Ink.gold)
+        if isTurn {
+            ctx.fill(disc(at.x, at.y - 4, 33 + 2.5 * pulse), with: .color(Ink.gold.opacity(0.2 + 0.16 * pulse)))
         }
-        words(&ctx, seat.out ? "Out" : M.grouped(seat.chips), at.x, at.y + 45.5, size: 14, weight: .heavy,
-              color: Ink.gold.opacity(quiet))
-
         let badge = disc(at.x, at.y - 4, 22)
         ctx.fill(badge, with: .color(Ink.hex(0x0A0F18)))
         ctx.fill(badge, with: .color(Ink.seats[k % Ink.seats.count].opacity(quiet)))
@@ -676,12 +691,13 @@ struct ShortStackPainter {
                        lineWidth: 3 * u)
         }
         if isTurn {
+            ctx.stroke(disc(at.x, at.y - 4, 27.5), with: .color(.black.opacity(0.35)), lineWidth: 4.6 * u)
             var ring = Path()
-            ring.addArc(center: pt(at.x, at.y - 4), radius: 26.5 * u, startAngle: .degrees(-90),
-                        endAngle: .degrees(-90 + 360 * Swift.max(0.02, seat.turn)), clockwise: false)
-            ctx.stroke(ring, with: .color(Ink.gold), style: StrokeStyle(lineWidth: 3.2 * u, lineCap: .round))
+            ring.addArc(center: pt(at.x, at.y - 4), radius: 27.5 * u, startAngle: .degrees(-90),
+                        endAngle: .degrees(-90 + 360 * left), clockwise: false)
+            ctx.stroke(ring, with: .color(Ink.gold), style: StrokeStyle(lineWidth: 4.6 * u, lineCap: .round))
         }
-        if seat.button { drawDealer(&ctx, x: at.x + (Lay.mirrored(k) ? 21 : -21), y: at.y - 23) }
+        if seat.button { drawDealer(&ctx, x: at.x + (Lay.mirrored(k) ? 24 : -24), y: at.y - 26) }
         drawLabel(&ctx, seat, x: at.x, y: at.y - 4)
     }
 
@@ -907,8 +923,9 @@ enum ShortStackClip {
         }
 
         var pot = 0
+        let lead = 0.03
         for round in rounds {
-            guard let opens = round.steps.first, p >= opens.at else { break }
+            guard let opens = round.steps.first, p >= opens.at - lead else { break }
             for k in f.seats.indices where f.seats[k].folded == 0 && f.seats[k].turn < 0 { f.seats[k].label = "" }
             for step in round.steps where p >= step.at {
                 let age = (p - step.at) * seconds
@@ -922,6 +939,19 @@ enum ShortStackClip {
                     f.seats[step.seat].stakeSlide = M.clamp(age / 0.22)
                 }
             }
+            // The seat about to act wears the turn mark until it does.
+            if let k = round.steps.firstIndex(where: { p < $0.at }) {
+                let from = k == 0 ? opens.at - lead : round.steps[k - 1].at
+                let acting = round.steps[k].seat
+                f.seats[acting].turn = 1 - 0.35 * (p - from) / (round.steps[k].at - from)
+                if acting == 0 {
+                    f.controls.live = true
+                    f.controls.canRaise = true
+                    f.controls.call = pot == 0 ? "Call" : "Check"
+                    f.controls.callSub = pot == 0 ? "20" : ""
+                    f.controls.clock = f.seats[0].turn
+                }
+            }
             if round.gather >= 0, p >= round.gather {
                 f.gather = M.clamp((p - round.gather) / 0.03)
                 if f.gather >= 1 {
@@ -933,16 +963,6 @@ enum ShortStackClip {
         }
         f.pot = pot
         f.total = pot + f.seats.reduce(0) { $0 + $1.stake }
-
-        // The keys light up while the table waits for the player.
-        for (from, to, owed) in [(0.215, 0.235, 20), (0.405, 0.44, 0), (0.585, 0.61, 0), (0.71, 0.74, 0)] where p >= from && p < to {
-            f.controls.live = true
-            f.controls.canRaise = true
-            f.controls.call = owed == 0 ? "Check" : "Call"
-            f.controls.callSub = owed == 0 ? "" : "\(owed)"
-            f.controls.clock = 1 - 0.2 * (p - from) / (to - from)
-            f.seats[0].turn = f.controls.clock
-        }
 
         for k in 0..<5 { f.shown[k] = M.clamp((p - reveals[k]) / 0.05) }
         if f.shown[2] >= 1 { f.seats[0].hand = "Pair of kings" }

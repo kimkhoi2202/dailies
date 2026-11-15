@@ -357,13 +357,13 @@ final class ShortStackModel {
 
     // Tuning. Times are in seconds.
     static let seatCount = ShortStackLayout.seatCount
-    static let hands = 8
+    static let hands = 7
     static let handsPerLevel = 3            // the blinds double after this many hands
     static let startChips = 1000
     static let firstSmall = 10
     static let turnLimit = 20.0
-    static let thinkShort = 0.4
-    static let thinkLong = 0.7
+    static let thinkShort = 0.6
+    static let thinkLong = 0.9
     static let alwaysStays = 0.72           // the share of showdowns a hand must take to call any raise
     static let watchPace = 3.0              // how much faster the table goes once the player is out of a hand
     static let dealGap = 0.07
