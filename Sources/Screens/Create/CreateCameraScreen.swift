@@ -189,7 +189,7 @@ struct CreateCameraScreen: View {
                 .contentShape(isBubble ? AnyShape(Circle()) : AnyShape(Rectangle()))
                 .offset(drag)
                 .position(x: rect.midX, y: rect.midY)
-                .gesture(isBubble ? AnyGesture(bubbleDrag(size).map { _ in () }) : cutoutMove(size))
+                .gesture(isBubble ? bubbleDrag(size) : cutoutMove(size))
                 // While recording every touch goes to the game.
                 .allowsHitTesting(phase == .idle)
         }
@@ -258,8 +258,8 @@ struct CreateCameraScreen: View {
         }
     }
 
-    private func bubbleDrag(_ size: CGSize) -> some Gesture {
-        DragGesture()
+    private func bubbleDrag(_ size: CGSize) -> AnyGesture<Void> {
+        let move = DragGesture()
             .onChanged { drag = $0.translation }
             .onEnded { value in
                 let start: CGPoint = switch corner {
@@ -277,6 +277,7 @@ struct CreateCameraScreen: View {
                 }
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             }
+        return AnyGesture(move.map { _ in () })
     }
 
     // MARK: Before recording
