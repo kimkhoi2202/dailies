@@ -344,7 +344,7 @@ final class CommunityStore: ObservableObject {
 
     // MARK: Rounds and ratings
 
-    /// After a round: a post for a new best, and the rating sheet once a day per game.
+    /// After a round: a post for a new best.
     func roundEnded(_ summary: RoundSummary) {
         let game = Mock.game(summary.gameID)
         if summary.isBest && summary.result.score > 0 {
@@ -354,11 +354,15 @@ final class CommunityStore: ObservableObject {
             localPosts.insert(post, at: 0)
             rebuildPosts()
         }
+    }
+
+    /// Leaving the results screen: the rating sheet, once a day per game. It waits until the player
+    /// leaves so it never covers Play again.
+    func rateIfDue(_ gameID: String) {
         let today = LiveStore.dayKey(Date())
-        guard ratedToday[game.id] != today else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-            if LiveNav.shared.topRoute == .results { LiveNav.shared.open(.rate(game.id)) }
-        }
+        guard ratedToday[gameID] != today else { return }
+        ratedToday[gameID] = today
+        LiveNav.shared.open(.rate(gameID))
     }
 
     /// The games already in a band's list, best first, without the one being rated.
