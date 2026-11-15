@@ -15,7 +15,7 @@ struct LiveRoot: View {
         ZStack {
             // The system bar stays hidden. LiveTabBar draws the bar, with the Create key in its middle.
             TabView(selection: $nav.tab) {
-                Tab("Home", systemImage: "house.fill", value: 0) { HomeScreen().toolbar(.hidden, for: .tabBar) }
+                Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().toolbar(.hidden, for: .tabBar) }
                 Tab("Reels", systemImage: "play.rectangle.on.rectangle.fill", value: 1) { LiveVideos().toolbar(.hidden, for: .tabBar) }
                 Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().toolbar(.hidden, for: .tabBar) }
                 Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesTabScreen().toolbar(.hidden, for: .tabBar) }
@@ -169,6 +169,12 @@ struct LayerView: View {
             G4CreateChatScreen(creationID: creationID)
         case .makePreview(let creationID):
             G4CreatePreviewScreen(creationID: creationID)
+        case .notifications:
+            CommunityNotificationsScreen()
+        case .story(let index):
+            CommunityStoryScreen(start: index)
+        case .rate(let gameID):
+            CommunityRatingSheet(gameID: gameID)
         }
     }
 }
@@ -290,7 +296,10 @@ struct LivePlayScreen: View {
             if asking { pausePrompt }
         }
         .onAppear(perform: begin)
-        .onDisappear { TouchWatcher.remove() }
+        .onDisappear {
+            TouchWatcher.remove()
+            CommunityStore.shared.stopPresence()
+        }
         .onChange(of: scenePhase) { _, phase in
             // Leaving the app pauses the round. The prompt is waiting on return.
             if phase != .active && !link.isFinished {
@@ -305,12 +314,14 @@ struct LivePlayScreen: View {
         let clock = self.clock
         TouchWatcher.install { clock.start() }
         if GameDemo.autopilot { clock.start() }
+        CommunityStore.shared.startPresence(game.id)
         link.onFinish = { result in
             TouchWatcher.remove()
             LiveRoomRound.report(result.score)
             let summary = LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: result, solo: solo)
             if summary.gold > 0 { UINotificationFeedbackGenerator().notificationOccurred(.success) }
             LiveNav.shared.replaceTop(.results)
+            CommunityStore.shared.roundEnded(summary)
         }
     }
 
@@ -590,7 +601,7 @@ final class LiveHost: UIHostingController<LiveRoot> {
     override var preferredStatusBarStyle: UIStatusBarStyle {
         // A sheet leaves the screen under it showing, so the top screen that is not a sheet decides.
         switch LiveNav.shared.layers.last(where: { $0.route.style != .sheet })?.route {
-        case .gameReady, .play, .results, .gameDetail, .profile, .shop, .create, .createPreview: .lightContent
+        case .gameReady, .play, .results, .gameDetail, .profile, .shop, .create, .createPreview, .story: .lightContent
         case nil: LiveNav.shared.tab == 1 ? .lightContent : .default
         default: .default
         }

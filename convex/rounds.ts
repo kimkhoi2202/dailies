@@ -12,6 +12,7 @@ import {
   requireUser,
 } from "./lib";
 import { roomByCode } from "./rooms";
+import { recordRound } from "./community";
 
 export const start = mutation({
   args: { slug: v.string(), day: v.string(), room: v.optional(v.string()) },
@@ -126,6 +127,15 @@ export const finish = mutation({
       if (best) await ctx.db.patch("bests", best._id, { score, day: round.day, unit, text });
       else await ctx.db.insert("bests", { userId: user._id, gameSlug: game.slug, score, day: round.day, unit, text });
     }
+
+    await recordRound(ctx, user, game, {
+      score,
+      scoreText: args.scoreText?.slice(0, 40),
+      unit: args.unit?.slice(0, 40),
+      newBest,
+      streak,
+      streakGrew: lastGoldDay !== user.lastGoldDay,
+    });
 
     await ctx.db.patch("rounds", round._id, { endedAt: now, score, playMs, gold });
     await ctx.db.patch("games", game._id, { plays: game.plays + 1 });

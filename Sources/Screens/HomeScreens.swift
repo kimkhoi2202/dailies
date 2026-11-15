@@ -237,6 +237,7 @@ struct GameReadyScreen: View {
                         DLTag(text: game.players, symbol: "person.2.fill")
                         DLTag(text: game.mode)
                         DLTag(text: game.category)
+                        CommunityFriendsTag(gameID: game.id)
                     }
                     goldRow
                     friendsRow
