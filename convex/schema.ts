@@ -185,6 +185,8 @@ export default defineSchema({
     // First views by other players, and what a creator program paid for them, in cents.
     views: v.optional(v.number()),
     cents: v.optional(v.number()),
+    // Big text drawn on the video, like a reel's caption on screen.
+    overlay: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_visibility", ["visibility"])
