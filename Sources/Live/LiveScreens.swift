@@ -28,10 +28,21 @@ enum LiveBoard {
         "pour-party": ["kaz": 1500, "wordnerd.sam": 1200, "juno": 1000, "devon.plays": 700, "tofu": 400, "noor.runs": 300],
     ]
 
-    /// Everyone on the board, best score first.
+    /// Everyone on the board, best score first. The server's board once it has answered; until then
+    /// the sample scores above.
     private static func board(for game: MockGame) -> [Entry] {
-        var entries = (friendScores[game.id] ?? [:]).map { Entry(name: $0.key, score: $0.value) }
-        entries.append(Entry(name: Mock.handle, score: LiveStore.shared.s.best[game.id] ?? 0, isYou: true))
+        let store = LiveStore.shared
+        let live = store.board(for: game.id)
+        var entries = live.isEmpty
+            ? (friendScores[game.id] ?? [:]).map { Entry(name: $0.key, score: $0.value) }
+            : live.map { Entry(name: $0.handle, score: Int($0.score.rounded()), isYou: $0.you) }
+        // The player's newest best may be a moment ahead of the server's board.
+        let best = store.s.best[game.id] ?? 0
+        if let mine = entries.firstIndex(where: \.isYou) {
+            if best > entries[mine].score { entries[mine] = Entry(name: entries[mine].name, score: best, isYou: true) }
+        } else {
+            entries.append(Entry(name: Mock.handle, score: best, isYou: true))
+        }
         return entries.sorted { $0.score > $1.score }
     }
 
@@ -300,12 +311,36 @@ struct LiveCommentsScreen: View {
     @State private var draft = ""
     @FocusState private var typing: Bool
 
-    /// The player's own comments on this clip, newest first, ahead of everyone else's.
+    /// Everyone's comments on this clip's game from the server, newest first. nil until the first answer.
+    private var posted: [ConvexComment]? {
+        _ = store.comments(forGame: clip.game.id)
+        return store.gameComments[clip.game.id]
+    }
+
+    /// The player's own comments first while they are on their way, then everyone's. Before the
+    /// server answers, the sample lines stand in.
     private var comments: [G1Comment] {
-        let own = store.s.comments.filter { $0.clipID == clip.id }.map {
-            G1Comment(id: $0.id.uuidString, name: Mock.handle, time: "now", text: $0.text, likes: "0")
+        let own = store.s.comments.filter { $0.clipID == clip.id }
+        guard let posted else {
+            return own.map { G1Comment(id: $0.id.uuidString, name: Mock.handle, time: "now", text: $0.text, likes: "0") }
+                + LiveComments.seeded(for: clip)
         }
-        return own + LiveComments.seeded(for: clip)
+        let landed = Set(posted.filter(\.mine).map { LiveStore.stableID($0.id) })
+        let sending = own.filter { mine in !landed.contains(mine.id) && !posted.contains { $0.mine && $0.body == mine.text } }
+        return sending.map { G1Comment(id: $0.id.uuidString, name: Mock.handle, time: "now", text: $0.text, likes: "0") }
+            + posted.map {
+                G1Comment(id: $0.id, name: $0.handle, time: Self.ago($0.at), text: $0.body,
+                          likes: Mock.compact($0.likes ?? 0), isClipOwner: $0.handle == clip.player)
+            }
+    }
+
+    /// "now", "12m", "3h", "2d": how long ago a comment was posted.
+    private static func ago(_ milliseconds: Double) -> String {
+        let minutes = Int(max(0, Date().timeIntervalSince1970 - milliseconds / 1000) / 60)
+        if minutes < 1 { return "now" }
+        if minutes < 60 { return "\(minutes)m" }
+        if minutes < 24 * 60 { return "\(minutes / 60)h" }
+        return "\(minutes / (24 * 60))d"
     }
 
     var body: some View {
@@ -315,7 +350,7 @@ struct LiveCommentsScreen: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .center, spacing: 8) {
                     Text("Comments").font(DL.text(17, .semibold)).foregroundStyle(DL.ink)
-                    Text(clip.comments).font(DL.text(17)).foregroundStyle(DL.ink2)
+                    Text(posted.map { "\($0.count)" } ?? clip.comments).font(DL.text(17)).foregroundStyle(DL.ink2)
                     Spacer()
                     DLIconButton(symbol: "xmark", size: 32).goesBack().accessibilityLabel("Close")
                 }
