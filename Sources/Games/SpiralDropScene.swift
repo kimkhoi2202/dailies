@@ -214,7 +214,6 @@ extension SpiralDrop {
 
     enum Palette {
         // Red tiles: coral on top, crimson on the rim.
-        static let hazardHi = RGB(hex: 0xFF9080)
         static let hazard = RGB(hex: 0xFF5A64)
         static let hazardLo = RGB(hex: 0xF23C56)
         static let hazardSeam = RGB(hex: 0xC92445)
@@ -251,13 +250,16 @@ extension SpiralDrop {
                           lower: RGB(hex: 0x083F88), bed: RGB(hex: 0x04225A), glow: RGB(hex: 0x58DCEC),
                           mistNear: RGB(hex: 0x1483B4), mistFar: RGB(hex: 0x0C62A4)))
 
+        /// How far each skin turns the hue of the water, which also turns the painted backdrop.
+        static let waterTurns: [Double] = [0, 58, 24, -22, 96]
+
         /// One skin per level, in order, then round again.
         static let skins: [Skin] = [
             lagoon,
-            lagoon.variant(water: 58, waterSaturation: 0.92, rim: 148, rimSaturation: 0.86),                     // violet water, teal rims
-            lagoon.variant(water: 24, waterValue: 0.94, rim: 20),                                                // blue water, gold rims
-            lagoon.variant(water: -22, waterSaturation: 0.9, waterValue: 0.95, rim: 232, rimSaturation: 0.72),   // green water, violet rims
-            lagoon.variant(water: 96, waterSaturation: 0.82, waterValue: 0.96, rim: 176, rimSaturation: 0.8)     // plum water, blue rims
+            lagoon.variant(water: waterTurns[1], waterSaturation: 0.92, rim: 148, rimSaturation: 0.86),                     // violet water, teal rims
+            lagoon.variant(water: waterTurns[2], waterValue: 0.94, rim: 20),                                                // blue water, gold rims
+            lagoon.variant(water: waterTurns[3], waterSaturation: 0.9, waterValue: 0.95, rim: 232, rimSaturation: 0.72),   // green water, violet rims
+            lagoon.variant(water: waterTurns[4], waterSaturation: 0.82, waterValue: 0.96, rim: 176, rimSaturation: 0.8)     // plum water, blue rims
         ]
     }
 }
@@ -629,7 +631,32 @@ extension SpiralDrop {
         }
 
         struct Material {
-            var topHi, top, topLo, seam, edge, rimHi, rim, rimLo: RGB
+            var seam, edge, rimHi, rim, rimLo: RGB
+        }
+
+        /// The painted pictures, resolved once per frame.
+        struct Art {
+            let backdrop: GraphicsContext.ResolvedImage
+            let ball: GraphicsContext.ResolvedImage
+            let solid: GraphicsContext.ResolvedImage
+            let hazard: GraphicsContext.ResolvedImage
+            let finish: GraphicsContext.ResolvedImage
+
+            init(_ ctx: GraphicsContext) {
+                backdrop = ctx.resolve(Image("spiral-drop-backdrop"))
+                ball = ctx.resolve(Image("spiral-drop-ball"))
+                solid = ctx.resolve(Image("spiral-drop-top"))
+                hazard = ctx.resolve(Image("spiral-drop-top-red"))
+                finish = ctx.resolve(Image("spiral-drop-top-goal"))
+            }
+
+            subscript(tile: Tile) -> GraphicsContext.ResolvedImage {
+                switch tile {
+                case .hazard: return hazard
+                case .finish: return finish
+                default: return solid
+                }
+            }
         }
 
         /// How far something has sunk into the colour of the water.
@@ -644,20 +671,19 @@ extension SpiralDrop {
             let solid: Material
             let hazard: Material
             let finish: Material
+            let mist: Mist
 
             init(skin: Skin, mist: Mist) {
                 func sunk(_ c: RGB) -> RGB { c.toward(Palette.depthTint, mist.dim).toward(mist.tint, mist.amount) }
                 // red pales toward cream before it sinks, so far red tiles do not turn to mud
                 func red(_ c: RGB) -> RGB { sunk(c.toward(Palette.lagoon.top, 0.6 * mist.amount)) }
-                solid = Material(topHi: sunk(skin.topHi), top: sunk(skin.top), topLo: sunk(skin.topLo),
-                                 seam: sunk(skin.topSeam), edge: sunk(skin.topHi),
+                self.mist = mist
+                solid = Material(seam: sunk(skin.topSeam), edge: sunk(skin.topHi),
                                  rimHi: sunk(skin.rimHi), rim: sunk(skin.rim), rimLo: sunk(skin.rimLo))
-                hazard = Material(topHi: red(Palette.hazardHi), top: red(Palette.hazard), topLo: red(Palette.hazardLo),
-                                  seam: red(Palette.hazardSeam), edge: red(Palette.hazardEdge),
+                hazard = Material(seam: red(Palette.hazardSeam), edge: red(Palette.hazardEdge),
                                   rimHi: red(Palette.hazardRimHi), rim: red(Palette.hazardRim),
                                   rimLo: red(Palette.hazardRimLo))
-                finish = Material(topHi: sunk(Palette.paintHi), top: sunk(Palette.paint), topLo: sunk(Palette.ball),
-                                  seam: sunk(Palette.ballLo), edge: sunk(Palette.ballShine),
+                finish = Material(seam: sunk(Palette.ballLo), edge: sunk(Palette.ballShine),
                                   rimHi: sunk(Palette.ball), rim: sunk(Palette.ballLo), rimLo: sunk(Palette.ballDeep))
             }
 
@@ -738,14 +764,15 @@ extension SpiralDrop {
         /// Everything under the score, back to front.
         func drawWorld(_ ctx: inout GraphicsContext) {
             let shards = flyingShards()
-            drawWater(&ctx)
-            drawShards(&ctx, shards, front: false)
-            drawTower(&ctx)
+            let art = Art(ctx)
+            drawWater(&ctx, art)
+            drawShards(&ctx, shards, art, front: false)
+            drawTower(&ctx, art)
             drawRush(&ctx)
-            drawShards(&ctx, shards, front: true)
+            drawShards(&ctx, shards, art, front: true)
             drawPunches(&ctx)
             drawTrail(&ctx)
-            drawBall(&ctx)
+            drawBall(&ctx, art)
             drawSpray(&ctx)
             drawVeil(&ctx)
         }
@@ -854,56 +881,24 @@ extension SpiralDrop {
 
         // MARK: Water
 
-        func drawWater(_ ctx: inout GraphicsContext) {
-            let bands = Gradient(stops: [
-                .init(color: water.surface.color(), location: 0),
-                .init(color: water.upper.color(), location: 0.30),
-                .init(color: water.middle.color(), location: 0.56),
-                .init(color: water.lower.color(), location: 0.78),
-                .init(color: water.bed.color(), location: 1)
-            ])
-            ctx.fill(Path(CGRect(x: 0, y: 0, width: width, height: height)),
-                     with: .linearGradient(bands, startPoint: .zero, endPoint: CGPoint(x: 0, y: height)))
-
-            // two far towers, under the glow and the light so the water covers them
-            drawFarTower(&ctx, x: -0.01 * width, size: 0.34, parallax: 0.34, seed: 11, strength: 0.8)
-            drawFarTower(&ctx, x: 1.02 * width, size: 0.44, parallax: 0.46, seed: 29, strength: 1)
+        func drawWater(_ ctx: inout GraphicsContext, _ art: Art) {
+            drawBackdrop(&ctx, art.backdrop, skin: shot.skinFrom, depth: shot.depthFrom)
+            if shot.skinBlend > 0.001 {
+                var next = ctx
+                next.opacity = shot.skinBlend
+                drawBackdrop(&next, art.backdrop, skin: shot.skinTo, depth: shot.depthTo)
+            }
 
             // light pooling behind the action
             let pool = CGPoint(x: centerX, y: eyeY - 26 * unit)
             let reach = 350 * unit
             let glow = Gradient(stops: [
-                .init(color: water.glow.color(0.60), location: 0),
-                .init(color: water.glow.color(0.30), location: 0.42),
+                .init(color: water.glow.color(0.34), location: 0),
+                .init(color: water.glow.color(0.16), location: 0.42),
                 .init(color: water.glow.color(0), location: 1)
             ])
             ctx.fill(Self.oval(pool, reach, reach),
                      with: .radialGradient(glow, center: pool, startRadius: 0, endRadius: reach))
-
-            // slanted shafts of light from the surface
-            let beams: [(x: Double, width: Double, alpha: Double)] = [
-                (-0.10, 0.16, 0.10), (0.16, 0.07, 0.07), (0.34, 0.20, 0.09), (0.70, 0.10, 0.06), (0.92, 0.18, 0.07)
-            ]
-            let sway = 0.02 * sin(shot.drift * 2 * .pi)
-            let foot = 0.86 * height
-            let lean = 0.30 * height
-            for (i, beam) in beams.enumerated() {
-                let x = (beam.x + (i % 2 == 0 ? sway : -sway)) * width
-                let w = beam.width * width
-                var shaft = Path()
-                shaft.move(to: CGPoint(x: x, y: -4))
-                shaft.addLine(to: CGPoint(x: x + w, y: -4))
-                shaft.addLine(to: CGPoint(x: x + 2.3 * w + lean, y: foot))
-                shaft.addLine(to: CGPoint(x: x - 0.3 * w + lean, y: foot))
-                shaft.closeSubpath()
-                let light = Gradient(stops: [
-                    .init(color: Color.white.opacity(beam.alpha * 1.25), location: 0),
-                    .init(color: water.glow.color(beam.alpha * 0.7), location: 0.45),
-                    .init(color: water.glow.color(0), location: 1)
-                ])
-                ctx.fill(shaft, with: .linearGradient(light, startPoint: CGPoint(x: x, y: 0),
-                                                      endPoint: CGPoint(x: x + lean, y: foot)))
-            }
 
             drawBubbles(&ctx)
 
@@ -914,56 +909,18 @@ extension SpiralDrop {
                      with: .linearGradient(dark, startPoint: CGPoint(x: 0, y: from), endPoint: CGPoint(x: 0, y: height)))
         }
 
-        /// The colour of the plain water at a screen height.
-        func waterColor(at y: Double) -> RGB {
-            let f = clamp(y / height)
-            if f <= 0.30 { return water.surface.toward(water.upper, f / 0.30) }
-            if f <= 0.56 { return water.upper.toward(water.middle, (f - 0.30) / 0.26) }
-            if f <= 0.78 { return water.middle.toward(water.lower, (f - 0.56) / 0.22) }
-            return water.lower.toward(water.bed, (f - 0.78) / 0.22)
-        }
-
-        /// A tower far away: flat shapes only a shade off the water, to give depth without detail.
-        func drawFarTower(_ ctx: inout GraphicsContext, x: Double, size: Double, parallax: Double,
-                          seed: UInt64, strength: Double) {
-            let gap = floorGap * size * 1.15
-            let pole = poleR * size
-            let rim = rimHeight * size
-            let squash = 0.34
-            let scroll = ball.camera * gap * parallax + 0.37 * gap
-            let passed = Int((scroll / gap).rounded(.down))
-            let shift = scroll - Double(passed) * gap
-            let topTone = water.glow.toward(.white, 0.35)
-            let rimTone = water.lower.toward(Palette.ink, 0.35)
-            let poleTone = water.middle.toward(Palette.ink, 0.30)
-
-            // bottom up, so nearer floors cover the ones behind
-            for row in stride(from: Int(height / gap) + 2, through: -1, by: -1) {
-                let y = Double(row) * gap - shift
-                let lowFade = 0.35 + 0.65 * ramp(height * 0.95, height * 0.40, y)
-                let show = strength * lowFade * ramp(0.02 * height, 0.24 * height, y)
-                guard show > 0.02 else { continue }
-                var dice = Dice(seed: seed &+ UInt64(row + passed + 400) &* 7919)
-                let notch = dice.between(0, 360) + shot.turn * 0.5
-                let r = floorR * size * dice.between(0.82, 1.0)
-                let here = waterColor(at: y)
-                let tint = 0.20 * show
-                let far = Disc(cx: x, cy: y, outer: r, inner: pole, squash: squash, rim: rim)
-
-                var band = Path()
-                Self.trace(&band, far, radius: r, from: 0, to: 180, fresh: true)
-                Self.trace(&band, far, radius: r, from: 180, to: 0, lowered: rim, fresh: false)
-                band.closeSubpath()
-                ctx.fill(band, with: .color(here.toward(rimTone, tint).color()))
-                ctx.fill(Self.oval(CGPoint(x: x, y: y), r, r * squash), with: .color(here.toward(topTone, tint).color()))
-                ctx.fill(Self.wedge(far, from: notch, to: notch + 60, inner: 0),
-                         with: .color(here.toward(topTone.toward(rimTone, 0.55), tint).color()))
-                let poleTop = y - gap + r * squash + rim
-                ctx.fill(Path(CGRect(x: x - pole, y: poleTop, width: 2 * pole, height: y - poleTop)),
-                         with: .color(waterColor(at: y - gap * 0.4).toward(poleTone, tint).color()))
-                ctx.fill(Self.oval(CGPoint(x: x, y: y), pole, pole * squash),
-                         with: .color(here.toward(poleTone, tint).color()))
-            }
+        /// The painted lagoon, filling the frame, turned to a skin's water and darker the deeper the level goes.
+        func drawBackdrop(_ ctx: inout GraphicsContext, _ image: GraphicsContext.ResolvedImage, skin: Int, depth: Double) {
+            let fill = max(width / Double(image.size.width), height / Double(image.size.height))
+            let w = Double(image.size.width) * fill
+            let h = Double(image.size.height) * fill
+            var tinted = ctx
+            let turn = Palette.waterTurns[skin % Palette.waterTurns.count]
+            if turn != 0 { tinted.addFilter(.hueRotation(.degrees(turn))) }
+            tinted.draw(image, in: CGRect(x: (width - w) / 2, y: (height - h) / 2, width: w, height: h))
+            guard depth > 0.01 else { return }
+            ctx.fill(Path(CGRect(x: 0, y: 0, width: width, height: height)),
+                     with: .color(Palette.depthTint.toward(Palette.ink, 0.5).color(0.36 * depth)))
         }
 
         func drawBubbles(_ ctx: inout GraphicsContext) {
@@ -999,7 +956,7 @@ extension SpiralDrop {
 
         // MARK: Tower
 
-        func drawTower(_ ctx: inout GraphicsContext) {
+        func drawTower(_ ctx: inout GraphicsContext, _ art: Art) {
             let first = ball.nextFloor
             // floors are drawn down to the first one that starts below the screen
             var last = first
@@ -1023,7 +980,7 @@ extension SpiralDrop {
 
                 for span in own { drawCuts(&ctx, disc, span, looks[span.tile], front: false) }
                 drawPole(&ctx, from: below, to: below + 1, underFloor: true, skin)
-                drawTops(&ctx, disc, own, looks)
+                drawTops(&ctx, disc, own, looks, art)
                 drawOnTop(&ctx, floor: n, disc, own, above: n > first ? spans[n - first - 1] : nil, fog)
                 drawRims(&ctx, disc, own, looks)
             }
@@ -1155,11 +1112,19 @@ extension SpiralDrop {
             ctx.stroke(lip, with: .color(look.edge.color(0.85)), lineWidth: max(0.5, 1.1 * disc.outer / 132))
         }
 
-        func drawTops(_ ctx: inout GraphicsContext, _ disc: Disc, _ spans: [Span], _ looks: Looks) {
+        func drawTops(_ ctx: inout GraphicsContext, _ disc: Disc, _ spans: [Span], _ looks: Looks, _ art: Art) {
             let hair = disc.outer / 132
             let lightFrom = CGPoint(x: disc.cx - disc.outer * 0.9, y: disc.cy - disc.outer * disc.squash)
             let lightTo = CGPoint(x: disc.cx + disc.outer * 0.9, y: disc.cy + disc.outer * disc.squash)
-            // one fill per kind. Red goes last and a hair wide, to cover the joins with its neighbours.
+            let picture = CGRect(x: disc.cx - disc.outer, y: disc.cy - disc.outer * disc.squash,
+                                 width: 2 * disc.outer, height: 2 * disc.outer * disc.squash)
+            let sheen = Gradient(stops: [
+                .init(color: Color.white.opacity(0.26), location: 0),
+                .init(color: Color.white.opacity(0), location: 0.5),
+                .init(color: Palette.ink.color(0.14), location: 1)
+            ])
+            let mist = looks.mist
+            // one picture per kind. Red goes last and a hair wide, to cover the joins with its neighbours.
             for kind in [Tile.solid, .finish, .hazard] {
                 var faces = Path()
                 let overlap = kind == .hazard ? 0.35 : 0
@@ -1168,13 +1133,12 @@ extension SpiralDrop {
                                              to: span.to + (span.openTo ? 0 : overlap), inner: disc.inner))
                 }
                 guard !faces.isEmpty else { continue }
-                let look = looks[kind]
-                let sheen = Gradient(stops: [
-                    .init(color: look.topHi.color(), location: 0),
-                    .init(color: look.top.color(), location: 0.5),
-                    .init(color: look.topLo.color(), location: 1)
-                ])
-                ctx.fill(faces, with: .linearGradient(sheen, startPoint: lightFrom, endPoint: lightTo))
+                var top = ctx
+                top.clip(to: faces)
+                top.draw(art[kind], in: picture)
+                top.fill(faces, with: .linearGradient(sheen, startPoint: lightFrom, endPoint: lightTo))
+                if mist.dim > 0.005 { top.fill(faces, with: .color(Palette.depthTint.color(mist.dim))) }
+                if mist.amount > 0.005 { top.fill(faces, with: .color(mist.tint.color(mist.amount))) }
             }
             for span in spans {
                 let look = looks[span.tile]
@@ -1421,21 +1385,21 @@ extension SpiralDrop {
         }
 
         /// Pieces thrown toward the viewer are drawn over the tower, the others behind it.
-        func drawShards(_ ctx: inout GraphicsContext, _ shards: [Shard], front: Bool) {
+        func drawShards(_ ctx: inout GraphicsContext, _ shards: [Shard], _ art: Art, front: Bool) {
             for shard in shards where shard.front == front {
                 if shard.alpha > 0.985 {
-                    drawPiece(&ctx, shard)
+                    drawPiece(&ctx, shard, art)
                 } else {
                     var faded = ctx
                     faded.opacity = shard.alpha
-                    faded.drawLayer { layer in drawPiece(&layer, shard) }
+                    faded.drawLayer { layer in drawPiece(&layer, shard, art) }
                 }
             }
         }
 
-        func drawPiece(_ ctx: inout GraphicsContext, _ shard: Shard) {
+        func drawPiece(_ ctx: inout GraphicsContext, _ shard: Shard, _ art: Art) {
             drawCuts(&ctx, shard.disc, shard.span, shard.looks[shard.span.tile], front: false)
-            drawTops(&ctx, shard.disc, [shard.span], shard.looks)
+            drawTops(&ctx, shard.disc, [shard.span], shard.looks, art)
             drawRims(&ctx, shard.disc, [shard.span], shard.looks)
         }
 
@@ -1547,7 +1511,7 @@ extension SpiralDrop {
             }
         }
 
-        func drawBall(_ ctx: inout GraphicsContext) {
+        func drawBall(_ ctx: inout GraphicsContext, _ art: Art) {
             guard !ball.hidden else { return }
             let spot = track(ball.height - ball.camera)
             let r = ballR * spot.view.scale
@@ -1575,35 +1539,7 @@ extension SpiralDrop {
             ctx.fill(Self.oval(c, halo, halo),
                      with: .radialGradient(aura, center: c, startRadius: r * 0.7, endRadius: halo))
 
-            let body = Self.oval(c, rx, ry)
-            let round = Gradient(stops: [
-                .init(color: Palette.ballShine.color(), location: 0),
-                .init(color: Palette.ballLit.color(), location: 0.20),
-                .init(color: Palette.ball.color(), location: 0.50),
-                .init(color: Palette.ballLo.color(), location: 0.82),
-                .init(color: Palette.ballDeep.color(), location: 1)
-            ])
-            ctx.fill(body, with: .radialGradient(round, center: CGPoint(x: c.x - rx * 0.34, y: c.y - ry * 0.40),
-                                                 startRadius: 0, endRadius: r * 1.46))
-
-            // warm light off the floor below, cool light off the water around
-            var inside = ctx
-            inside.clip(to: body)
-            let warmAt = CGPoint(x: c.x + rx * 0.10, y: c.y + ry * 1.10)
-            let warmR = r * 0.92
-            let warm = Gradient(colors: [Palette.lagoon.topHi.color(0.55), Palette.lagoon.topHi.color(0)])
-            inside.fill(Self.oval(warmAt, warmR, warmR),
-                        with: .radialGradient(warm, center: warmAt, startRadius: 0, endRadius: warmR))
-            inside.stroke(Self.oval(CGPoint(x: c.x - rx * 0.10, y: c.y - ry * 0.10), rx * 1.04, ry * 1.04),
-                          with: .color(water.glow.color(0.55)), lineWidth: max(0.6, 1.6 * unit))
-            ctx.stroke(body, with: .color(Palette.ballDeep.color(0.55)), lineWidth: max(0.5, 1.1 * unit))
-
-            var gloss = ctx
-            gloss.translateBy(x: c.x - rx * 0.40, y: c.y - ry * 0.46)
-            gloss.rotate(by: .degrees(-38))
-            gloss.fill(Self.oval(.zero, r * 0.33, r * 0.18), with: .color(Color.white.opacity(0.96)))
-            ctx.fill(Self.oval(CGPoint(x: c.x - rx * 0.02, y: c.y - ry * 0.70), r * 0.07, r * 0.07),
-                     with: .color(Color.white.opacity(0.9)))
+            ctx.draw(art.ball, in: CGRect(x: c.x - rx, y: c.y - ry, width: 2 * rx, height: 2 * ry))
         }
 
         /// Drops of paint thrown up by a touch, and glints on a hard one.

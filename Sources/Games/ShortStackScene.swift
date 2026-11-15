@@ -5,7 +5,7 @@ import SwiftUI
 // The picture is painted into a Canvas by ShortStackPainter from a ShortStackFrame: what is on
 // the table at one moment. The clip in the video feed builds a frame from a phase (0...1) and a
 // fixed hand; the playable game keeps one frame up to date as its hand goes on.
-// No assets, any frame size.
+// The room, the table, the cards and the chips are pictures in Resources/GameArt; any frame size.
 
 public struct ShortStackScene: View {
     public var phase: Double
@@ -19,7 +19,7 @@ public struct ShortStackScene: View {
     public var body: some View {
         Canvas(opaque: true, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
             if size.width <= 8 || size.height <= 8 { return }
-            let painter = ShortStackPainter(size: size)
+            let painter = ShortStackPainter(size: size, context: context)
             painter.drawStill(&context)
             painter.drawLive(&context, ShortStackClip.frame(at: phase), showHUD: showHUD)
         }
@@ -395,22 +395,29 @@ enum ShortStackInk {
               blue: Double(v & 255) / 255, opacity: alpha)
     }
 
-    static let roomTop = hex(0x0B1422)
-    static let roomBottom = hex(0x05080F)
-    static let railTop = hex(0x2A3446)
-    static let railBottom = hex(0x141A26)
-    static let feltLight = hex(0x13907A)
-    static let feltDark = hex(0x0A5A4E)
     static let gold = hex(0xF6C453)
     static let teal = hex(0x1FC4A9)
     static let slate = hex(0x394257)
-    static let paper = hex(0xFDFBF4)
     static let ink = hex(0x1B2231)
     static let red = hex(0xDA3B4B)
-    static let back = hex(0x2947A3)
     static let plate = hex(0x0A0F18, 0.74)
-    static let chips = [hex(0xE5484D), hex(0x3E8BFF), hex(0x2FBF71), hex(0xF6C453)]
     static let seats = [hex(0xF6C453), hex(0x7C5CFF), hex(0xFF6B57), hex(0x4DA3FF), hex(0xFF9F43), hex(0xFF7AB6)]
+}
+
+// MARK: - Pictures
+
+/// The pictures that move, resolved once for each frame.
+struct ShortStackArt {
+    let back: GraphicsContext.ResolvedImage
+    let face: GraphicsContext.ResolvedImage
+    /// Red, blue, green, gold.
+    let chips: [GraphicsContext.ResolvedImage]
+
+    init(_ ctx: GraphicsContext) {
+        back = ctx.resolve(Image("short-stack-card-back"))
+        face = ctx.resolve(Image("short-stack-card-face"))
+        chips = ["red", "blue", "green", "gold"].map { ctx.resolve(Image("short-stack-chip-\($0)")) }
+    }
 }
 
 // MARK: - Painter
@@ -422,10 +429,12 @@ struct ShortStackPainter {
 
     let lay: ShortStackLayout
     let u: Double
+    let art: ShortStackArt
 
-    init(size: CGSize) {
+    init(size: CGSize, context: GraphicsContext) {
         lay = ShortStackLayout(size: size)
         u = lay.u
+        art = ShortStackArt(context)
     }
 
     // MARK: Shapes
@@ -501,13 +510,10 @@ struct ShortStackPainter {
         let shape = Path(roundedRect: rect, cornerRadius: cw * 0.13, style: .continuous)
         c.fill(shape.offsetBy(dx: 0, dy: 1.6 * u), with: .color(.black.opacity(0.3)))
         if face < 0.5 {
-            c.fill(shape, with: .color(Ink.back))
-            let inner = Path(roundedRect: rect.insetBy(dx: cw * 0.1, dy: cw * 0.1), cornerRadius: cw * 0.07, style: .continuous)
-            c.stroke(inner, with: .color(.white.opacity(0.5)), lineWidth: Swift.max(0.8, cw * 0.035))
-            c.fill(Self.suit(2, 0, 0, cw * 0.17), with: .color(.white.opacity(0.5)))
+            c.draw(art.back, in: rect)
             return
         }
-        c.fill(shape, with: .color(Ink.paper))
+        c.draw(art.face, in: rect)
         let tint = card.suit == 1 || card.suit == 2 ? Ink.red : Ink.ink
         let rank = Text(card.label)
             .font(.system(size: cw * (card.rank == 10 ? 0.4 : 0.46), weight: .heavy, design: .rounded))
@@ -517,14 +523,10 @@ struct ShortStackPainter {
         c.fill(Self.suit(card.suit, cw * 0.15, ch * 0.2, cw * 0.25), with: .color(tint))
     }
 
-    private func drawChip(_ ctx: inout GraphicsContext, _ at: CGPoint, r: Double, tint: Color) {
+    private func drawChip(_ ctx: inout GraphicsContext, _ at: CGPoint, r: Double, chip: GraphicsContext.ResolvedImage) {
         let rect = CGRect(x: Double(at.x) - r, y: Double(at.y) - r, width: 2 * r, height: 2 * r)
         ctx.fill(Path(ellipseIn: rect.offsetBy(dx: 0, dy: r * 0.24)), with: .color(.black.opacity(0.32)))
-        ctx.fill(Path(ellipseIn: rect), with: .color(tint))
-        let marks: [CGFloat] = [r * 0.5, r * 0.56]
-        ctx.stroke(Path(ellipseIn: rect.insetBy(dx: r * 0.15, dy: r * 0.15)), with: .color(.white.opacity(0.9)),
-                   style: StrokeStyle(lineWidth: r * 0.26, dash: marks))
-        ctx.fill(Path(ellipseIn: rect.insetBy(dx: r * 0.44, dy: r * 0.44)), with: .color(.white.opacity(0.2)))
+        ctx.draw(chip, in: rect)
     }
 
     /// A small pile for an amount: more chips for more.
@@ -534,26 +536,20 @@ struct ShortStackPainter {
         var c = ctx
         c.opacity = alpha
         for k in 0..<count {
-            drawChip(&c, pt(x, y - 3.4 * Double(k)), r: 9 * u, tint: Ink.chips[(k + amount / 20) % 4])
+            drawChip(&c, pt(x, y - 3.4 * Double(k)), r: 9 * u, chip: art.chips[(k + amount / 20) % 4])
         }
     }
 
     // MARK: The room and the table, which never change
 
     func drawStill(_ ctx: inout GraphicsContext) {
-        let whole = CGRect(x: 0, y: 0, width: lay.W, height: lay.H)
-        ctx.fill(Path(whole), with: .linearGradient(Gradient(colors: [Ink.roomTop, Ink.roomBottom]),
-                                                    startPoint: .zero, endPoint: CGPoint(x: 0, y: lay.H)))
-        let rail = pill(201, 394, 384, 564, radius: 176)
-        ctx.fill(rail.offsetBy(dx: 0, dy: 7 * u), with: .color(.black.opacity(0.45)))
-        ctx.fill(rail, with: .linearGradient(Gradient(colors: [Ink.railTop, Ink.railBottom]),
-                                             startPoint: pt(0, 112), endPoint: pt(0, 676)))
-        ctx.stroke(pill(201, 394, 381, 561, radius: 175), with: .color(.white.opacity(0.1)), lineWidth: 1.2 * u)
-        let felt = pill(201, 394, 356, 536, radius: 162)
-        ctx.fill(felt, with: .radialGradient(Gradient(colors: [Ink.feltLight, Ink.feltDark]),
-                                             center: pt(201, 370), startRadius: 0, endRadius: 330 * u))
-        ctx.stroke(felt, with: .color(.black.opacity(0.35)), lineWidth: 2 * u)
-        ctx.stroke(pill(201, 394, 326, 506, radius: 148), with: .color(.white.opacity(0.08)), lineWidth: 1.4 * u)
+        let room = ctx.resolve(Image("short-stack-room"))
+        let fill = Swift.max(lay.W / Double(room.size.width), lay.H / Double(room.size.height))
+        let roomW = Double(room.size.width) * fill
+        let roomH = Double(room.size.height) * fill
+        ctx.draw(room, in: CGRect(x: (lay.W - roomW) / 2, y: (lay.H - roomH) / 2, width: roomW, height: roomH))
+        ctx.fill(pill(201, 394, 384, 564, radius: 176).offsetBy(dx: 0, dy: 7 * u), with: .color(.black.opacity(0.45)))
+        ctx.draw(ctx.resolve(Image("short-stack-table")), in: box(201, 394, 384, 564))
         for k in 0..<5 {
             ctx.stroke(pill(Lay.boardX(k), Lay.boardY, 50, 70, radius: 6.5), with: .color(.white.opacity(0.1)),
                        lineWidth: 1.2 * u)

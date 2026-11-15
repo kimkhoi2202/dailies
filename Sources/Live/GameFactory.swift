@@ -10,6 +10,18 @@ enum GameFactory {
         case .laneDash: LaneDashGame(options: options, link: link)
         case .gulpCity: GulpCityGame(options: options, link: link)
         case .inkland: InklandGame(options: options, link: link)
+        case .slipOut: SlipOutGame(options: options, link: link)
+        case .blockParty: BlockPartyGame(options: options, link: link)
+        case .wildEights: WildEightsGame(options: options, link: link)
+        case .brickOut: BrickOutGame(options: options, link: link)
+        case .dailyGrid: DailyGridGame(options: options, link: link)
+        case .letterRush: LetterRushGame(options: options, link: link)
+        case .pourParty: PourPartyGame(options: options, link: link)
+        case .deepEnd: DeepEndGame(options: options, link: link)
+        case .jamSlide: JamSlideGame(options: options, link: link)
+        case .busRush: BusRushGame(options: options, link: link)
+        case .cornerPocket: CornerPocketGame(options: options, link: link)
+        case .canCannon: CanCannonGame(options: options, link: link)
         case .shortStack: ShortStackGame(options: options, link: link)
         }
     }

@@ -21,6 +21,12 @@ enum LiveBoard {
         "inkland": ["juno": 342, "kaz": 281, "devon.plays": 236, "tofu": 174, "noor.runs": 152, "wordnerd.sam": 96],
         "spiral-drop": ["kaz": 742, "devon.plays": 651, "wordnerd.sam": 518, "noor.runs": 434, "tofu": 371, "juno": 196],
         "gulp-city": ["tofu": 87, "juno": 74, "noor.runs": 61, "devon.plays": 52, "kaz": 38, "wordnerd.sam": 24],
+        "slip-out": ["kaz": 71, "wordnerd.sam": 64, "juno": 55, "devon.plays": 47, "noor.runs": 39, "tofu": 26],
+        "wild-eights": ["kaz": 131, "juno": 112, "devon.plays": 96, "wordnerd.sam": 74, "tofu": 41, "noor.runs": 33],
+        "daily-grid": ["kaz": 812, "wordnerd.sam": 690, "devon.plays": 544, "juno": 418, "tofu": 305, "noor.runs": 160],
+        "letter-rush": ["wordnerd.sam": 3500, "kaz": 2900, "devon.plays": 2600, "juno": 2100, "noor.runs": 1900, "tofu": 1200],
+        "pour-party": ["kaz": 1500, "wordnerd.sam": 1200, "juno": 1000, "devon.plays": 700, "tofu": 400, "noor.runs": 300],
+        "can-cannon": ["kaz": 1480, "devon.plays": 1210, "juno": 990, "noor.runs": 760, "tofu": 540, "wordnerd.sam": 310],
         "short-stack": ["kaz": 2460, "devon.plays": 1840, "tofu": 1310, "wordnerd.sam": 1120, "noor.runs": 920, "juno": 640],
     ]
 
@@ -46,10 +52,19 @@ enum LiveBoard {
     static func unit(for game: MockGame) -> String {
         switch game.kind {
         case .tippyTower: "floors"
-        case .fiveUp, .spiralDrop: "points"
+        case .fiveUp, .spiralDrop, .blockParty, .wildEights, .letterRush: "points"
         case .laneDash: "metres"
         case .inkland: "share of the land"
         case .gulpCity: "share of the city"
+        case .slipOut: "arrows"
+        case .brickOut: "points"
+        case .dailyGrid: "points"
+        case .pourParty: "points"
+        case .deepEnd: "metres"
+        case .jamSlide: "points"
+        case .busRush: "riders"
+        case .cornerPocket: "points"
+        case .canCannon: "points"
         case .shortStack: "chips"
         }
     }
@@ -59,6 +74,13 @@ enum LiveBoard {
         switch game.kind {
         case .inkland: String(format: "%.1f%%", Double(score) / 10)
         case .gulpCity: "\(score)%"
+        case .brickOut: groupedNumber(score)
+        case .dailyGrid: groupedNumber(score)
+        case .pourParty: groupedNumber(score)
+        case .deepEnd: groupedNumber(score)
+        case .jamSlide: groupedNumber(score)
+        case .busRush: groupedNumber(score)
+        case .cornerPocket: groupedNumber(score)
         default: groupedNumber(score)
         }
     }
@@ -68,9 +90,18 @@ enum LiveBoard {
         let apart = abs(a - b)
         switch game.kind {
         case .tippyTower: return apart == 1 ? "1 floor" : "\(apart) floors"
-        case .fiveUp, .spiralDrop: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .fiveUp, .spiralDrop, .blockParty, .wildEights, .letterRush: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .laneDash: return "\(groupedNumber(apart)) m"
         case .inkland, .gulpCity: return text(apart, game)
+        case .slipOut: return apart == 1 ? "1 arrow" : "\(apart) arrows"
+        case .brickOut: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .dailyGrid: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .pourParty: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .deepEnd: return "\(groupedNumber(apart)) m"
+        case .jamSlide: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .busRush: return apart == 1 ? "1 rider" : "\(groupedNumber(apart)) riders"
+        case .cornerPocket: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .canCannon: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .shortStack: return apart == 1 ? "1 chip" : "\(groupedNumber(apart)) chips"
         }
     }

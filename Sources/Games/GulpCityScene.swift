@@ -17,7 +17,7 @@ public struct GulpCityScene: View {
     public var body: some View {
         Canvas(opaque: true, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
             guard size.width > 8, size.height > 8 else { return }
-            GulpCityClip(size: size, phase: phase, showHUD: showHUD).draw(&context)
+            GulpCityClip(size: size, phase: phase, showHUD: showHUD, art: GulpCityArt(context)).draw(&context)
         }
     }
 }
@@ -141,11 +141,8 @@ enum GulpCitySwatch {
     static let lot = Hue(0xFFE9CC)
     static let pad = Hue(0xF3D6B0)
     static let lawn = Hue(0xA9E8BA)
-    static let lawnPale = Hue(0xC2F2CB)
     static let lawnEdge = Hue(0x86D3A2)
-    static let yard = Hue(0xBDEDC0)
     static let path = Hue(0xFFF0D0)
-    static let pathEdge = Hue(0xFFD9B0)
     static let water = Hue(0x86D6F3)
     static let waterPale = Hue(0xC9F1FC)
     static let pitFloor = Hue(0x110D24)
@@ -947,6 +944,33 @@ struct GulpCityWall {
 
 // MARK: - Drawing
 
+/// The painted pictures, resolved once per frame.
+struct GulpCityArt {
+    let hole: GraphicsContext.ResolvedImage
+    let park: GraphicsContext.ResolvedImage
+    let plaza: GraphicsContext.ResolvedImage
+    let yard: GraphicsContext.ResolvedImage
+    let yardPool: GraphicsContext.ResolvedImage
+    let treeRound: GraphicsContext.ResolvedImage
+    let treeTall: GraphicsContext.ResolvedImage
+    let treePink: GraphicsContext.ResolvedImage
+    let bush: GraphicsContext.ResolvedImage
+    let bushBloom: GraphicsContext.ResolvedImage
+
+    init(_ ctx: GraphicsContext) {
+        hole = ctx.resolve(Image("gulp-city-hole"))
+        park = ctx.resolve(Image("gulp-city-park"))
+        plaza = ctx.resolve(Image("gulp-city-plaza"))
+        yard = ctx.resolve(Image("gulp-city-yard"))
+        yardPool = ctx.resolve(Image("gulp-city-yard-pool"))
+        treeRound = ctx.resolve(Image("gulp-city-tree-round"))
+        treeTall = ctx.resolve(Image("gulp-city-tree-tall"))
+        treePink = ctx.resolve(Image("gulp-city-tree-pink"))
+        bush = ctx.resolve(Image("gulp-city-bush"))
+        bushBloom = ctx.resolve(Image("gulp-city-bush-bloom"))
+    }
+}
+
 /// Draws the city through a lens. The clip and the playable game both use it.
 struct GulpCityArtist {
     typealias Curve = GulpCityCurve
@@ -970,6 +994,7 @@ struct GulpCityArtist {
     let rise: Double
     /// nil = the city runs past every edge of the screen.
     let edge: GulpCityEdge?
+    let art: GulpCityArt
 
     var W: Double { lens.w }
     var H: Double { lens.h }
@@ -1314,7 +1339,11 @@ struct GulpCityArtist {
         let inner = slab(cx, cy, inside, inside, 0.34)
         switch lot.use {
         case .park:
-            drawParkGround(&ctx, lot, inner, inside)
+            // the painted pond sits in the north-east quarter: mirror it into the lot's own
+            let sx: Double = lot.pond % 2 == 0 ? 1 : -1
+            let sy: Double = lot.pond < 2 ? 1 : -1
+            drawGroundPicture(&ctx, art.park, cx, cy, inside, inner, flipX: sx, flipY: sy)
+            ctx.stroke(inner, with: .color(Tone.lawnEdge.paint(0.9)), lineWidth: Swift.max(0.5, 1.6 * u))
         case .midrise, .tower:
             ctx.fill(inner, with: .color(Tone.lot.paint()))
             var seams = Path()
@@ -1329,65 +1358,24 @@ struct GulpCityArtist {
                 ctx.stroke(patch, with: .color(Tone.lawnEdge.paint(0.9)), lineWidth: Swift.max(0.5, 1.4 * u))
             }
         case .houses:
-            ctx.fill(inner, with: .color(Tone.yard.paint()))
+            // a shared pool on the first two styles
+            drawGroundPicture(&ctx, lot.style < 2 ? art.yardPool : art.yard, cx, cy, inside, inner)
             ctx.stroke(inner, with: .color(Tone.lawnEdge.paint(0.7)), lineWidth: Swift.max(0.5, 1.4 * u))
-            ctx.fill(slab(cx, cy, inside + 0.03, 0.2, 0.08), with: .color(Tone.path.paint()))
-            if lot.style < 2 {
-                // a shared pool
-                ctx.fill(slab(cx - 0.95, cy, 1.12, 0.62, 0.3), with: .color(Color.white))
-                ctx.fill(slab(cx - 0.95, cy, 0.98, 0.48, 0.22), with: .color(Tone.water.paint()))
-                ctx.fill(slab(cx - 1.15, cy - 0.14, 0.62, 0.2, 0.18), with: .color(Tone.waterPale.paint(0.7)))
-                ctx.fill(slab(cx - 1.4, cy - 0.2, 0.2, 0.05, 0.05), with: .color(Color.white.opacity(0.9)))
-                ctx.fill(Self.glint(spot(cx - 0.45, cy + 0.14), 0.14 * s), with: .color(Color.white.opacity(0.95)))
-                ctx.fill(Self.glint(spot(cx - 0.75, cy - 0.2), 0.08 * s), with: .color(Color.white.opacity(0.85)))
-            }
         case .plaza:
-            ctx.fill(inner, with: .color(Tone.path.paint()))
-            ctx.fill(oval(cx, cy, 2.3, 2.3), with: .color(Tone.pathEdge.paint(0.75)))
-            ctx.fill(oval(cx, cy, 2.12, 2.12), with: .color(Tone.path.paint()))
-            ctx.stroke(oval(cx, cy, 1.45, 1.45), with: .color(Tone.pathEdge.paint(0.85)), lineWidth: Swift.max(0.6, 2.6 * u))
-            ctx.fill(oval(cx, cy, 1.14, 1.14), with: .color(Hue(0xFFE0BC).paint()))
+            drawGroundPicture(&ctx, art.plaza, cx, cy, inside, inner)
         }
     }
 
-    private func drawParkGround(_ ctx: inout GraphicsContext, _ lot: GulpCityLot, _ inner: Path, _ inside: Double) {
-        let cx = lot.cx, cy = lot.cy
-        ctx.fill(inner, with: .color(Tone.lawn.paint()))
-        // mown stripes
-        ctx.drawLayer { layer in
-            layer.clip(to: inner)
-            var stripes = Path()
-            for k in stride(from: -8.0, to: 8.0, by: 2.0) {
-                stripes.addRect(CGRect(x: cx + k * 0.62, y: cy - inside, width: 0.62, height: 2 * inside))
-            }
-            layer.fill(stripes.applying(self.lens.ground), with: .color(Tone.lawnPale.paint(0.55)))
-        }
-        ctx.stroke(inner, with: .color(Tone.lawnEdge.paint(0.9)), lineWidth: Swift.max(0.5, 1.6 * u))
-        // two paths that cross at a round plaza: trim first, then the paving on top
-        let trim = Tone.pathEdge.paint(), paving = Tone.path.paint()
-        ctx.fill(slab(cx, cy, inside + 0.02, 0.44, 0.1), with: .color(trim))
-        ctx.fill(slab(cx, cy, 0.44, inside + 0.02, 0.1), with: .color(trim))
-        ctx.fill(oval(cx, cy, 1.26, 1.26), with: .color(trim))
-        ctx.fill(slab(cx, cy, inside + 0.04, 0.36, 0.1), with: .color(paving))
-        ctx.fill(slab(cx, cy, 0.36, inside + 0.04, 0.1), with: .color(paving))
-        ctx.fill(oval(cx, cy, 1.18, 1.18), with: .color(paving))
-        ctx.stroke(oval(cx, cy, 0.8, 0.8), with: .color(Tone.pathEdge.paint(0.9)), lineWidth: Swift.max(0.6, 2.4 * u))
-        ctx.fill(oval(cx, cy, 0.3, 0.3), with: .color(Tone.pathEdge.paint(0.9)))
-        // the pond: a sandy bank, two overlapping pools, a highlight, lily pads
-        let sx: Double = lot.pond % 2 == 0 ? 1 : -1
-        let sy: Double = lot.pond < 2 ? -1 : 1
-        let px = cx + sx * 1.42, py = cy + sy * 1.5
-        let sand = Hue(0xFFE6BC).paint()
-        ctx.fill(oval(px, py, 0.98, 0.66), with: .color(sand))
-        ctx.fill(oval(px + 0.3 * sx, py + 0.22 * sy, 0.62, 0.5), with: .color(sand))
-        ctx.fill(oval(px, py, 0.86, 0.54), with: .color(Tone.water.paint()))
-        ctx.fill(oval(px + 0.3 * sx, py + 0.22 * sy, 0.5, 0.38), with: .color(Tone.water.paint()))
-        ctx.fill(oval(px - 0.2, py - 0.12, 0.5, 0.24), with: .color(Tone.waterPale.paint(0.75)))
-        ctx.fill(oval(px - 0.34, py - 0.2, 0.16, 0.07), with: .color(Color.white.opacity(0.9)))
-        ctx.fill(oval(px + 0.38, py + 0.2, 0.13, 0.11), with: .color(Hue(0x6FD39A).paint()))
-        ctx.fill(oval(px + 0.12, py + 0.3, 0.09, 0.08), with: .color(Hue(0x8BE0A6).paint()))
-        ctx.fill(Self.glint(spot(px + 0.3, py - 0.16), 0.13 * s), with: .color(Color.white.opacity(0.95)))
-        ctx.fill(Self.glint(spot(px - 0.5, py + 0.12), 0.08 * s), with: .color(Color.white.opacity(0.85)))
+    /// A painted square laid flat on the ground over a lot, mirrored when asked, inside its rounded edge.
+    private func drawGroundPicture(_ ctx: inout GraphicsContext, _ image: GraphicsContext.ResolvedImage,
+                                   _ cx: Double, _ cy: Double, _ half: Double, _ edge: Path,
+                                   flipX: Double = 1, flipY: Double = 1) {
+        var flat = ctx
+        flat.clip(to: edge)
+        flat.concatenate(lens.ground)
+        flat.translateBy(x: cx, y: cy)
+        flat.scaleBy(x: flipX, y: flipY)
+        flat.draw(image, in: CGRect(x: -half, y: -half, width: 2 * half, height: 2 * half))
     }
 
     /// What a prop stands on. It stays behind as a bare patch once the prop is gone.
@@ -1744,42 +1732,19 @@ struct GulpCityArtist {
 
         ctx.drawLayer { layer in
             layer.clip(to: hole)
-            // a sliver of pavement in section at the far lip
+            // a sliver of pavement in section at the far lip, then the vortex turning below it
             layer.fill(hole, with: .color(Hue(0xE8CFA6).paint()))
             let crust = Swift.max(1.2, 0.1 * self.s)
-            // the far wall, lit at the top and lost in the dark below
-            let wall = hole.offsetBy(dx: 0, dy: crust)
-            layer.fill(wall, with: .linearGradient(
-                Gradient(stops: [
-                    .init(color: Hue(0xA487D8).paint(), location: 0),
-                    .init(color: Hue(0x6A52B0).paint(), location: 0.14),
-                    .init(color: Tone.pitWall.paint(), location: 0.36),
-                    .init(color: Tone.pitMid.paint(), location: 0.7),
-                    .init(color: Tone.pitFloor.paint(), location: 1)]),
-                startPoint: CGPoint(x: cx, y: cy - ry), endPoint: CGPoint(x: cx, y: cy + ry * 0.7)))
-            // the side that faces the sun catches some of it
-            layer.fill(wall, with: .linearGradient(
-                Gradient(colors: [Hue(0x9F86FF).paint(0), Hue(0x9F86FF).paint(0.34)]),
-                startPoint: CGPoint(x: cx - rx * 0.1, y: cy), endPoint: CGPoint(x: cx + rx, y: cy - ry * 0.4)))
-            // two faint layers of rock
-            let drop = r * self.s * Lens.lift * 1.3
-            layer.stroke(hole.offsetBy(dx: 0, dy: crust + drop * 0.22), with: .color(Hue(0xB9A2FF).paint(0.22)),
-                         lineWidth: Swift.max(0.5, 1.4 * self.u))
-            layer.stroke(hole.offsetBy(dx: 0, dy: crust + drop * 0.5), with: .color(Hue(0xB9A2FF).paint(0.12)),
-                         lineWidth: Swift.max(0.5, 1.4 * self.u))
-            // the bottom
-            layer.fill(hole.offsetBy(dx: 0, dy: crust + drop), with: .radialGradient(
-                Gradient(colors: [Tone.pitFloor.paint(), Tone.pitFloor.paint(), Tone.pitMid.toward(Tone.pitFloor, 0.5).paint()]),
-                center: CGPoint(x: cx, y: cy + drop + ry * 0.2), startRadius: 0, endRadius: rx * 1.05))
-            // three arcs turning slowly down in the dark
-            let eye = CGPoint(x: cx, y: cy + crust + drop * 0.62)
-            let arcs: [(size: Double, alpha: Double)] = [(0.8, 0.44), (0.58, 0.36), (0.36, 0.28)]
-            for (m, arc) in arcs.enumerated() {
-                let a0 = turn * (1 + 0.25 * Double(m)) + Double(m) * 2.2
-                layer.stroke(self.sweep(eye, rx * arc.size, ry * arc.size, a0, a0 + 2.1, steps: 22),
-                             with: .color(Hue(0x8169E0).paint(arc.alpha)),
-                             style: StrokeStyle(lineWidth: Swift.max(0.5, (2.6 - 0.5 * Double(m)) * self.u), lineCap: .round))
-            }
+            var swirl = layer
+            swirl.clip(to: hole.offsetBy(dx: 0, dy: crust))
+            swirl.translateBy(x: cx, y: cy + crust)
+            swirl.scaleBy(x: 1, y: Lens.squash)
+            swirl.rotate(by: .radians(turn))
+            swirl.draw(self.art.hole, in: CGRect(x: -rx * 1.04, y: -rx * 1.04, width: 2.08 * rx, height: 2.08 * rx))
+            // the far wall falls into shade under the lip
+            layer.fill(hole, with: .linearGradient(
+                Gradient(colors: [Tone.pitFloor.paint(0.55), Tone.pitFloor.paint(0)]),
+                startPoint: CGPoint(x: cx, y: cy - ry), endPoint: CGPoint(x: cx, y: cy - ry * 0.3)))
         }
         // a dark line on the far lip, a bright one on the near lip
         ctx.stroke(sweep(c, rx, ry, Double.pi * 1.02, Double.pi * 1.98), with: .color(Tone.ink.paint(0.55)),
@@ -2226,39 +2191,37 @@ struct GulpCityArtist {
         let k = prop.scale
         let bark = Hue(0xBC8465)
         solid(&ctx, st, Self.ring(0.1 * k, 6), 0, 0.72 * k, bark, bark, fade: 0)
-        let leaf = Tone.leaves[prop.tint % Tone.leaves.count]
-        let deep = leaf.toward(leaf.shade, 0.45)
-        switch prop.style % 3 {
-        case 0:
-            // round: two low clumps and a big crown
-            orb(&ctx, st, 0.3 * k, -0.1 * k, 0.9 * k, 0.35 * k, deep, gloss: 0)
-            orb(&ctx, st, -0.3 * k, 0.02 * k, 0.92 * k, 0.36 * k, leaf.toward(leaf.shade, 0.2), gloss: 0)
-            orb(&ctx, st, 0, 0.04 * k, 1.2 * k, 0.5 * k, leaf)
-        case 1:
-            // tall: three stacked balls
-            orb(&ctx, st, 0, 0, 0.86 * k, 0.43 * k, deep, gloss: 0)
-            orb(&ctx, st, 0, 0, 1.3 * k, 0.37 * k, leaf.toward(leaf.shade, 0.15), gloss: 0)
-            orb(&ctx, st, 0, 0, 1.68 * k, 0.26 * k, leaf)
-        default:
-            // bushy: three clumps under a crown
-            orb(&ctx, st, 0.34 * k, -0.08 * k, 0.94 * k, 0.38 * k, deep, gloss: 0)
-            orb(&ctx, st, -0.34 * k, 0, 0.96 * k, 0.4 * k, leaf.toward(leaf.shade, 0.2), gloss: 0)
-            orb(&ctx, st, 0.02 * k, 0.14 * k, 0.9 * k, 0.36 * k, leaf.toward(leaf.shade, 0.1), gloss: 0)
-            orb(&ctx, st, 0, -0.04 * k, 1.24 * k, 0.44 * k, leaf)
+        // the crown is a painted picture: tall for the second style, pink for the fifth leaf colour
+        let tall = prop.style % 3 == 1
+        let pink = prop.tint % Tone.leaves.count == 4
+        let picture = pink ? art.treePink : (tall ? art.treeTall : art.treeRound)
+        crown(&ctx, st, picture, z: (tall ? 1.15 : 1.3) * k, width: (tall ? 0.8 : 1.25) * k)
+    }
+
+    /// A painted crown standing on the prop's axis at height z, leaning with it and dimming as it goes under.
+    private func crown(_ ctx: inout GraphicsContext, _ st: Stance, _ image: GraphicsContext.ResolvedImage, z: Double, width: Double) {
+        let centre = st.point(0, 0, z)
+        let half = width / 2
+        var dim = st.dim
+        var target = ctx
+        if st.sinking && centre.z < -half * 0.4 {
+            guard let under = st.below else { return }
+            target = under
+            dim = 1 - (1 - st.dim) * (1 - Curve.clamp(-centre.z / (st.holeR * 1.4)) * 0.6)
         }
+        let c = lens.spot(centre)
+        let foot = lens.spot(st.point(0, 0, 0))
+        let w = width * s
+        let h = w * Double(image.size.height) / Swift.max(1, Double(image.size.width))
+        target.translateBy(x: c.x, y: c.y)
+        target.rotate(by: .radians(atan2(Double(c.x - foot.x), Double(foot.y - c.y))))
+        if dim > 0.01 { target.addFilter(.colorMultiply(Hue.white.toward(Tone.pitFloor, dim).paint())) }
+        target.draw(image, in: CGRect(x: -w / 2, y: -h / 2, width: w, height: h))
     }
 
     private func drawBush(_ ctx: inout GraphicsContext, _ st: Stance, _ prop: Prop) {
-        let leaf = Tone.leaves[prop.tint % 4].toward(Hue(0x3FB57C), 0.25)
-        orb(&ctx, st, 0.2, -0.05, 0.2, 0.24, leaf.toward(leaf.shade, 0.3), gloss: 0)
-        orb(&ctx, st, -0.2, 0, 0.21, 0.26, leaf, gloss: 0.25)
-        orb(&ctx, st, 0.03, 0.08, 0.27, 0.27, leaf, gloss: 0.3)
-        if prop.style == 0 {
-            // in bloom
-            orb(&ctx, st, -0.12, 0.05, 0.47, 0.055, Hue(0xFF9FC2), gloss: 0)
-            orb(&ctx, st, 0.14, 0.02, 0.44, 0.05, Hue(0xFF9FC2), gloss: 0)
-            orb(&ctx, st, 0.02, 0.16, 0.36, 0.05, Hue(0xFFFFFF), gloss: 0)
-        }
+        // style 0 is in bloom
+        crown(&ctx, st, prop.style == 0 ? art.bushBloom : art.bush, z: 0.4, width: 0.82)
     }
 
     private func drawFlowers(_ ctx: inout GraphicsContext, _ st: Stance, _ prop: Prop) {
@@ -2535,7 +2498,7 @@ struct GulpCityClip {
     let holeY: Double
     let holeR: Double
 
-    init(size: CGSize, phase rawPhase: Double, showHUD: Bool) {
+    init(size: CGSize, phase rawPhase: Double, showHUD: Bool, art: GulpCityArt) {
         let phase = rawPhase.isFinite ? Curve.clamp(rawPhase) : 0
         self.phase = phase
         self.showHUD = showHUD
@@ -2546,7 +2509,7 @@ struct GulpCityClip {
         // the camera trails the hole, held back towards the middle of the route, and pulls out as it grows
         let lens = GulpCityLens(size: size, eyeX: Curve.mix(at.x, 2.5, 0.4), eyeY: Curve.mix(at.y, 1.0, 0.4),
                                 span: 8.4 + 6.6 * Curve.ramp(0, 1, phase))
-        artist = GulpCityArtist(lens: lens, town: .clip, rise: 0.62 + 0.38 * Curve.spring(phase / 0.05), edge: nil)
+        artist = GulpCityArtist(lens: lens, town: .clip, rise: 0.62 + 0.38 * Curve.spring(phase / 0.05), edge: nil, art: art)
     }
 
     func draw(_ ctx: inout GraphicsContext) {
