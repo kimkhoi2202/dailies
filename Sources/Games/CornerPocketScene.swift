@@ -90,7 +90,7 @@ enum CornerPocketTable {
     /// Pockets: four corners, then the two sides. Centres sit just outside the felt.
     static let pocketX: [Double] = [-3, 303, -3, 303, -8, 308]
     static let pocketY: [Double] = [-3, -3, 603, 603, 300, 300]
-    static let pocketR: [Double] = [17, 17, 17, 17, 15, 15]
+    static let pocketR: [Double] = [19, 19, 19, 19, 16, 16]
     /// Where a shot sends a ball to drop it in each pocket.
     static let aimX: [Double] = [5, 295, 5, 295, -2, 302]
     static let aimY: [Double] = [5, 5, 595, 595, 300, 300]

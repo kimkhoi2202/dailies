@@ -370,26 +370,7 @@ final class CornerPocketModel {
                 let dy = balls[j].y - balls[i].y
                 let d2 = dx * dx + dy * dy
                 if d2 >= reach * reach || d2 < 1e-9 { continue }
-                let d = d2.squareRoot()
-                let nx = dx / d
-                let ny = dy / d
-                let push = (reach - d) / 2
-                balls[i].x -= nx * push
-                balls[i].y -= ny * push
-                balls[j].x += nx * push
-                balls[j].y += ny * push
-                let closing = (balls[i].vx - balls[j].vx) * nx + (balls[i].vy - balls[j].vy) * ny
-                if closing <= 0 { continue }
-                let impulse = closing * (1 + Self.ballBounce) / 2
-                balls[i].vx -= impulse * nx
-                balls[i].vy -= impulse * ny
-                balls[j].vx += impulse * nx
-                balls[j].vy += impulse * ny
-                if i == 0 && firstHit == 0 { firstHit = balls[j].number }
-                if closing > 70 && clickCool <= 0 {
-                    clickCool = 0.05
-                    owe(.click)
-                }
+                collide(i, j, dx, dy, d2, h)
             }
         }
 
@@ -433,6 +414,60 @@ final class CornerPocketModel {
                 balls[i].vy = vy / speed * next
             }
         }
+    }
+
+    /// Two balls overlap: wind both back to the moment they touched, so the contact is exact at any
+    /// speed, swap momentum along the line between them, then run the rest of the step.
+    private func collide(_ i: Int, _ j: Int, _ dx: Double, _ dy: Double, _ d2: Double, _ h: Double) {
+        let reach = 2 * T.r
+        let rvx = balls[j].vx - balls[i].vx
+        let rvy = balls[j].vy - balls[i].vy
+        let rv2 = rvx * rvx + rvy * rvy
+        var back = 0.0
+        if rv2 > 1e-9 {
+            let b = dx * rvx + dy * rvy
+            let disc = b * b - rv2 * (d2 - reach * reach)
+            if disc >= 0 { back = M.clamp((b + disc.squareRoot()) / rv2, 0, h) }
+        }
+        rewind(i, j, by: back)
+        var ex = balls[j].x - balls[i].x
+        var ey = balls[j].y - balls[i].y
+        var d = (ex * ex + ey * ey).squareRoot()
+        if d > 1e-9 {
+            let nx = ex / d
+            let ny = ey / d
+            let closing = (balls[i].vx - balls[j].vx) * nx + (balls[i].vy - balls[j].vy) * ny
+            if closing > 0 {
+                let impulse = closing * (1 + Self.ballBounce) / 2
+                balls[i].vx -= impulse * nx
+                balls[i].vy -= impulse * ny
+                balls[j].vx += impulse * nx
+                balls[j].vy += impulse * ny
+                if i == 0 && firstHit == 0 { firstHit = balls[j].number }
+                if closing > 70 && clickCool <= 0 {
+                    clickCool = 0.05
+                    owe(.click)
+                }
+            }
+        }
+        rewind(i, j, by: -back)
+        ex = balls[j].x - balls[i].x
+        ey = balls[j].y - balls[i].y
+        d = (ex * ex + ey * ey).squareRoot()
+        if d < reach && d > 1e-9 {
+            let push = (reach - d) / 2
+            balls[i].x -= ex / d * push
+            balls[i].y -= ey / d * push
+            balls[j].x += ex / d * push
+            balls[j].y += ey / d * push
+        }
+    }
+
+    private func rewind(_ i: Int, _ j: Int, by t: Double) {
+        balls[i].x -= balls[i].vx * t
+        balls[i].y -= balls[i].vy * t
+        balls[j].x -= balls[j].vx * t
+        balls[j].y -= balls[j].vy * t
     }
 
     private func drop(_ i: Int, _ p: Int) {
@@ -653,7 +688,7 @@ final class CornerPocketModel {
         thinkClock += dt
         if friendPlan == nil {
             var plan = choosePlan(side: 1, eightOnly: false)
-            plan.angle += (rng.next() + rng.next() - 1) * 0.03
+            plan.angle += (rng.next() + rng.next() - 1) * 0.012
             friendPlan = plan
             friendFrom = aimAngle
         }
@@ -720,7 +755,7 @@ final class CornerPocketModel {
     }
 
     private func power(_ d1: Double, _ d2: Double, _ cut: Double) -> Double {
-        let objectSpeed = (2 * Self.rollDrag * (d2 + 50)).squareRoot() * 1.3
+        let objectSpeed = (2 * Self.rollDrag * (d2 + 80)).squareRoot() * 1.45
         let contact = objectSpeed / Swift.max(0.35, cut) / ((1 + Self.ballBounce) / 2)
         let start = (contact * contact + 2 * Self.rollDrag * d1).squareRoot() * 1.2
         return M.clamp((start - Self.minSpeed) / (Self.maxSpeed - Self.minSpeed), 0.14, 1)
@@ -732,7 +767,7 @@ final class CornerPocketModel {
         let dy = by - ay
         let len2 = dx * dx + dy * dy
         if len2 < 1e-6 { return false }
-        let room = (2 * T.r - 0.5) * (2 * T.r - 0.5)
+        let room = (2 * T.r + 1.5) * (2 * T.r + 1.5)
         for k in 1..<balls.count where k != skip && !balls[k].sunk {
             let px = balls[k].x - ax
             let py = balls[k].y - ay
@@ -842,7 +877,7 @@ struct CornerPocketPilot {
             return CornerPocketPlan(angle: model.aimAngle + Double.pi, power: 0.05)
         }
         var shot = model.choosePlan(side: 0, eightOnly: false)
-        shot.angle += (rng.next() - 0.5) * 0.008
+        shot.angle += (rng.next() + rng.next() - 1) * 0.004
         return shot
     }
 }
