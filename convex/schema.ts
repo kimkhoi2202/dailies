@@ -27,6 +27,10 @@ export default defineSchema({
         gadget: v.optional(v.string()),
       }),
     ),
+    // Another teammate's branch adds Whop and cents; kept loose here for the same reason.
+    cents: v.optional(v.number()),
+    centsAllTime: v.optional(v.number()),
+    whopUsername: v.optional(v.string()),
   }).index("by_handle", ["handle"]),
 
   games: defineTable({
@@ -153,7 +157,7 @@ export default defineSchema({
 
   ledger: defineTable({
     userId: v.id("users"),
-    kind: v.union(v.literal("round"), v.literal("spend")),
+    kind: v.union(v.literal("round"), v.literal("spend"), v.literal("buy")),
     title: v.string(),
     detail: v.string(),
     amount: v.number(),
@@ -161,6 +165,8 @@ export default defineSchema({
   }).index("by_user", ["userId"]),
 
   clips: defineTable({
+    cents: v.optional(v.number()),
+    views: v.optional(v.number()),
     userId: v.id("users"),
     gameSlug: v.string(),
     kind: v.union(v.literal("video"), v.literal("photo")),
