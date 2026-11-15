@@ -131,7 +131,6 @@ enum BrickOutPalette {
     static let frame = BrickOutTint(hex: 0x4D3C8E)
     static let frameDark = BrickOutTint(hex: 0x2A1F5C)
     static let frameLight = BrickOutTint(hex: 0x7A68C4)
-    static let floor = BrickOutTint(hex: 0x3A2C72)
     static let floorLine = BrickOutTint(hex: 0x2F2360)
     static let card = BrickOutTint(hex: 0x1C1240)
     static let ice = BrickOutTint(hex: 0x8FE3FF)
@@ -431,6 +430,7 @@ struct BrickOutLayout {
 /// The images, resolved once per frame.
 struct BrickOutArt {
     let backdrop: GraphicsContext.ResolvedImage
+    let tray: GraphicsContext.ResolvedImage
     /// One brick body and one stud per brick colour.
     let bodies: [GraphicsContext.ResolvedImage]
     let studs: [GraphicsContext.ResolvedImage]
@@ -439,6 +439,7 @@ struct BrickOutArt {
 
     init(_ ctx: GraphicsContext) {
         backdrop = ctx.resolve(Image("brick-out-backdrop"))
+        tray = ctx.resolve(Image("brick-out-tray"))
         let colours = 0..<BrickOutPalette.bricks.count
         bodies = colours.map { ctx.resolve(Image("brick-out-body-\($0)")) }
         studs = colours.map { ctx.resolve(Image("brick-out-stud-\($0)")) }
@@ -469,7 +470,7 @@ struct BrickOutPainter {
         let lay = BrickOutLayout(size: CGSize(width: W, height: H), cols: f.cols, rows: f.rows)
         let art = BrickOutArt(ctx)
         drawSky(&ctx, f, art)
-        drawBoard(&ctx, lay, f)
+        drawBoard(&ctx, lay, f, art)
         drawBricks(&ctx, lay, f, art)
         drawParticles(&ctx, lay, f)
         drawFloats(&ctx, lay, f)
@@ -562,18 +563,15 @@ struct BrickOutPainter {
 
     // MARK: Board
 
-    private func drawBoard(_ ctx: inout GraphicsContext, _ lay: BrickOutLayout, _ f: BrickOutFrame) {
+    private func drawBoard(_ ctx: inout GraphicsContext, _ lay: BrickOutLayout, _ f: BrickOutFrame, _ art: BrickOutArt) {
         let frame = lay.frame
         let radius = 14 * u
-        // Drop shadow, the frame's side, the frame's top.
+        // Drop shadow, then the tray. Its rim is about a tenth of the picture: keep it one band wide.
         ctx.fill(rounded(frame.offsetBy(dx: 0, dy: 10 * u).insetBy(dx: -2 * u, dy: 0), radius + 2 * u), with: .color(P.shadow.color(0.45)))
-        ctx.fill(rounded(frame.offsetBy(dx: 0, dy: 6 * u), radius), with: .color(P.frameDark.color()))
-        ctx.fill(rounded(frame, radius), with: .color(P.frame.color()))
-        ctx.stroke(rounded(frame.insetBy(dx: 1.5 * u, dy: 1.5 * u), radius - 1.5 * u), with: .color(P.frameLight.color(0.5)), lineWidth: 1.5 * u)
+        sliced(&ctx, art.tray, in: frame, cap: 0.13, edge: 1.3 * lay.band)
 
-        // The floor and its grid.
+        // The floor's grid.
         let board = lay.board
-        ctx.fill(Path(board), with: .color(P.floor.color()))
         var lines = Path()
         for c in 1..<lay.cols {
             let x = lay.originX + Double(c) * lay.cell
@@ -586,9 +584,6 @@ struct BrickOutPainter {
             lines.addLine(to: CGPoint(x: board.maxX, y: y))
         }
         ctx.stroke(lines, with: .color(P.floorLine.color()), lineWidth: Swift.max(1, 1.2 * u))
-        // Inner shadow along the top and the left, so the bricks sit in a tray.
-        ctx.fill(Path(CGRect(x: board.minX, y: board.minY, width: board.width, height: 5 * u)), with: .color(P.shadow.color(0.28)))
-        ctx.fill(Path(CGRect(x: board.minX, y: board.minY, width: 5 * u, height: board.height)), with: .color(P.shadow.color(0.18)))
 
         // Gates on the frame.
         let band = lay.band
