@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty
 }
 
 struct MockGame: Identifiable {
@@ -56,6 +56,7 @@ struct MockGame: Identifiable {
         case .gulpCity: GulpCityScene(phase: moment, showHUD: showHUD)
         case .inkland: InklandScene(phase: moment, showHUD: showHUD)
         case .slipOut: SlipOutScene(phase: moment, showHUD: showHUD)
+        case .blockParty: BlockPartyScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -202,7 +203,14 @@ enum Mock {
         plays: "214K", likes: "27.5K", dislikes: "2.1K", approval: 93,
         bestScore: "62 arrows", clipPhase: 0.5, tint: Color(red: 0.94, green: 0.33, blue: 0.42))
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut]
+    static let blockParty = MockGame(
+        id: "block-party", kind: .blockParty, title: "Block Party", tagline: "Fill the line. Clear it.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 40s", seedEarned: 0,
+        plays: "612K", likes: "74.1K", dislikes: "4.2K", approval: 94,
+        bestScore: "2,680 points", clipPhase: 0.85, tint: Color(red: 0.63, green: 0.42, blue: 1.0))
+
+    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty]
 
     // MARK: Videos
 
