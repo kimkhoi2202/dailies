@@ -651,7 +651,7 @@ struct DLMonogram: View {
         .background {
             if !plain { RoundedRectangle(cornerRadius: size * 0.22, style: .continuous).fill(DL.gold) }
         }
-        .accessibilityLabel("Dailies")
+        .accessibilityLabel("DEGEN")
     }
 
     /// The D: a tall stem with tight corners on the left and a wide bowl on the right.
@@ -674,19 +674,20 @@ struct DLMonogram: View {
     }
 }
 
-/// The logo, from the brand artwork: bone lettering in dark mode, ink in light.
+/// The logo: the mark on its gold key, then the rest of the name in the display face.
 struct DLLogo: View {
     var height: CGFloat = 30
-    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        let file = scheme == .dark ? "lockup-bone" : "lockup-ink"
-        if let url = Bundle.main.url(forResource: file, withExtension: "png"), let artwork = UIImage(contentsOfFile: url.path) {
-            Image(uiImage: artwork).resizable().interpolation(.high).scaledToFit()
-                .frame(height: height)
-                .accessibilityLabel("Dailies")
-        } else {
-            Text("DAILIES").font(DL.display(height)).foregroundStyle(DL.ink)
+        HStack(alignment: .center, spacing: height * 0.09) {
+            DLMonogram(size: height * 0.94)
+                .background {
+                    RoundedRectangle(cornerRadius: height * 0.21, style: .continuous).fill(DL.goldLip).offset(y: height * 0.06)
+                }
+            Text("EGEN").font(DL.display(height * 1.16)).foregroundStyle(DL.ink)
         }
+        .frame(height: height)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("DEGEN")
     }
 }
