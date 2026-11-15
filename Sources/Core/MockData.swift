@@ -232,7 +232,7 @@ enum Mock {
         category: "Puzzle", players: "1 player", mode: "Casual", studio: "Wobble Works",
         goldPerMinute: 1.0, avgSession: "2m 40s", seedEarned: 0,
         plays: "188K", likes: "23.4K", dislikes: "1.9K", approval: 92,
-        bestScore: "2,310 coins", clipPhase: 0.5, tint: Color(red: 0.36, green: 0.62, blue: 0.95))
+        bestScore: "2,310 points", clipPhase: 0.5, tint: Color(red: 0.36, green: 0.62, blue: 0.95))
 
     static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut, jamSlide]
 

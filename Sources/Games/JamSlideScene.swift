@@ -2,7 +2,7 @@ import SwiftUI
 
 // Jam Slide: drag bright toy blocks out of a white tray, each through a gate of its own color.
 // Some gates carry a number: that many more blocks may pass before the gate shuts. A cleared tray
-// opens a chest, and its coins fly up to the coin counter.
+// opens a chest, and its sparks fly up to the points counter.
 //
 // This file holds what the clip in Videos and the playable game share: numbers, colors, the level
 // maker, where everything sits on the screen, and the painter. JamSlideGame.swift holds the rules
@@ -134,9 +134,8 @@ enum JamSlidePalette {
     static let shadow = JamSlideTint(hex: 0x2B4B80)
     static let badge = JamSlideTint(hex: 0x2F6FE6)
     static let badgeDark = JamSlideTint(hex: 0x1C4AAE)
-    static let gold = JamSlideTint(hex: 0xF5B301)
-    static let goldDark = JamSlideTint(hex: 0xC08400)
-    static let goldLight = JamSlideTint(hex: 0xFFE27A)
+    static let trim = JamSlideTint(hex: 0xF3F8FF)
+    static let trimDark = JamSlideTint(hex: 0xB4CBE4)
     static let ice = JamSlideTint(hex: 0x3FB6F5)
     static let alarm = JamSlideTint(hex: 0xE5304C)
     static let chest = JamSlideTint(hex: 0x1FA89F)
@@ -358,19 +357,19 @@ struct JamSlideFloat {
 /// When the chest after a cleared board does what, in seconds from the clear.
 enum JamSlideChest {
     static let length = 2.1
-    static let coins = 12
+    static let sparks = 12
     static let flight = 0.55
 
     static func launch(_ k: Int) -> Double { 0.5 + 0.06 * Double(k) }
 
-    /// Coins that have reached the counter by this time.
+    /// Sparks that have reached the counter by this time.
     static func landed(at t: Double) -> Int {
         var n = 0
-        for k in 0..<coins where launch(k) + flight <= t { n += 1 }
+        for k in 0..<sparks where launch(k) + flight <= t { n += 1 }
         return n
     }
 
-    /// Where coin k is, 0...1 along its flight from the chest to the counter.
+    /// Where spark k is, 0...1 along its flight from the chest to the counter.
     static func position(_ k: Int, _ v: Double, from a: CGPoint, to b: CGPoint, u: Double) -> CGPoint {
         let s = JamSlideMath.easeInOut(v)
         let spread = (Double(k % 6) - 2.5) * 38 * u
@@ -476,14 +475,14 @@ struct JamSlideLayout {
         CGRect(x: W / 2 - 66 * u, y: Double(GameLayout.statusBarHeight) + 2, width: 132 * u, height: 40 * u)
     }
 
-    /// The row under the app's band: level on the left, moves in the middle, coins on the right.
+    /// The row under the app's band: level on the left, moves in the middle, points on the right.
     var rowY: Double { Double(GameLayout.topBand) + 8 }
 
     var levelRect: CGRect { CGRect(x: 16 * u, y: rowY, width: 108 * u, height: 38 * u) }
 
-    var coinRect: CGRect { CGRect(x: W - 140 * u, y: rowY, width: 124 * u, height: 38 * u) }
+    var scoreRect: CGRect { CGRect(x: W - 140 * u, y: rowY, width: 124 * u, height: 38 * u) }
 
-    var coinIcon: CGPoint { CGPoint(x: coinRect.minX + 20 * u, y: coinRect.midY) }
+    var scoreIcon: CGPoint { CGPoint(x: scoreRect.minX + 20 * u, y: scoreRect.midY) }
 
     var chestCenter: CGPoint { CGPoint(x: board.midX, y: board.midY + 34 * u) }
 
@@ -559,16 +558,19 @@ struct JamSlidePainter {
         .system(size: size * u, weight: weight, design: .rounded)
     }
 
-    /// A gold coin. turn 0...1 squeezes it as it flips.
-    private func drawCoin(_ ctx: inout GraphicsContext, _ c: CGPoint, _ r: Double, turn: Double = 1) {
-        let wide = r * Swift.max(0.25, turn)
-        let outer = CGRect(x: Double(c.x) - wide, y: Double(c.y) - r, width: 2 * wide, height: 2 * r)
-        ctx.fill(Path(ellipseIn: outer.offsetBy(dx: 0, dy: 1.5 * u)), with: .color(P.goldDark.scaled(0.8).color()))
-        ctx.fill(Path(ellipseIn: outer), with: .color(P.goldDark.color()))
-        ctx.fill(Path(ellipseIn: outer.insetBy(dx: wide * 0.14, dy: r * 0.14)), with: .color(P.gold.color()))
-        ctx.stroke(Path(ellipseIn: outer.insetBy(dx: wide * 0.34, dy: r * 0.34)), with: .color(P.goldDark.color(0.7)), lineWidth: Swift.max(1, r * 0.12))
-        let shine = CGRect(x: Double(c.x) - wide * 0.5, y: Double(c.y) - r * 0.72, width: wide * 0.5, height: r * 0.34)
-        ctx.fill(Path(ellipseIn: shine), with: .color(Color.white.opacity(0.6)))
+    /// A four-pointed spark in a block color with a white heart. angle turns it.
+    private func drawSpark(_ ctx: inout GraphicsContext, _ c: CGPoint, _ r: Double, tint: JamSlideTint, angle: Double = -.pi / 2) {
+        var star = Path()
+        for k in 0..<8 {
+            let a = angle + Double(k) * .pi / 4
+            let reach = k % 2 == 0 ? r : r * 0.42
+            let p = CGPoint(x: Double(c.x) + cos(a) * reach, y: Double(c.y) + sin(a) * reach)
+            if k == 0 { star.move(to: p) } else { star.addLine(to: p) }
+        }
+        star.closeSubpath()
+        ctx.fill(star.offsetBy(dx: 0, dy: 1.5 * u), with: .color(tint.scaled(0.62).color()))
+        ctx.fill(star, with: .color(tint.color()))
+        ctx.fill(circle(c, r * 0.26), with: .color(Color.white.opacity(0.92)))
     }
 
     // MARK: Sky
@@ -831,7 +833,7 @@ struct JamSlidePainter {
         let size = 34 * (0.7 + 0.3 * M.easeOut(k))
         let text = Text(f.endText).font(font(size, .black))
         ctx.draw(text.foregroundColor(P.ink.color(k)), at: CGPoint(x: board.midX, y: board.midY - 18 * u), anchor: .center)
-        let line = Text(f.score == 1 ? "1 coin" : "\(f.score) coins").font(font(19, .bold))
+        let line = Text(f.score == 1 ? "1 point" : "\(f.score) points").font(font(19, .bold))
         ctx.draw(line.foregroundColor(P.ink.color(0.7 * k)), at: CGPoint(x: board.midX, y: board.midY + 20 * u), anchor: .center)
     }
 
@@ -846,7 +848,7 @@ struct JamSlidePainter {
 
         if fade > 0.01, open > 0.01 {
             let glowR = 190 * u * (0.6 + 0.4 * open)
-            let glow = Gradient(colors: [P.goldLight.color(0.8 * open * fade), P.goldLight.color(0)])
+            let glow = Gradient(colors: [Color.white.opacity(0.85 * open * fade), Color.white.opacity(0)])
             ctx.fill(circle(mouth, glowR), with: .radialGradient(glow, center: mouth, startRadius: 0, endRadius: glowR))
             var rays = Path()
             let turn = t * 0.6
@@ -872,19 +874,22 @@ struct JamSlidePainter {
             local.fill(rounded(body, 14 * u), with: .color(P.chestDark.color()))
             local.fill(rounded(CGRect(x: body.minX, y: body.minY, width: body.width, height: body.height - 8 * u), 14 * u), with: .color(P.chest.color()))
             for x in [-54.0, 42.0] {
-                local.fill(Path(CGRect(x: x * u, y: body.minY, width: 12 * u, height: body.height - 2 * u)), with: .color(P.gold.color()))
+                local.fill(Path(CGRect(x: x * u, y: body.minY, width: 12 * u, height: body.height - 2 * u)), with: .color(P.trim.color()))
             }
             if open > 0.01 {
                 local.fill(Path(ellipseIn: CGRect(x: -66 * u, y: -20 * u, width: 132 * u, height: 24 * u)), with: .color(P.chestDark.scaled(0.55).color()))
                 for k in 0..<7 {
                     let x = (Double(k) - 3) * 17 * u
                     let y = -12 * u - (k % 2 == 0 ? 5 * u : 0)
-                    drawCoin(&local, CGPoint(x: x, y: y), 11 * u)
+                    let tint = P.block(k % P.blocks.count)
+                    local.fill(circle(CGPoint(x: x, y: y + 2 * u), 10 * u), with: .color(tint.scaled(0.66).color()))
+                    local.fill(circle(CGPoint(x: x, y: y), 10 * u), with: .color(tint.color()))
+                    local.fill(Path(ellipseIn: CGRect(x: x - 5.5 * u, y: y - 7 * u, width: 7.5 * u, height: 4.5 * u)), with: .color(Color.white.opacity(0.45)))
                 }
             }
-            local.fill(Path(CGRect(x: body.minX, y: body.minY, width: body.width, height: 9 * u)), with: .color(P.goldDark.color()))
-            local.fill(rounded(CGRect(x: -13 * u, y: -2 * u, width: 26 * u, height: 28 * u), 6 * u), with: .color(P.gold.color()))
-            local.fill(circle(CGPoint(x: 0, y: 9 * u), 4 * u), with: .color(P.goldDark.scaled(0.6).color()))
+            local.fill(Path(CGRect(x: body.minX, y: body.minY, width: body.width, height: 9 * u)), with: .color(P.trimDark.color()))
+            local.fill(rounded(CGRect(x: -13 * u, y: -2 * u, width: 26 * u, height: 28 * u), 6 * u), with: .color(P.trim.color()))
+            local.fill(circle(CGPoint(x: 0, y: 9 * u), 4 * u), with: .color(P.chestDark.color()))
 
             var lid = local
             lid.translateBy(x: 0, y: -8 * u - 34 * u * open)
@@ -893,19 +898,19 @@ struct JamSlidePainter {
             lid.fill(rounded(lidRect, 18 * u), with: .color(P.chest.mix(.white, 0.12).color()))
             lid.fill(Path(CGRect(x: lidRect.minX, y: -12 * u, width: lidRect.width, height: 12 * u)), with: .color(P.chestDark.color()))
             for x in [-56.0, 44.0] {
-                lid.fill(Path(CGRect(x: x * u, y: -38 * u, width: 12 * u, height: 38 * u)), with: .color(P.gold.color()))
+                lid.fill(Path(CGRect(x: x * u, y: -38 * u, width: 12 * u, height: 38 * u)), with: .color(P.trim.color()))
             }
-            lid.fill(Path(CGRect(x: lidRect.minX, y: -6 * u, width: lidRect.width, height: 7 * u)), with: .color(P.gold.color()))
+            lid.fill(Path(CGRect(x: lidRect.minX, y: -6 * u, width: lidRect.width, height: 7 * u)), with: .color(P.trim.color()))
             lid.fill(rounded(CGRect(x: -60 * u, y: -34 * u, width: 120 * u, height: 7 * u), 3.5 * u), with: .color(Color.white.opacity(0.28)))
         }
 
-        // The coins on their way to the counter.
-        for k in 0..<JamSlideChest.coins {
+        // The sparks on their way to the points counter, each in a block color.
+        for k in 0..<JamSlideChest.sparks {
             let tk = t - JamSlideChest.launch(k)
             if tk < 0 || tk > JamSlideChest.flight { continue }
             let v = tk / JamSlideChest.flight
-            let p = JamSlideChest.position(k, v, from: mouth, to: lay.coinIcon, u: u)
-            drawCoin(&ctx, p, 12 * u * (1 - 0.3 * v), turn: abs(cos(tk * 10 + Double(k))))
+            let p = JamSlideChest.position(k, v, from: mouth, to: lay.scoreIcon, u: u)
+            drawSpark(&ctx, p, 13 * u * (1 - 0.3 * v), tint: P.block(k % P.blocks.count), angle: -.pi / 2 + tk * 7 + Double(k))
         }
     }
 
@@ -960,13 +965,13 @@ struct JamSlidePainter {
         let movesInk = left <= 2 ? P.alarm.color(0.75 + 0.25 * sin(f.ambient * 8)) : P.ink.color(0.62)
         ctx.draw(movesText.foregroundColor(movesInk), at: CGPoint(x: W / 2, y: Double(badge.midY)), anchor: .center)
 
-        // The coins, popping as they count up.
-        let purse = lay.coinRect
+        // The points, popping as they count up.
+        let purse = lay.scoreRect
         let cr = Double(purse.height) / 2
         let pop = 1 + 0.2 * exp(-9 * f.scoreAge) * Swift.max(0, 1 - f.scoreAge * 2)
         ctx.fill(rounded(purse.offsetBy(dx: 0, dy: 3 * u), cr), with: .color(P.shadow.color(0.16)))
         ctx.fill(rounded(purse, cr), with: .color(.white))
-        drawCoin(&ctx, lay.coinIcon, 13 * u * pop)
+        drawSpark(&ctx, lay.scoreIcon, 15 * u * pop, tint: P.badge)
         let number = Text("\(f.score)").font(font(21 * pop, .heavy)).monospacedDigit()
         ctx.draw(number.foregroundColor(P.ink.color()), at: CGPoint(x: Double(purse.maxX) - 14 * u, y: Double(purse.midY)), anchor: .trailing)
     }
@@ -1123,7 +1128,7 @@ enum JamSlideClip {
             let t = (p - cleared) / (1 - cleared) * 1.9
             f.chestAge = t
             let landed = JamSlideChest.landed(at: t)
-            score += gain * landed / JamSlideChest.coins
+            score += gain * landed / JamSlideChest.sparks
             if landed > 0 { f.scoreAge = Swift.max(0, t - (JamSlideChest.launch(landed - 1) + JamSlideChest.flight)) }
             f.callout = "Great"
             f.calloutSub = "Board \(lv.number) clear, +8s"

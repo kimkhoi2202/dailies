@@ -42,7 +42,7 @@ final class JamSlideModel {
     enum Stage { case ready, playing, clearing, ending, finished }
 
     /// What the last step or touch deserves as a haptic. A stronger one replaces a weaker one.
-    enum Feedback: Int { case none, tap, coin, bump, shut, out, stuck, cleared, lost }
+    enum Feedback: Int { case none, tap, spark, bump, shut, out, stuck, cleared, lost }
 
     static let roundTime = 120.0
     static let clearTimes = [12.0, 10, 8, 6, 4]   // seconds given back for each cleared board, then the last one
@@ -50,7 +50,7 @@ final class JamSlideModel {
     static let endLength = 1.6
     static let glideLength = 0.16
     static let calloutLength = 1.5
-    static let coinsPerCell = 10
+    static let pointsPerCell = 10
     static let quickWindow = 1.6         // blocks out this close together count as quick
 
     private var rng: JamSlideRandom
@@ -65,7 +65,7 @@ final class JamSlideModel {
     private(set) var timeLeft = JamSlideModel.roundTime
     private(set) var heldFor = 0.0
     private(set) var score = 0
-    /// The number on the coin counter, which counts up to the score.
+    /// The number on the points counter, which counts up to the score.
     private var shown = 0.0
     private(set) var scoreAge = 10.0
     private(set) var movesUsed = 0
@@ -82,7 +82,7 @@ final class JamSlideModel {
     private(set) var clearClock = 0.0
     private var chestGain = 0
     private var chestPaid = 0
-    private var coinsLanded = 0
+    private var sparksLanded = 0
     private(set) var endClock = 0.0
     private(set) var endReason = ""
 
@@ -121,7 +121,7 @@ final class JamSlideModel {
         case 1: line = "1 board cleared, \(out)"
         default: line = "\(levelsCleared) boards cleared, \(out)"
         }
-        return GameResult(score: score, unit: "coins", detail: line)
+        return GameResult(score: score, unit: "points", detail: line)
     }
 
     /// Hands over the haptic owed since the last call.
@@ -405,15 +405,15 @@ final class JamSlideModel {
         case .clearing:
             time += dt
             clearClock += dt
-            // The chest's coins pay out one by one as they reach the counter.
+            // The chest's sparks pay out one by one as they reach the counter.
             let landed = JamSlideChest.landed(at: clearClock)
-            if landed > coinsLanded {
-                coinsLanded = landed
-                let due = chestGain * landed / JamSlideChest.coins
+            if landed > sparksLanded {
+                sparksLanded = landed
+                let due = chestGain * landed / JamSlideChest.sparks
                 score += due - chestPaid
                 chestPaid = due
                 scoreAge = 0
-                owe(.coin)
+                owe(.spark)
             }
             if clearClock >= JamSlideChest.length {
                 deal(JamSlideLevel.make(number: level.number + 1, seed: rng.bits()))
@@ -480,7 +480,7 @@ final class JamSlideModel {
         let cy = side.axis == 1 ? (side.dir < 0 ? 0.0 : Double(level.rows)) : Double(b.y) + Double(b.h) / 2
         if time - lastOutAt < Self.quickWindow { quick += 1 } else { quick = 0 }
         lastOutAt = time
-        let points = Self.coinsPerCell * b.cells + 5 * quick
+        let points = Self.pointsPerCell * b.cells + 5 * quick
         burst(x: cx, y: cy, color: b.color, count: 16)
         float("+\(points)", x: Double(b.x) + Double(b.w) / 2, y: Double(b.y) + Double(b.h) / 2, big: false)
         if quick == 2 { say("Quick", sub: nil) }
@@ -502,10 +502,10 @@ final class JamSlideModel {
             let x = Double(b.x) + Double(b.w) / 2
             let y = Double(b.y) + Double(b.h) / 2
             burst(x: x, y: y, color: b.color, count: 20)
-            float("+\(Self.coinsPerCell * b.cells)", x: x, y: y, big: false)
+            float("+\(Self.pointsPerCell * b.cells)", x: x, y: y, big: false)
             owe(.out)
         }
-        score += points ?? (Self.coinsPerCell * b.cells)
+        score += points ?? (Self.pointsPerCell * b.cells)
         scoreAge = 0
         blocksOut += 1
         if slid { movesUsed += 1 }
@@ -523,7 +523,7 @@ final class JamSlideModel {
     private func cleared() {
         stage = .clearing
         clearClock = 0
-        coinsLanded = 0
+        sparksLanded = 0
         chestPaid = 0
         chestGain = 50 * level.number + 50
         levelsCleared += 1
@@ -893,7 +893,7 @@ final class JamSlideRunner: ObservableObject {
             GameHaptics.heavy()
             GameHaptics.success()
         case .out, .shut: GameHaptics.thud()
-        case .bump, .tap, .coin: GameHaptics.tap()
+        case .bump, .tap, .spark: GameHaptics.tap()
         case .none: break
         }
         if model.stage == .finished, !reported {

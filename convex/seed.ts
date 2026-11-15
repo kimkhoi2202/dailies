@@ -173,7 +173,7 @@ const GAMES = [
     maxPlayers: 1,
     mode: "casual" as const,
     category: "Puzzle",
-    unit: "coins",
+    unit: "points",
     goldPerMinute: 1,
     likes: 234,
     dislikes: 19,
