@@ -149,8 +149,7 @@ enum DeepEndInk {
     static let ink = hex(0x1E1712)
     static let red = hex(0xC8453A)
     static let mustard = hex(0xD9A441)
-    static let rock = hex(0x4A3B2C)
-    static let seabed = hex(0x231B14)
+    static let seabed = hex(0x30201A)
     static let glove = hex(0xFFFBF0)
     static let tiers: [Color] = [0xD9E6CF, 0xA9CDB4, 0x5E9E98, 0x8C7BB0, 0xC8453A, 0xD9A441].map { hex($0) }
     static let missed = hex(0x9C8C74)
@@ -617,7 +616,7 @@ struct DeepEndPainter {
         let bx = (W * 0.26).rounded()
         let by = wave(bx) - 3 - (offBeat ? 2 : 0)
         let boat = ctx.resolve(Image("deep-end-boat"))
-        let hull = artRect(boat, center: .zero, width: 52)
+        let hull = artRect(boat, center: .zero, width: 60)
         ctx.draw(boat, in: hull.offsetBy(dx: bx, dy: by + 8 - hull.maxY))
     }
 
@@ -693,33 +692,20 @@ struct DeepEndPainter {
             let lean = CGFloat(sin(t * 1.1 + Double(s) * 1.7) * 0.07)
             var c = ctx
             c.concatenate(CGAffineTransform(a: s % 2 == 0 ? 1 : -1, b: 0, c: lean, d: 1, tx: root - lean * base, ty: 0))
-            c.draw(kelp, in: artRect(kelp, center: CGPoint(x: 0, y: base + 4 - tall / 2), height: tall))
+            let wide = kelp.size.height > 0 ? tall * kelp.size.width / kelp.size.height * 0.75 : 0
+            c.draw(kelp, in: CGRect(x: -wide / 2, y: base + 4 - tall, width: wide, height: tall))
         }
     }
 
     private func drawFloor(_ ctx: inout GraphicsContext) {
         let floorY = screenY(7000)
         guard floorY < lay.h + 20 else { return }
-        let W = lay.w
-        var ground = Path()
-        ground.move(to: CGPoint(x: -5, y: lay.h + 5))
-        ground.addLine(to: CGPoint(x: -5, y: floorY))
-        var x: CGFloat = 0
-        while x <= W + 20 {
-            ground.addQuadCurve(to: CGPoint(x: x + 20, y: floorY + CGFloat(Int(x * 37) % 7) - 3),
-                                control: CGPoint(x: x + 10, y: floorY - 6))
-            x += 20
-        }
-        ground.addLine(to: CGPoint(x: W + 25, y: lay.h + 5))
-        ground.closeSubpath()
-        ctx.fill(ground, with: .color(Ink.seabed))
-        inked(&ctx, ground, 3)
-        var rocks = Path()
-        for (rx, w, h) in [(0.06, 46.0, 26.0), (0.24, 30, 18), (0.46, 58, 30), (0.7, 36, 20), (0.88, 50, 28)] {
-            rocks.addEllipse(in: CGRect(x: W * CGFloat(rx) - CGFloat(w) / 2, y: floorY - CGFloat(h) * 0.55, width: CGFloat(w), height: CGFloat(h)))
-        }
-        ctx.fill(rocks, with: .color(Ink.rock))
-        inked(&ctx, rocks, 3)
+        let ground = ctx.resolve(Image("deep-end-seabed"))
+        let size = artRect(ground, center: .zero, width: lay.w)
+        // The top of the dirt sits at 62 percent of the picture; the boulders rise above the floor line.
+        let r = size.offsetBy(dx: lay.w / 2, dy: floorY - size.minY - size.height * 0.62)
+        ctx.fill(Path(CGRect(x: 0, y: r.maxY - 2, width: lay.w, height: Swift.max(0, lay.h - r.maxY + 4))), with: .color(Ink.seabed))
+        ctx.draw(ground, in: r)
     }
 
     private func drawRuler(_ ctx: inout GraphicsContext, _ sy: CGFloat) {
