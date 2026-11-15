@@ -58,6 +58,7 @@ enum LiveBoard {
         case .brickOut: "points"
         case .dailyGrid: "points"
         case .pourParty: "points"
+        case .deepEnd: "metres"
         }
     }
 
@@ -69,6 +70,7 @@ enum LiveBoard {
         case .brickOut: groupedNumber(score)
         case .dailyGrid: groupedNumber(score)
         case .pourParty: groupedNumber(score)
+        case .deepEnd: groupedNumber(score)
         default: groupedNumber(score)
         }
     }
@@ -85,6 +87,7 @@ enum LiveBoard {
         case .brickOut: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .dailyGrid: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .pourParty: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .deepEnd: return "\(groupedNumber(apart)) m"
         }
     }
 

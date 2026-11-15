@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd
 }
 
 struct MockGame: Identifiable {
@@ -72,6 +72,7 @@ struct MockGame: Identifiable {
         case .dailyGrid: DailyGridScene(phase: moment, showHUD: showHUD)
         case .letterRush: LetterRushScene(phase: moment, showHUD: showHUD)
         case .pourParty: PourPartyScene(phase: moment, showHUD: showHUD)
+        case .deepEnd: DeepEndScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -284,6 +285,13 @@ enum Mock {
         plays: "214K", likes: "27.6K", dislikes: "2.1K", approval: 93,
         bestScore: "1,500 points", clipPhase: 0.85, tint: Color(red: 0.24, green: 0.55, blue: 1.0)),
 
+      MockGame(
+        id: "deep-end", kind: .deepEnd, title: "Deep End", tagline: "Rarer answers sink deeper.",
+        category: "Word", players: "1 to 4 players", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 50s", seedEarned: 0,
+        plays: "96K", likes: "11.4K", dislikes: "0.8K", approval: 93,
+        bestScore: "4,650 m", clipPhase: 0.5, tint: Color(red: 0.14, green: 0.38, blue: 0.62)),
+
     ]
 
     private static var counted: (version: Int, games: [MockGame], clips: [MockClip]) = (-1, [], [])
@@ -316,6 +324,7 @@ enum Mock {
     static var dailyGrid: MockGame { games[10] }
     static var letterRush: MockGame { games[11] }
     static var pourParty: MockGame { games[12] }
+    static var deepEnd: MockGame { games[13] }
 
     // MARK: Videos
 
