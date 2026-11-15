@@ -300,8 +300,7 @@ struct LetterRushPainter {
         let bh = back.height * fill
         ctx.draw(art.background, in: CGRect(x: (layout.w - bw) / 2, y: (layout.h - bh) / 2, width: bw, height: bh))
         let side = LetterRushLayout.gridWidth * u
-        let tray = CGRect(x: layout.gridLeft, y: layout.gridTop, width: side, height: side + 5 * u).insetBy(dx: -20 * u, dy: -20 * u)
-        ctx.draw(art.tray, in: tray)
+        drawTray(&ctx, art.tray, in: CGRect(x: layout.gridLeft - 12 * u, y: layout.gridTop - 12 * u, width: side + 24 * u, height: side + 29 * u))
         if showHUD { drawHeader(&ctx) }
         drawBubble(&ctx)
         drawTiles(&ctx, art)
@@ -357,6 +356,27 @@ struct LetterRushPainter {
     }
 
     static func words(_ n: Int) -> String { n == 1 ? "1 word" : "\(n) words" }
+
+    // MARK: Tray
+
+    /// The tray under the tiles, stretched with its rim kept thin: the outer 14% of the picture on
+    /// each edge maps to a fixed corner size.
+    func drawTray(_ ctx: inout GraphicsContext, _ image: GraphicsContext.ResolvedImage, in rect: CGRect) {
+        let corner = 23 * u
+        let cuts: [CGFloat] = [0, 0.14, 0.86, 1]
+        let xs: [CGFloat] = [rect.minX, rect.minX + corner, rect.maxX - corner, rect.maxX]
+        let ys: [CGFloat] = [rect.minY, rect.minY + corner, rect.maxY - corner, rect.maxY]
+        for i in 0..<3 {
+            for j in 0..<3 {
+                let piece = CGRect(x: xs[i], y: ys[j], width: xs[i + 1] - xs[i], height: ys[j + 1] - ys[j])
+                let fw = piece.width / (cuts[i + 1] - cuts[i])
+                let fh = piece.height / (cuts[j + 1] - cuts[j])
+                var part = ctx
+                part.clip(to: Path(piece.insetBy(dx: -0.3, dy: -0.3)))
+                part.draw(image, in: CGRect(x: xs[i] - cuts[i] * fw, y: ys[j] - cuts[j] * fh, width: fw, height: fh))
+            }
+        }
+    }
 
     // MARK: Header
 
