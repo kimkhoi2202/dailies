@@ -99,6 +99,22 @@ const GAMES = [
     dislikes: 94,
     scores: [1980, 1650, 2410, 760, 1180, 420],
   },
+  {
+    slug: "letter-rush",
+    title: "Letter Rush",
+    studio: "Paper Lantern",
+    pitch: "Drag a word. Beat the clock.",
+    how: "Drag through touching letters to spell a word, diagonals too, then lift to submit. Longer words score more. Same board for both players, 80 seconds.",
+    minPlayers: 2,
+    maxPlayers: 2,
+    mode: "competitive" as const,
+    category: "Word",
+    unit: "points",
+    goldPerMinute: 1.1,
+    likes: 275,
+    dislikes: 18,
+    scores: [2600, 3500, 1900, 1200, 2100, 2900],
+  },
 ];
 
 const PLAYERS = [
@@ -117,6 +133,7 @@ const COMMENTS: Record<string, string[]> = {
   "gulp-city": ["swallowed the whole block with two seconds left", "started with a flower, ended with a bus"],
   inkland: ["took a fifth of the map in one loop", "got cut one step from home. again"],
   "lane-dash": ["the near miss at the end. I stopped breathing", "ramp into three gems into a barrier. classic"],
+  "letter-rush": ["found a six letter word with two seconds left", "we had the same board and still found different words"],
 };
 
 export const run = internalMutation({
