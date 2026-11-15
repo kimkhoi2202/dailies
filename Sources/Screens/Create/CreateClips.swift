@@ -80,11 +80,12 @@ struct ConvexClip: Decodable, Equatable, Identifiable {
     let handle: String
     let color: String
     let mine: Bool
+    let overlay: String?
 
     private enum CodingKeys: String, CodingKey {
         case id = "_id"
         case at, gameSlug, gameTitle, unit, kind, url, score, seed, caption, layout, durationMs, visibility, likes,
-             comments, handle, color, mine
+             comments, handle, color, mine, overlay
     }
 
     /// The key this clip is saved under.
@@ -210,7 +211,8 @@ final class CreateClips: ObservableObject {
     }
 
     /// Uploads the take and posts it. `progress` runs from 0 to 1 on the main thread. Returns the clip's id.
-    func post(_ take: CreateTake, caption: String, everyone: Bool, progress: @escaping (Double) -> Void) async throws -> String {
+    func post(_ take: CreateTake, caption: String, overlay: String = "", everyone: Bool,
+              progress: @escaping (Double) -> Void) async throws -> String {
         var storageID: String?
         var kind = "video"
         if let photo = take.photo {
@@ -227,6 +229,7 @@ final class CreateClips: ObservableObject {
             "gameSlug": take.gameID,
             "kind": kind,
             "caption": String(caption.trimmingCharacters(in: .whitespacesAndNewlines).prefix(140)),
+            "overlay": String(overlay.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80)),
             "layout": take.layout.rawValue,
             "durationMs": (take.seconds * 1000).rounded(),
             "visibility": everyone ? "everyone" : "friends",

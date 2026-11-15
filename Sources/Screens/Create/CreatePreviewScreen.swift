@@ -122,6 +122,8 @@ private struct CreatePreviewContent: View {
     @State private var posting = false
     @State private var progress = 0.0
     @State private var burst = false
+    /// Big text on the video.
+    @State private var overlay = ""
     @FocusState private var typing: Bool
 
     private var game: MockGame { Mock.game(take.gameID) }
@@ -131,6 +133,7 @@ private struct CreatePreviewContent: View {
             media
                 .ignoresSafeArea()
                 .onTapGesture { typing = false }
+            CreateOverlayText(text: overlay).allowsHitTesting(false)
             LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .top, endPoint: .bottom)
                 .frame(height: 200)
                 .frame(maxHeight: .infinity, alignment: .top)
@@ -194,6 +197,17 @@ private struct CreatePreviewContent: View {
 
     private var sheet: some View {
         VStack(alignment: .leading, spacing: 14) {
+            TextField("Text on the video", text: $overlay)
+                .font(DL.text(16, .semibold))
+                .foregroundStyle(DL.ink)
+                .focused($typing)
+                .submitLabel(.done)
+                .onChange(of: overlay) { _, text in
+                    if text.count > 80 { overlay = String(text.prefix(80)) }
+                }
+                .padding(12)
+                .background(DL.body, in: RoundedRectangle(cornerRadius: DL.tileRadius, style: .continuous))
+
             VStack(alignment: .trailing, spacing: 4) {
                 TextField("Say something about this run", text: $caption, axis: .vertical)
                     .font(DL.text(16))
@@ -276,10 +290,10 @@ private struct CreatePreviewContent: View {
         typing = false
         posting = true
         progress = 0.02
-        let take = take, caption = caption, everyone = everyone
+        let take = take, caption = caption, overlay = overlay, everyone = everyone
         Task { @MainActor in
             do {
-                _ = try await CreateClips.shared.post(take, caption: caption, everyone: everyone) { progress = $0 }
+                _ = try await CreateClips.shared.post(take, caption: caption, overlay: overlay, everyone: everyone) { progress = $0 }
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 burst = true
                 LiveNav.shared.say("Posted")
@@ -352,6 +366,28 @@ struct CreateGoldBurst: View {
 
 // MARK: Videos
 
+/// Big text across a clip, the way reels caption themselves on screen: white, heavy, outlined in black.
+struct CreateOverlayText: View {
+    let text: String
+
+    var body: some View {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            Text(trimmed)
+                .font(.system(size: 30, weight: .heavy))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.white)
+                .shadow(color: .black, radius: 0, x: 1.5, y: 1.5)
+                .shadow(color: .black, radius: 0, x: -1.5, y: -1.5)
+                .shadow(color: .black, radius: 0, x: 1.5, y: -1.5)
+                .shadow(color: .black, radius: 0, x: -1.5, y: 1.5)
+                .padding(.horizontal, 28)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .offset(y: -90)
+        }
+    }
+}
+
 /// A clip a player posted, in Videos. The same page as a catalog clip, with the recording instead of the replay.
 struct CreateClipPage: View {
     let clip: ConvexClip
@@ -368,7 +404,8 @@ struct CreateClipPage: View {
         let shown = MockClip(id: Mock.clips.first { $0.game.id == game.id }?.id ?? Mock.clips[0].id, game: game,
                              player: clip.handle, caption: clip.caption, length: "",
                              comments: groupedNumber(Int(clip.comments)), shares: groupedNumber(Int(clip.likes)))
-        VideoPage(clip: shown, progress: 0, voted: store.vote(for: game.id), media: AnyView(media(game)), tag: clip.scoreText,
+        VideoPage(clip: shown, progress: 0, voted: store.vote(for: game.id),
+                  media: AnyView(media(game).overlay { CreateOverlayText(text: clip.overlay ?? "") }), tag: clip.scoreText,
                   saveKey: clip.saveKey, onMore: clip.mine ? { menu = true } : nil)
             // Two seconds on screen is a view. A view of someone else's clip pays its creator when the game has a program.
             .task(id: active) {
