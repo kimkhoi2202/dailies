@@ -2,7 +2,8 @@ import SwiftUI
 
 // MARK: - Lane Dash, the picture
 //
-// A three-lane runner on a causeway over the sea at dusk. Every pixel is drawn in code.
+// A three-lane runner on a causeway over the sea at dusk. The sky, kart, gems, obstacles and lamp
+// posts are painted images from Resources/GameArt; the road, sea, gates and effects are drawn in code.
 //
 // LaneDashFrame says what one frame shows. LaneDashPainter draws it. The feed clip fills a frame
 // from phase (one seamless loop, below); the playable game in LaneDashGame.swift fills one from
@@ -344,123 +345,6 @@ enum LaneDashShape {
     }
 }
 
-// MARK: - Scenery that never changes
-
-/// The skyline and the hills are the same on every frame for a given canvas size, so their
-/// outlines are worked out once and kept.
-private struct LaneDashSkyline {
-    var farHills = Path()
-    var nearHills = Path()
-    var towers = Path()
-    var warmWindows = Path()
-    var pinkWindows = Path()
-    var coolWindows = Path()
-    var rims = Path()
-    var mirror = Path()         // the towers, upside down and squashed, for the water
-
-    private static var kept: (size: CGSize, art: LaneDashSkyline)?
-    private static let door = NSLock()
-
-    static func art(for size: CGSize, unit u: CGFloat, centreX: CGFloat, horizonY: CGFloat) -> LaneDashSkyline {
-        door.lock()
-        defer { door.unlock() }
-        if let kept, kept.size == size { return kept.art }
-        let art = LaneDashSkyline(size: size, u: u, cx: centreX, hy: horizonY)
-        kept = (size, art)
-        return art
-    }
-
-    private init(size: CGSize, u: CGFloat, cx: CGFloat, hy: CGFloat) {
-        farHills = Self.ridge(size.width, u, cx, hy, base: 31, swell: (13, 0.019, 1.2), ripple: (7, 0.047, 0.3), dip: 0.78)
-        nearHills = Self.ridge(size.width, u, cx, hy, base: 16, swell: (8, 0.031, 4.0), ripple: (4, 0.071, 2.2), dip: 0.88)
-
-        // Towers, in design units from the centre line: small by the sun, tall beside it, fading out.
-        var blocks: [(x: CGFloat, w: CGFloat, h: CGFloat, top: Int)] = []
-        let reach = size.width / u / 2 + 24
-        for side in [-1, 1] as [CGFloat] {
-            var dice = LaneDashScatter(side < 0 ? 7 : 19)
-            var x: CGFloat = 5
-            while x < reach {
-                let w = dice.between(9, 19)
-                let mid = x + w / 2
-                let rise = LaneDashClip.ease(22, 78, mid) * (1 - 0.55 * LaneDashClip.ease(105, 230, mid))
-                let h = 7 + 52 * max(rise, 0.08) * dice.between(0.42, 1.0)
-                let top = Int(dice.unit() * 4)
-                blocks.append((side > 0 ? x : -(x + w), w, h, top))
-                x += w + dice.between(0.4, 3.2)
-            }
-        }
-
-        var lights = LaneDashScatter(301)
-        for b in blocks {
-            let left = cx + b.x * u
-            let roof = hy - b.h * u
-            let width = b.w * u
-            let soft = min(2.6 * u, width * 0.22)
-            towers.addRoundedRect(in: CGRect(x: left, y: roof, width: width, height: (b.h + 5) * u),
-                                  cornerSize: CGSize(width: soft, height: soft))
-            switch b.top {
-            case 1:     // dome
-                towers.addEllipse(in: CGRect(x: left + width * 0.12, y: roof - width * 0.32, width: width * 0.76, height: width * 0.64))
-            case 2:     // mast
-                towers.addRect(CGRect(x: left + width / 2 - 0.6 * u, y: roof - 9 * u, width: 1.2 * u, height: 10 * u))
-                towers.addEllipse(in: CGRect(x: left + width / 2 - 1.5 * u, y: roof - 11 * u, width: 3 * u, height: 3 * u))
-            case 3:     // penthouse
-                towers.addRoundedRect(in: CGRect(x: left + width * 0.2, y: roof - 6 * u, width: width * 0.6, height: 8 * u),
-                                      cornerSize: CGSize(width: 1.5 * u, height: 1.5 * u))
-            default:
-                break
-            }
-
-            let columns = max(1, Int((b.w - 3) / 3.6))
-            let floors = Int((b.h - 5) / 4.6)
-            if floors > 0 {
-                let gap = (b.w - CGFloat(columns) * 1.7) / CGFloat(columns + 1)
-                for floor in 0..<floors {
-                    for column in 0..<columns {
-                        let roll = lights.unit()
-                        if roll > 0.56 { continue }
-                        let pane = CGRect(x: cx + (b.x + gap + CGFloat(column) * (1.7 + gap)) * u,
-                                          y: hy - (b.h - 3.5 - CGFloat(floor) * 4.6) * u,
-                                          width: 1.7 * u, height: 2.3 * u)
-                        if roll < 0.36 {
-                            warmWindows.addRect(pane)
-                        } else if roll < 0.5 {
-                            pinkWindows.addRect(pane)
-                        } else {
-                            coolWindows.addRect(pane)
-                        }
-                    }
-                }
-            }
-            // the edge that faces the sun catches the light
-            let edge = b.x + b.w / 2 < 0 ? b.x + b.w - 1.2 : b.x
-            rims.addRect(CGRect(x: cx + edge * u, y: hy - (b.h - 2) * u, width: 1.2 * u, height: (b.h - 2) * u))
-        }
-
-        let flip = CGAffineTransform(translationX: 0, y: hy).scaledBy(x: 1, y: -0.55).translatedBy(x: 0, y: -hy)
-        mirror = towers.applying(flip)
-    }
-
-    private static func ridge(_ width: CGFloat, _ u: CGFloat, _ cx: CGFloat, _ hy: CGFloat, base: CGFloat,
-                              swell: (CGFloat, CGFloat, CGFloat), ripple: (CGFloat, CGFloat, CGFloat), dip: CGFloat) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: -2, y: hy + 2))
-        let steps = 72
-        for i in 0...steps {
-            let x = width * CGFloat(i) / CGFloat(steps)
-            let d = (x - cx) / u
-            // the hills sink behind the sun
-            let valley = 1 - dip + dip * LaneDashClip.ease(24, 150, abs(d))
-            let h = (base + swell.0 * sin(d * swell.1 + swell.2) + ripple.0 * sin(d * ripple.1 + ripple.2)) * valley
-            path.addLine(to: CGPoint(x: x, y: hy - max(h, 0) * u))
-        }
-        path.addLine(to: CGPoint(x: width + 2, y: hy + 2))
-        path.closeSubpath()
-        return path
-    }
-}
-
 /// Random numbers behind the moving scenery. They do not depend on the canvas, so one table each.
 private enum LaneDashTables {
     struct Glint { var x, start, width, beat: CGFloat }
@@ -501,6 +385,29 @@ private enum LaneDashTables {
             return Scuff(x: x, start: start, length: dice.between(0.25, 0.6))
         }
     }()
+}
+
+// MARK: - Painted art
+
+/// The painted sprites, resolved once a frame and shared by every lamp, prop and the kart.
+private struct LaneDashArt {
+    let kart: GraphicsContext.ResolvedImage
+    let gem: GraphicsContext.ResolvedImage
+    let barrier: GraphicsContext.ResolvedImage
+    let cone: GraphicsContext.ResolvedImage
+    let block: GraphicsContext.ResolvedImage
+    let hurdle: GraphicsContext.ResolvedImage
+    let lamp: GraphicsContext.ResolvedImage
+
+    init(_ ctx: GraphicsContext) {
+        kart = ctx.resolve(Image("lane-dash-kart"))
+        gem = ctx.resolve(Image("lane-dash-gem"))
+        barrier = ctx.resolve(Image("lane-dash-barrier"))
+        cone = ctx.resolve(Image("lane-dash-cone"))
+        block = ctx.resolve(Image("lane-dash-block"))
+        hurdle = ctx.resolve(Image("lane-dash-hurdle"))
+        lamp = ctx.resolve(Image("lane-dash-lamp"))
+    }
 }
 
 // MARK: - Painter
@@ -649,9 +556,10 @@ struct LaneDashPainter {
     // MARK: Sky
 
     private func sky(_ ctx: GraphicsContext) {
-        ctx.fill(S.box(0, 0, width, horizon + 2),
-                 with: down([(0x1B1250, 0), (0x43208A, 0.22), (0x8A2FA6, 0.45), (0xE0488F, 0.66),
-                             (0xFF7A7F, 0.84), (0xFFAE6B, 0.95), (0xFFD98A, 1)], 0, horizon))
+        // the painted sky, sun, clouds and far skyline, its bottom edge on the horizon
+        let tall = horizon + 2
+        let wide = max(width, tall * 1.5)
+        ctx.draw(ctx.resolve(Image("lane-dash-backdrop")), in: CGRect(x: midX - wide / 2, y: tall - wide / 1.5, width: wide, height: wide / 1.5))
 
         var dice = LaneDashScatter(11)
         let band = horizon * 0.72
@@ -670,52 +578,11 @@ struct LaneDashPainter {
                 ctx.fill(S.disc(at, size), with: .color(ink(0xFFF1E0, 0.85 * twinkle * fade)))
             }
         }
-
-        let sun = CGPoint(x: midX, y: horizon - 16 * u)
-        let radius = 80 * u
-        halo(ctx, sun, 270 * u, [ink(0xFFF0B0, 0.62), ink(0xFFB070, 0.30), ink(0xFF7AA0, 0.10), ink(0xFF7AA0, 0)])
-        ctx.stroke(S.disc(sun, radius + 30 * u), with: .color(ink(0xFFE9C0, 0.10)), lineWidth: 12 * u)
-        ctx.stroke(S.disc(sun, radius + 13 * u), with: .color(ink(0xFFF1CC, 0.20)), lineWidth: 8 * u)
-        ctx.fill(S.disc(sun, radius),
-                 with: down([(0xFFFCE0, 0), (0xFFE27A, 0.45), (0xFFA76B, 0.85), (0xFF7F8F, 1)], sun.y - radius, sun.y + radius))
-
-        // bars of cloud that slide a little with the loop
-        let drift = sin(tick * 2 * .pi) * 5 * u
-        cloud(ctx, x: midX - 128 * u + drift, y: horizon - 74 * u, scale: u, lean: 1)
-        cloud(ctx, x: midX + 132 * u - drift, y: horizon - 104 * u, scale: 0.86 * u, lean: -1)
-        cloud(ctx, x: midX - 150 * u - drift * 0.6, y: horizon - 196 * u, scale: 0.62 * u, lean: -1)
-        cloud(ctx, x: midX + 150 * u + drift * 0.6, y: horizon - 232 * u, scale: 0.56 * u, lean: 1)
     }
 
-    private func cloud(_ ctx: GraphicsContext, x: CGFloat, y: CGFloat, scale k: CGFloat, lean: CGFloat) {
-        let bars: [(dx: CGFloat, dy: CGFloat, w: CGFloat, h: CGFloat)] = [(-12, -10, 56, 9), (6, 0, 98, 11), (-20, 10, 62, 8)]
-        for bar in bars {
-            let rect = CGRect(x: x + (bar.dx * lean - bar.w / 2) * k, y: y + (bar.dy - bar.h / 2) * k,
-                              width: bar.w * k, height: bar.h * k)
-            ctx.fill(Path(roundedRect: rect, cornerRadius: rect.height / 2),
-                     with: down([ink(0xC65AB8, 0.78), ink(0xFFB79A, 0.95)], rect.minY, rect.maxY))
-            let lit = CGRect(x: rect.minX + rect.height * 0.5, y: rect.maxY - rect.height * 0.32,
-                             width: rect.width - rect.height, height: rect.height * 0.2)
-            ctx.fill(Path(roundedRect: lit, cornerRadius: lit.height / 2), with: .color(ink(0xFFE9C8, 0.75)))
-        }
-    }
-
-    // MARK: Hills and skyline
-
-    private var skylineArt: LaneDashSkyline {
-        LaneDashSkyline.art(for: CGSize(width: width, height: height), unit: u, centreX: midX, horizonY: horizon)
-    }
+    // MARK: Skyline
 
     private func skyline(_ ctx: GraphicsContext) {
-        let art = skylineArt
-        ctx.fill(art.farHills, with: down([ink(0xB358B6, 0.92), ink(0xFF9C98, 0.92)], horizon - 48 * u, horizon))
-        ctx.fill(art.nearHills, with: down([ink(0x8842A8), ink(0xE8769A)], horizon - 28 * u, horizon))
-        ctx.fill(art.towers, with: down([ink(0x4A2288), ink(0x74369E), ink(0xC25C9C)], horizon - 64 * u, horizon + 3 * u))
-        ctx.fill(art.warmWindows, with: .color(ink(0xFFE3A6, 0.95)))
-        ctx.fill(art.pinkWindows, with: .color(ink(0xFFA9C8, 0.9)))
-        ctx.fill(art.coolWindows, with: .color(ink(0x9DF3FF, 0.9)))
-        ctx.fill(art.rims, with: .color(ink(0xFFC0A8, 0.55)))
-
         bigWheel(ctx, hub: CGPoint(x: midX - 124 * u, y: horizon - 33 * u), radius: 25 * u)
         needle(ctx, x: midX + 116 * u)
 
@@ -777,8 +644,6 @@ struct LaneDashPainter {
         ctx.fill(water, with: down([(0xFFCB96, 0), (0xFF8FA6, 0.05), (0xC466C8, 0.16), (0x6A63D8, 0.36),
                                     (0x2F8AD0, 0.68), (0x1B6DB2, 1)], horizon, horizon + drop * 1.5))
         let wet = clipped(ctx, to: water)
-
-        wet.fill(skylineArt.mirror, with: down([ink(0x5A2A96, 0.5), ink(0x5A2A96, 0)], horizon, horizon + 36 * u))
 
         var glare = wet
         glare.translateBy(x: midX, y: horizon)
@@ -949,30 +814,31 @@ struct LaneDashPainter {
         cast.append((0.999, .kart))
 
         cast.sort { $0.depth > $1.depth }
+        let art = LaneDashArt(ctx)
         for member in cast {
             switch member.actor {
-            case let .lamp(side, index): lamp(ctx, side: side, depth: member.depth, index: index)
-            case let .prop(prop): self.prop(ctx, prop)
+            case let .lamp(side, index): lamp(ctx, art, side: side, depth: member.depth, index: index)
+            case let .prop(prop): self.prop(ctx, art, prop)
             case let .gate(gate): self.gate(ctx, gate)
-            case .kart: kart(ctx)
+            case .kart: kart(ctx, art)
             }
         }
     }
 
-    private func prop(_ ctx: GraphicsContext, _ prop: LaneDashProp) {
+    private func prop(_ ctx: GraphicsContext, _ art: LaneDashArt, _ prop: LaneDashProp) {
         // things fade in out of the haze at the horizon
         let alpha = unitRange((11.25 - prop.depth) / 1.7)
         if alpha <= 0.01 { return }
         if alpha >= 0.995 {
-            propBody(ctx, prop)
+            propBody(ctx, art, prop)
         } else {
             var hazy = ctx
             hazy.opacity = Double(alpha)
-            hazy.drawLayer { layer in self.propBody(layer, prop) }
+            hazy.drawLayer { layer in self.propBody(layer, art, prop) }
         }
     }
 
-    private func propBody(_ ctx: GraphicsContext, _ prop: LaneDashProp) {
+    private func propBody(_ ctx: GraphicsContext, _ art: LaneDashArt, _ prop: LaneDashProp) {
         let x = prop.lane * LaneDashClip.laneWidth
         let foot = lens.point(x, prop.depth)
         let scale = lens.scale(prop.depth)
@@ -981,18 +847,18 @@ struct LaneDashPainter {
             let bob = sin(2 * .pi * (tick * 4 + prop.seed * 0.37)) * 3
             let shade = 0.3 * max(0.25, 1 - prop.lift / 160)
             easel(ctx, at: foot, scale: scale).fill(S.oval(.zero, 11, 3.4), with: .color(ink(0x120A3C, shade)))
-            gem(ctx, at: lens.point(x, prop.depth, up: prop.lift + bob), scale: scale * 1.08,
+            gem(ctx, art, at: lens.point(x, prop.depth, up: prop.lift + bob), scale: scale * 1.08,
                 turn: LaneDashClip.wrap(tick * 3 + prop.seed * 0.23), glow: 1)
         case .barrier:
-            barrier(ctx, foot, scale, wobble: prop.wobble, seed: prop.seed)
+            barrier(ctx, art, foot, scale, wobble: prop.wobble, seed: prop.seed)
         case .cones:
-            cone(ctx, CGPoint(x: foot.x - 20 * scale, y: foot.y - 6 * scale), scale * 0.9)
-            cone(ctx, CGPoint(x: foot.x + 21 * scale, y: foot.y - 4 * scale), scale * 0.94)
-            cone(ctx, CGPoint(x: foot.x + scale, y: foot.y + 4 * scale), scale)
+            cone(ctx, art, CGPoint(x: foot.x - 20 * scale, y: foot.y - 6 * scale), scale * 0.9)
+            cone(ctx, art, CGPoint(x: foot.x + 21 * scale, y: foot.y - 4 * scale), scale * 0.94)
+            cone(ctx, art, CGPoint(x: foot.x + scale, y: foot.y + 4 * scale), scale)
         case .block:
-            block(ctx, foot, scale, glance: (frame.kartX - x) / LaneDashClip.laneWidth)
+            block(ctx, art, foot, scale, glance: (frame.kartX - x) / LaneDashClip.laneWidth)
         case .hurdle:
-            hurdle(ctx, foot, scale)
+            hurdle(ctx, art, foot, scale)
         case .ramp:
             ramp(ctx, x: x, depth: prop.depth)
         }
@@ -1005,7 +871,7 @@ struct LaneDashPainter {
 
     // MARK: Lamp posts
 
-    private func lamp(_ ctx: GraphicsContext, side: CGFloat, depth: CGFloat, index: Int) {
+    private func lamp(_ ctx: GraphicsContext, _ art: LaneDashArt, side: CGFloat, depth: CGFloat, index: Int) {
         let alpha = unitRange((12.2 - depth) / 2.2) * min(1, (depth - 0.3) / 0.12)
         if alpha <= 0.01 { return }
         let foot = lens.point(side * (Self.walkEdge - 13), depth, up: Self.kerbHeight)
@@ -1020,11 +886,7 @@ struct LaneDashPainter {
         // its pool of light on the boards
         halo(flattened(c, 0.3), .zero, 30, [ink(0xFFE9B8, 0.4), ink(0xFFE9B8, 0)])
 
-        let dark = ink(0x3E2C8A)
-        let bright = ink(0x9C8AF2)
-        c.fill(S.box(-7, -7, 14, 8, 3), with: down([ink(0x8674E6), ink(0x4A379E)], -7, 1))
-        c.fill(S.box(-2.6, top + 8, 5.2, -top - 12, 2.4), with: across(side < 0 ? [dark, bright] : [bright, dark], -2.6, 2.6))
-        c.fill(S.box(-4.2, top + 8, 8.4, 5, 2), with: .color(ink(0x4A379E)))
+        c.draw(art.lamp, in: CGRect(x: -14.7, y: top - 18, width: 29.4, height: 169))
 
         // a pennant that points at the road
         let flags: [UInt32] = [0xFF5C8A, 0x39E0F5, 0xFFD23F]
@@ -1035,13 +897,7 @@ struct LaneDashPainter {
         c.fill(S.corners((inward * 2.4, top + 26), (inward * 24, top + 33 + flutter), (inward * 2.4, top + 31)),
                with: .color(ink(0xFFFFFF, 0.3)))
 
-        let globe = CGPoint(x: 0, y: top)
-        halo(c, globe, 46, [ink(0xFFF3C8, 0.62), ink(0xFFB884, 0.24), ink(0xFFB884, 0)])
-        c.fill(S.disc(globe, 11.5),
-               with: .radialGradient(Gradient(colors: [ink(0xFFFFFF), ink(0xFFF2C2), ink(0xFFC68A)]),
-                                     center: CGPoint(x: -3, y: top - 3), startRadius: 0, endRadius: 15))
-        c.fill(S.box(-5.5, top - 15, 11, 5, 2.4), with: .color(ink(0x5A46B4)))
-        c.fill(S.oval(CGPoint(x: -4, y: top - 3.5), 3, 2), with: .color(ink(0xFFFFFF, 0.9)))
+        halo(c, CGPoint(x: 0, y: top + 2), 46, [ink(0xFFF3C8, 0.5), ink(0xFFB884, 0.2), ink(0xFFB884, 0)])
     }
 
     // MARK: Gates
@@ -1093,98 +949,47 @@ struct LaneDashPainter {
 
     // MARK: Gems
 
-    private func gem(_ ctx: GraphicsContext, at centre: CGPoint, scale: CGFloat, turn: CGFloat, glow: CGFloat) {
+    private func gem(_ ctx: GraphicsContext, _ art: LaneDashArt, at centre: CGPoint, scale: CGFloat, turn: CGFloat, glow: CGFloat) {
         if glow > 0 {
             halo(ctx, centre, 32 * scale, [ink(0x9DF6FF, 0.6 * glow), ink(0x39C8FF, 0.2 * glow), ink(0x39C8FF, 0)])
         }
         let c = easel(ctx, at: centre, scale: scale)
         // it turns, so it narrows and widens
         let facing = 0.56 + 0.44 * abs(cos(turn * .pi))
-        let wide = 15.5 * facing
-        let table = 8.6 * facing
-        let inner = 6.2 * facing
-        let top: CGFloat = -15
-        let girdle: CGFloat = -5
-        let point: CGFloat = 17
-
-        let outline = S.corners((-table, top), (table, top), (wide, girdle), (0, point), (-wide, girdle))
-        c.stroke(outline, with: .color(ink(0x0B4FA8, 0.55)), style: StrokeStyle(lineWidth: 6, lineJoin: .round))
-        c.stroke(outline, with: .color(ink(0xFFFFFF)), style: StrokeStyle(lineWidth: 3.2, lineJoin: .round))
-        c.fill(S.corners((-table, top), (-wide, girdle), (-inner, girdle)), with: .color(ink(0xA4F7FF)))
-        c.fill(S.corners((-table, top), (table, top), (inner, girdle), (-inner, girdle)), with: .color(ink(0xE6FEFF)))
-        c.fill(S.corners((table, top), (wide, girdle), (inner, girdle)), with: .color(ink(0x5CE0FA)))
-        c.fill(S.corners((-wide, girdle), (-inner, girdle), (0, point)), with: .color(ink(0x35CDF6)))
-        c.fill(S.corners((-inner, girdle), (inner, girdle), (0, point)), with: .color(ink(0x82EEFF)))
-        c.fill(S.corners((inner, girdle), (wide, girdle), (0, point)), with: .color(ink(0x1590E2)))
+        let wide = 17 * facing
+        let top: CGFloat = -13
+        c.draw(art.gem, in: CGRect(x: -wide, y: top, width: wide * 2, height: 28))
         let twinkle = 0.6 + 0.4 * sin(turn * 2 * .pi)
-        c.fill(S.star(CGPoint(x: -wide * 0.78, y: top - 1), 6.5 * twinkle), with: .color(ink(0xFFFFFF)))
+        c.fill(S.star(CGPoint(x: -wide * 0.7, y: top + 1), 6.5 * twinkle), with: .color(ink(0xFFFFFF)))
     }
 
     // MARK: Obstacles
 
-    private func barrier(_ ctx: GraphicsContext, _ foot: CGPoint, _ scale: CGFloat, wobble: CGFloat, seed: CGFloat) {
+    private func barrier(_ ctx: GraphicsContext, _ art: LaneDashArt, _ foot: CGPoint, _ scale: CGFloat, wobble: CGFloat, seed: CGFloat) {
         groundShadow(easel(ctx, at: foot, scale: scale), radius: 50, squash: 0.17, strength: 0.5, mid: 0.34)
 
         let c = easel(ctx, at: foot, scale: scale, turn: wobble)
-        let ends: [CGFloat] = [-1, 1]
-        for end in ends {
-            let x = 26 * end
-            c.fill(S.box(x - 11.5, -6.5, 23, 7, 3.2), with: down([ink(0x5446A6), ink(0x231A52)], -6.5, 0.5))
-            c.fill(S.box(x - 3.6, -36, 7.2, 32, 2), with: across([ink(0x8674E6), ink(0x34287A)], x - 3.6, x + 3.6))
-        }
+        c.draw(art.barrier, in: CGRect(x: -42, y: -63.1, width: 84, height: 63.6))
 
         // two warning lamps that take turns
         let leftOn = LaneDashClip.wrap(tick * 8 + seed * 0.37) < 0.5
-        for end in ends {
-            let lit = (end < 0) == leftOn
-            let bulb = CGPoint(x: 26 * end, y: -61)
-            if lit { halo(c, bulb, 17, [ink(0xFFD27A, 0.75), ink(0xFF8A3C, 0.25), ink(0xFF8A3C, 0)]) }
-            c.fill(S.box(bulb.x - 4.5, -58, 9, 4, 1.5), with: .color(ink(0x34287A)))
-            c.fill(S.disc(bulb, 5.6), with: .color(ink(lit ? 0xFFC24A : 0xD9632A)))
-            c.fill(S.disc(CGPoint(x: bulb.x - 1.6, y: bulb.y - 1.8), 1.8), with: .color(ink(0xFFFFFF, lit ? 0.95 : 0.5)))
-        }
-
-        c.fill(S.box(-35, -59, 70, 14, 5.5), with: .color(ink(0xFFE6DA)))
-        let plank = S.box(-37.5, -54, 75, 27, 7)
-        c.fill(plank, with: .color(ink(0xFFF8EE)))
-        let on = clipped(c, to: plank)
-        for i in -3...4 {
-            let x = CGFloat(i) * 18.5 - 6
-            on.fill(S.corners((x, -27), (x + 9.5, -27), (x + 20.5, -54), (x + 11, -54)), with: .color(ink(0xFF4259)))
-        }
-        on.fill(S.box(-40, -54, 80, 27), with: down([ink(0xFFFFFF, 0), ink(0x6A1C78, 0.3)], -44, -27))
-        c.fill(S.box(-32, -52, 64, 2.6, 1.3), with: .color(ink(0xFFFFFF, 0.8)))
+        let bulb = CGPoint(x: leftOn ? -28 : 28, y: -54)
+        halo(c, bulb, 17, [ink(0xFFD27A, 0.75), ink(0xFF8A3C, 0.25), ink(0xFF8A3C, 0)])
+        c.fill(S.disc(bulb, 5.2), with: .color(ink(0xFFC24A, 0.85)))
+        c.fill(S.disc(CGPoint(x: bulb.x - 1.6, y: bulb.y - 1.8), 1.8), with: .color(ink(0xFFFFFF, 0.95)))
     }
 
-    private func cone(_ ctx: GraphicsContext, _ foot: CGPoint, _ scale: CGFloat) {
+    private func cone(_ ctx: GraphicsContext, _ art: LaneDashArt, _ foot: CGPoint, _ scale: CGFloat) {
         let c = easel(ctx, at: foot, scale: scale)
         groundShadow(c, radius: 26, squash: 0.24, strength: 0.5, mid: 0.3)
-
-        c.fill(S.box(-17.5, -7.5, 35, 8, 3.4), with: down([ink(0xFF7A38), ink(0xD63A14)], -7.5, 0.5))
-        c.fill(S.box(-15.5, -8.8, 31, 4.2, 2.1), with: .color(ink(0xFFA060)))
-        var body = Path()
-        body.move(to: CGPoint(x: -12, y: -6.5))
-        body.addLine(to: CGPoint(x: -4.2, y: -44))
-        body.addQuadCurve(to: CGPoint(x: 4.2, y: -44), control: CGPoint(x: 0, y: -50))
-        body.addLine(to: CGPoint(x: 12, y: -6.5))
-        body.closeSubpath()
-        c.fill(body, with: across([ink(0xFFAA4A), ink(0xFF6E22), ink(0xE0460F)], -12, 12))
-        let on = clipped(c, to: body)
-        on.fill(S.box(-14, -33, 28, 10.5), with: across([ink(0xFFFFFF), ink(0xF3DCE0)], -10, 10))
-        on.fill(S.corners((-12.5, -6.5), (-4.6, -46), (-2.4, -46), (-8.2, -6.5)), with: .color(ink(0xFFFFFF, 0.36)))
+        c.draw(art.cone, in: CGRect(x: -19, y: 0.5 - 38 * 1.114, width: 38, height: 38 * 1.114))
     }
 
     /// A cross block of jelly. Its eyes follow the kart.
-    private func block(_ ctx: GraphicsContext, _ foot: CGPoint, _ scale: CGFloat, glance: CGFloat) {
+    private func block(_ ctx: GraphicsContext, _ art: LaneDashArt, _ foot: CGPoint, _ scale: CGFloat, glance: CGFloat) {
         let c = easel(ctx, at: foot, scale: scale)
         groundShadow(c, radius: 54, squash: 0.17, strength: 0.55, mid: 0.36)
-
-        c.fill(S.box(-34, -76, 68, 28, 11), with: down([ink(0xFFC0A6), ink(0xFF9478)], -76, -56))
-        let front = S.box(-37.5, -63, 75, 63, 11.5)
-        c.fill(front, with: down([ink(0xFF705A), ink(0xEE3D5A)], -63, 0))
-        clipped(c, to: front).fill(S.box(-40, -15, 80, 16), with: down([ink(0x9A1650, 0), ink(0x9A1650, 0.5)], -15, 0))
-        c.fill(S.box(-30, -58.5, 26, 4.2, 2.1), with: .color(ink(0xFFFFFF, 0.5)))
-        c.fill(S.disc(CGPoint(x: 1.5, y: -56.4), 2.1), with: .color(ink(0xFFFFFF, 0.5)))
+        c.draw(art.block, in: CGRect(x: -39.4, y: -79, width: 78.8, height: 80))
 
         let plum = ink(0x7A1240)
         let look = min(1, max(-1, glance)) * 2.6
@@ -1204,20 +1009,10 @@ struct LaneDashPainter {
         c.stroke(frown, with: .color(plum), style: StrokeStyle(lineWidth: 4.4, lineCap: .round))
     }
 
-    private func hurdle(_ ctx: GraphicsContext, _ foot: CGPoint, _ scale: CGFloat) {
+    private func hurdle(_ ctx: GraphicsContext, _ art: LaneDashArt, _ foot: CGPoint, _ scale: CGFloat) {
         let c = easel(ctx, at: foot, scale: scale)
         groundShadow(c, radius: 52, squash: 0.16, strength: 0.5, mid: 0.34)
-
-        c.fill(S.box(-37, -35, 74, 16, 6), with: .color(ink(0xFFD9D2)))
-        let front = S.box(-40, -28, 80, 28, 7.5)
-        c.fill(front, with: .color(ink(0xFF4259)))
-        let on = clipped(c, to: front)
-        for i in -3...4 {
-            let x = CGFloat(i) * 20 - 4
-            on.fill(S.corners((x, 0), (x + 10, 0), (x + 21, -28), (x + 11, -28)), with: .color(ink(0xFFF8EE)))
-        }
-        on.fill(S.box(-42, -28, 84, 28), with: down([ink(0xFFFFFF, 0), ink(0x6A1C78, 0.34)], -18, 0))
-        c.fill(S.box(-34, -26, 68, 2.6, 1.3), with: .color(ink(0xFFFFFF, 0.75)))
+        c.draw(art.hurdle, in: CGRect(x: -42, y: 0.5 - 84 * 0.4833, width: 84, height: 84 * 0.4833))
     }
 
     /// A wedge on the road with arrows running up it.
@@ -1293,7 +1088,7 @@ struct LaneDashPainter {
         ctx.fill(S.through(leftEdge), with: .linearGradient(Gradient(colors: colors), startPoint: head, endPoint: tail))
     }
 
-    private func kart(_ ctx: GraphicsContext) {
+    private func kart(_ ctx: GraphicsContext, _ art: LaneDashArt) {
         let foot = kartFoot
         let scale = kartScale
         let boost = frame.boost
@@ -1305,8 +1100,8 @@ struct LaneDashPainter {
              [ink(0x0E0834, 0.62), ink(0x0E0834, 0.42), ink(0x0E0834, 0)])
 
         let tailGlow = [ink(0xFF4D7E, 0.75), ink(0xFF4D7E, 0.28), ink(0xFF4D7E, 0)]
-        ribbon(ctx, offset: -19, up: 29, half: 4.6, length: 0.6, colors: tailGlow)
-        ribbon(ctx, offset: 19, up: 29, half: 4.6, length: 0.6, colors: tailGlow)
+        ribbon(ctx, offset: -13.6, up: 29, half: 4.6, length: 0.6, colors: tailGlow)
+        ribbon(ctx, offset: 13.6, up: 29, half: 4.6, length: 0.6, colors: tailGlow)
         if boost > 0.02 {
             ribbon(ctx, offset: 0, up: 9, half: 15, length: 0.62,
                    colors: [ink(0x8FF4FF, 0.7 * boost), ink(0x39C8FF, 0.3 * boost), ink(0x39C8FF, 0)])
@@ -1319,95 +1114,19 @@ struct LaneDashPainter {
         let k = easel(ctx, at: CGPoint(x: foot.x, y: foot.y - frame.height * u + rattle), scale: scale,
                       turn: roll, wide: 1 - stretch * 0.6, tall: 1 + stretch)
 
-        // front tyres and the nose, seen over the body
+        // the painted kart, then its glowing tail lights and the scarf on top
+        k.draw(art.kart, in: CGRect(x: -46, y: -86, width: 92, height: 86))
         for side in sides {
-            k.fill(S.box(side * 31 - 6.5, -84, 13, 25, 4.8), with: .color(ink(0x231A52)))
-            k.fill(S.box(side * 31 - 6.5, -84, 13, 7.5, 3.6), with: .color(ink(0x5A4BB0)))
+            halo(k, CGPoint(x: side * 13.6, y: -29), 15, [ink(0xFF5C8A, 0.6), ink(0xFF5C8A, 0)])
         }
-        k.fill(S.box(-17, -88, 34, 17, 7.5), with: down([ink(0xFFD24A), ink(0xFFA828)], -88, -71))
-
-        // rear tyres with tread that rolls
-        for side in sides {
-            let left = side * 32 - 10.5
-            let tyre = S.box(left, -32, 21, 32, 7.8)
-            k.fill(tyre, with: down([ink(0x6656C4), ink(0x271C5C), ink(0x150E38)], -32, 0))
-            let tread = clipped(k, to: tyre)
-            for j in 0..<5 {
-                let y = -32 + LaneDashClip.wrap(CGFloat(j) / 5 + tick * 36) * 32
-                tread.fill(S.box(left, y, 21, 2.2), with: .color(ink(0xA898F5, 0.3)))
-            }
-            k.fill(S.box(left + 3, -31, 15, 3, 1.5), with: .color(ink(0xB8A9FF, 0.55)))
-        }
-        k.fill(S.box(-24, -18, 48, 14), with: .color(ink(0x160F3A)))
-
-        // top deck
-        let deck = S.softCorners(radius: 8, (-31, -40), (31, -40), (25, -78), (-25, -78))
-        k.fill(deck, with: down([ink(0xFFF08A), ink(0xFFD63F)], -78, -40))
-        let onDeck = clipped(k, to: deck)
-        for side in sides {
-            onDeck.fill(S.corners((side * 33, -40), (side * 26.5, -40), (side * 21, -78), (side * 27, -78)), with: .color(ink(0xFFB52E)))
-        }
-        onDeck.fill(S.corners((-25, -44), (-22, -44), (-17.5, -74), (-20, -74)), with: .color(ink(0xFFFFFF, 0.7)))
-        onDeck.fill(S.box(-26, -79, 52, 3), with: .color(ink(0xFFFBD0, 0.9)))
-
-        // cockpit and the driver: shoulders, scarf, helmet with cat ears
-        k.fill(S.oval(CGPoint(x: 0, y: -57), 18, 11), with: .color(ink(0x2A2058)))
-        k.fill(S.oval(CGPoint(x: 0, y: -63), 17, 8.5), with: down([ink(0xFFFDF6), ink(0xD9CBEA)], -71, -55))
         scarf(k)
-        for side in sides {
-            k.fill(S.softCorners(radius: 2.2, (side * 13.5, -87), (side * 10.5, -101.5), (side * 2, -92)), with: .color(ink(0xFFFDF6)))
-            k.fill(S.softCorners(radius: 1.2, (side * 11.2, -89.5), (side * 9.8, -97), (side * 5.2, -92)), with: .color(ink(0xFF7AA0)))
-        }
-        let helmet = S.disc(CGPoint(x: 0, y: -81), 15)
-        k.fill(helmet, with: .radialGradient(Gradient(colors: [ink(0xFFFFFF), ink(0xF4ECFA), ink(0xC2AEE2)]),
-                                             center: CGPoint(x: -5, y: -87), startRadius: 1, endRadius: 24))
-        let onHelmet = clipped(k, to: helmet)
-        onHelmet.fill(S.box(-4.6, -97, 9.2, 32), with: down([ink(0xFF6A94), ink(0xE82E66)], -96, -66))
-        onHelmet.fill(S.box(-16, -70.5, 32, 6), with: .color(ink(0x2A2058)))
-        k.fill(S.oval(CGPoint(x: -7, y: -89), 3.6, 2.4), with: .color(ink(0xFFFFFF, 0.95)))
-
-        // seat back
-        k.fill(S.box(-13, -70, 26, 25, 7.5), with: down([ink(0x6A5AC8), ink(0x2E2270)], -70, -45))
-        k.fill(S.box(-9.5, -68.5, 19, 2.6, 1.3), with: .color(ink(0xB8A9FF, 0.7)))
-
-        // rear face, tail lights, the roundel with its bolt
-        k.fill(S.box(-31.5, -43, 63, 29, 9.5), with: down([ink(0xFFC934), ink(0xFF961E)], -43, -14))
-        k.fill(S.box(-26, -42, 52, 2.4, 1.2), with: .color(ink(0xFFF4B0, 0.9)))
-        for side in sides {
-            let light = CGPoint(x: side * 19.5, y: -30)
-            halo(k, light, 17, [ink(0xFF5C8A, 0.7), ink(0xFF5C8A, 0)])
-            k.fill(S.box(light.x - 8.5, light.y - 5.2, 17, 10.4, 5.2), with: .color(ink(0xFF2E62)))
-            k.fill(S.box(light.x - 6.5, light.y - 3.8, 10, 5, 2.5), with: .color(ink(0xFF9AB4)))
-            k.fill(S.disc(CGPoint(x: light.x - 4, y: light.y - 2.2), 1.5), with: .color(ink(0xFFFFFF)))
-        }
-        k.fill(S.disc(CGPoint(x: 0, y: -29.5), 8.6), with: .color(ink(0xFFFDF6)))
-        k.fill(S.corners((1.8, -36), (-4.2, -28.4), (-0.6, -28.4), (-2.2, -23), (4.2, -30.8), (0.6, -30.8)), with: .color(ink(0xFF2E62)))
-
-        // bumper and exhaust pipes
-        k.fill(S.box(-34.5, -20, 69, 11.5, 5.5), with: down([ink(0x6656C4), ink(0x2A2058)], -20, -8.5))
-        k.fill(S.box(-30, -19, 60, 2.2, 1.1), with: .color(ink(0xB8A9FF, 0.75)))
-        for side in sides {
-            let pipe = CGPoint(x: side * 11, y: -10)
-            k.fill(S.disc(pipe, 4.6), with: .color(ink(0xCFC8F0)))
-            k.fill(S.disc(pipe, 2.9), with: .color(ink(0x120A3C)))
-        }
-
-        // spoiler
-        for side in sides {
-            k.fill(S.box(side * 18 - 2.2, -53, 4.4, 12), with: .color(ink(0x2A2058)))
-        }
-        k.fill(S.box(-39, -60, 78, 9.5, 4.7), with: down([ink(0xFFFFFF), ink(0xE6D8F2)], -60, -50.5))
-        k.fill(S.box(-35, -59.2, 70, 2, 1), with: .color(ink(0xFFFFFF)))
-        for side in sides {
-            k.fill(S.box(side * 39.5 - 3.6, -64, 7.2, 18, 3.2), with: down([ink(0xFF7AA0), ink(0xE82E66)], -64, -46))
-        }
 
         // exhaust flames: short at a cruise, long and wide on boost
         let flicker = 0.75 + 0.25 * sin(tick * 2 * .pi * 40)
         let reach = (9 + 44 * boost) * flicker
         let girth = 4.4 + 4.2 * boost
         for side in sides {
-            let x = side * 11
+            let x = side * 9.6
             if boost > 0.05 {
                 halo(k, CGPoint(x: x, y: reach * 0.35 - 6), 26 * boost, [ink(0x7EEBFF, 0.6 * boost), ink(0x7EEBFF, 0)])
             }
@@ -1432,7 +1151,7 @@ struct LaneDashPainter {
     /// Two tails that stream from the driver's neck, away from the turn and flatter on boost.
     private func scarf(_ k: GraphicsContext) {
         var c = k
-        c.translateBy(x: 9, y: -69)
+        c.translateBy(x: 8, y: -47)
         c.rotate(by: .radians(Double(-frame.lean * 0.5 - 0.16 - 0.25 * frame.boost)))
         let tails: [(length: CGFloat, slope: CGFloat, beat: CGFloat, hex: UInt32)] = [(27, 3.5, 0.9, 0xD92A66), (35, -1.5, 0, 0xFF4D7E)]
         let steps = 10
