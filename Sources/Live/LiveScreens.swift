@@ -60,6 +60,7 @@ enum LiveBoard {
         case .pourParty: "points"
         case .deepEnd: "metres"
         case .jamSlide: "points"
+        case .busRush: "riders"
         }
     }
 
@@ -73,6 +74,7 @@ enum LiveBoard {
         case .pourParty: groupedNumber(score)
         case .deepEnd: groupedNumber(score)
         case .jamSlide: groupedNumber(score)
+        case .busRush: groupedNumber(score)
         default: groupedNumber(score)
         }
     }
@@ -91,6 +93,7 @@ enum LiveBoard {
         case .pourParty: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .deepEnd: return "\(groupedNumber(apart)) m"
         case .jamSlide: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .busRush: return apart == 1 ? "1 rider" : "\(groupedNumber(apart)) riders"
         }
     }
 

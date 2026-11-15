@@ -9,7 +9,8 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide, busRush
 }
 
 struct MockGame: Identifiable {
@@ -74,6 +75,7 @@ struct MockGame: Identifiable {
         case .pourParty: PourPartyScene(phase: moment, showHUD: showHUD)
         case .deepEnd: DeepEndScene(phase: moment, showHUD: showHUD)
         case .jamSlide: JamSlideScene(phase: moment, showHUD: showHUD)
+        case .busRush: BusRushScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -300,6 +302,13 @@ enum Mock {
         plays: "188K", likes: "23.4K", dislikes: "1.9K", approval: 92,
         bestScore: "2,310 points", clipPhase: 0.5, tint: Color(red: 0.36, green: 0.62, blue: 0.95)),
 
+      MockGame(
+        id: "bus-rush", kind: .busRush, title: "Bus Rush", tagline: "Clear the lot. Fill every bus.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 30s", seedEarned: 0,
+        plays: "188K", likes: "23.4K", dislikes: "1.9K", approval: 92,
+        bestScore: "240 riders", clipPhase: 0.5, tint: Color(red: 0.23, green: 0.48, blue: 1.0)),
+
     ]
 
     private static var counted: (version: Int, games: [MockGame], clips: [MockClip]) = (-1, [], [])
@@ -334,6 +343,7 @@ enum Mock {
     static var pourParty: MockGame { games[12] }
     static var deepEnd: MockGame { games[13] }
     static var jamSlide: MockGame { games[14] }
+    static var busRush: MockGame { games[15] }
 
     // MARK: Videos
 

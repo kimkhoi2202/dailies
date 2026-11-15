@@ -243,6 +243,22 @@ const GAMES = [
     dislikes: 19,
     scores: [2310, 1840, 1420, 1060, 760, 520],
   },
+  {
+    slug: "bus-rush",
+    title: "Bus Rush",
+    studio: "Paper Lantern",
+    pitch: "Clear the lot. Fill every bus.",
+    how: "Tap a bus to drive it out to one of five slots. It only goes if nothing is parked in front of it. Riders board the bus of their colour in queue order, and a full bus leaves. Five slots of buses nobody can board jams the lot.",
+    minPlayers: 1,
+    maxPlayers: 1,
+    mode: "casual" as const,
+    category: "Puzzle",
+    unit: "riders",
+    goldPerMinute: 1,
+    likes: 234,
+    dislikes: 19,
+    scores: [212, 168, 240, 131, 187, 95],
+  },
 ];
 
 const PLAYERS = [
@@ -270,6 +286,7 @@ const COMMENTS: Record<string, string[]> = {
   "pour-party": ["level four with two seconds left. my hands were shaking", "used all three undos on one tube"],
   "deep-end": ["typed kakapo and sank straight past the titanic", "blanked on a cheese for twenty seconds and said cheddar"],
   "jam-slide": ["the blue gate said 1 and I used it on the wrong block", "watched the chest open six times in one round"],
+  "bus-rush": ["five slots, five wrong colours. never again", "sent the blue bus out first and the whole queue just flowed"],
 };
 
 export const run = internalMutation({
