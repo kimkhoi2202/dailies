@@ -97,6 +97,22 @@ const GAMES = [
     dislikes: 94,
     scores: [2140, 1890, 1440, 1210, 980, 640],
   },
+  {
+    slug: "deep-end",
+    title: "Deep End",
+    studio: "Tide Pool",
+    pitch: "Name the thing nobody else would.",
+    how: "Seven prompts, 25 seconds each. Type one answer that fits. Rarer answers sink your krill deeper, and every point is 10 metres.",
+    minPlayers: 1,
+    maxPlayers: 6,
+    mode: "casual" as const,
+    category: "Trivia",
+    unit: "m",
+    goldPerMinute: 1,
+    likes: 512,
+    dislikes: 41,
+    scores: [4650, 4120, 3580, 2990, 2410, 1870],
+  },
 ];
 
 const PLAYERS = [
@@ -114,6 +130,7 @@ const COMMENTS: Record<string, string[]> = {
   "spiral-drop": ["eleven floors without touching red", "the combo smash is the best feeling in this app"],
   "gulp-city": ["swallowed the whole block with two seconds left", "started with a flower, ended with a bus"],
   inkland: ["took a fifth of the map in one loop", "got cut one step from home. again"],
+  "deep-end": ["said barreleye for an ocean animal and dropped two thousand metres", "everyone says ramen. I said khao soi"],
   "lane-dash": ["the near miss at the end. I stopped breathing", "ramp into three gems into a barrier. classic"],
 };
 
