@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { api } from '@/convex/_generated/api';
@@ -12,46 +12,70 @@ import { useDay } from './day';
 
 const KEY = 'dailies.device';
 
-export const tokenStorage =
-  Platform.OS === 'web'
-    ? undefined
-    : { getItem: SecureStore.getItemAsync, setItem: SecureStore.setItemAsync, removeItem: SecureStore.deleteItemAsync };
+/** Keychain first. A build without keychain access, like an unsigned simulator build, falls back to app storage. */
+const deviceStorage = {
+  async getItem(key: string) {
+    try {
+      const value = await SecureStore.getItemAsync(key);
+      if (value !== null) return value;
+    } catch {}
+    return AsyncStorage.getItem(key);
+  },
+  async setItem(key: string, value: string) {
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch {
+      await AsyncStorage.setItem(key, value);
+    }
+  },
+  async removeItem(key: string) {
+    await SecureStore.deleteItemAsync(key).catch(() => {});
+    await AsyncStorage.removeItem(key);
+  },
+};
+
+export const tokenStorage = Platform.OS === 'web' ? undefined : deviceStorage;
 
 async function deviceCredentials() {
-  const stored = Platform.OS === 'web' ? await AsyncStorage.getItem(KEY) : await SecureStore.getItemAsync(KEY);
+  const store = Platform.OS === 'web' ? AsyncStorage : deviceStorage;
+  const stored = await store.getItem(KEY);
   if (stored) return JSON.parse(stored) as { username: string; password: string };
   const fresh = {
     username: 'device' + Crypto.randomUUID().replace(/-/g, ''),
     password: Crypto.randomUUID() + Crypto.randomUUID(),
   };
-  if (Platform.OS === 'web') await AsyncStorage.setItem(KEY, JSON.stringify(fresh));
-  else await SecureStore.setItemAsync(KEY, JSON.stringify(fresh));
+  await store.setItem(KEY, JSON.stringify(fresh));
   return fresh;
 }
 
-/** Signs this phone in with its own account, creating it the first time. */
+/** Signs this phone in with its own account, creating it the first time. Tries again until it works. */
 export function useDeviceSession() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const { signIn } = useSignInWithUsernamePassword(api.auth);
   const { signUp } = useSignUpWithUsernamePassword(api.auth);
-  const busy = useRef(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (isLoading || isAuthenticated || busy.current) return;
-    busy.current = true;
+    if (isLoading || isAuthenticated) return;
+    let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
     (async () => {
       const credentials = await deviceCredentials();
+      if (cancelled) return;
       const result = await signIn(credentials);
       if (result.status === 'complete') return;
-      if (result.userError.error === 'USER_NOT_FOUND') await signUp(credentials);
-    })()
-      .catch(() => {})
-      .finally(() => {
-        busy.current = false;
-      });
-    return () => clearTimeout(retry);
-  }, [isLoading, isAuthenticated, signIn, signUp]);
+      if (result.userError.error !== 'USER_NOT_FOUND') throw new Error(result.userError.error);
+      const created = await signUp(credentials);
+      if (created.status !== 'complete') throw new Error(created.userError.error);
+    })().catch((error) => {
+      console.warn('Dailies sign in failed', error);
+      if (!cancelled) retry = setTimeout(() => setAttempt((n) => n + 1), 3000);
+    });
+    return () => {
+      cancelled = true;
+      clearTimeout(retry);
+    };
+  }, [isLoading, isAuthenticated, signIn, signUp, attempt]);
 }
 
 export function useMe() {
