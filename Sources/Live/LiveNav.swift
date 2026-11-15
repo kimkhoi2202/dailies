@@ -110,7 +110,8 @@ final class LiveNav: ObservableObject {
     static let shared = LiveNav()
 
     /// 0 Community (in place of Home), 1 Videos, 2 You (out of the bar, shown as the profile), 3 Messages, 4 Library
-    @Published var tab = 0
+    /// The app opens on Reels.
+    @Published var tab = 1
     @Published var layers: [Layer] = []
     /// The clip on screen in Videos, as an index into its endless column.
     @Published var videoIndex: Int? = 0

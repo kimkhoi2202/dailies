@@ -546,7 +546,7 @@ struct LiveResultsScreen: View {
 /// Launch arguments, for testing and for recording the app. Normal use needs none of them.
 ///   -fresh 1            start over with a new account
 ///   -scheme light|dark  appearance
-///   -tab <0...4>        open on a tab: 0 Home, 1 Videos, 2 You, 3 Messages, 4 Library
+///   -tab <0...4>        open on a tab: 0 Community, 1 Reels (the default), 2 You, 3 Messages, 4 Library
 ///   -scroll bottom      in the Library, open scrolled to the end
 ///   -video <n>          the clip showing in Videos
 ///   -play <game id>     open straight into a game (-solo 1 to play alone, -seed <n> for a fixed round)
