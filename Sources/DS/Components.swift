@@ -4,7 +4,7 @@ import UIKit
 // Dailies design system: the parts every screen is built from.
 
 /// The dark frosted backing behind anything that floats on video or game art.
-private struct MediaGlass<S: Shape>: View {
+struct MediaGlass<S: Shape>: View {
     let shape: S
     var dim: Double = 0.4
     var body: some View {

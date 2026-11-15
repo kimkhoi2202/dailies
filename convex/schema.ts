@@ -171,7 +171,7 @@ export default defineSchema({
     score: v.optional(v.number()),
     seed: v.optional(v.number()),
     caption: v.string(),
-    layout: v.union(v.literal("cutout"), v.literal("bubble")),
+    layout: v.union(v.literal("cutout"), v.literal("bubble"), v.literal("window")),
     durationMs: v.number(),
     visibility: v.union(v.literal("friends"), v.literal("everyone")),
     likes: v.number(),
@@ -180,6 +180,14 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_visibility", ["visibility"])
     .index("by_roundId", ["roundId"]),
+
+  // Clips a player saved, newest last. `key` is a clip id, or "sample:<id>" for a catalog clip in Videos.
+  savedClips: defineTable({
+    userId: v.id("users"),
+    key: v.string(),
+  })
+    .index("by_user_and_key", ["userId", "key"])
+    .index("by_key", ["key"]),
 
   purchases: defineTable({
     userId: v.id("users"),
