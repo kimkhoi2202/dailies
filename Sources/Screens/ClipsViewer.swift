@@ -110,6 +110,19 @@ struct ClipsViewer: View {
     @State private var userRows: [ConvexClip]?
     @State private var watch: AnyCancellable?
 
+    init(source: ClipSource, start: String) {
+        self.source = source
+        self.start = start
+        // Opens on the clip that was tapped. A player's clips arrive later and set it then.
+        let shared = CreateClips.shared
+        let known: [String] = switch source {
+        case .mine: shared.mine.map(\.id)
+        case .saved: shared.saved.map(\.id)
+        case .user: []
+        }
+        _position = State(initialValue: known.firstIndex(of: start) ?? 0)
+    }
+
     private var items: [ClipItem] {
         switch source {
         case .mine: clips.mine.map { .posted($0) }
@@ -149,10 +162,10 @@ struct ClipsViewer: View {
                 watch = clips.watchUser(handle) { rows in
                     let first = userRows == nil
                     userRows = rows
-                    if first { position = rows.firstIndex { $0.id == start } ?? 0 }
+                    guard first else { return }
+                    let at = rows.firstIndex { $0.id == start } ?? 0
+                    DispatchQueue.main.async { position = at }
                 }
-            } else {
-                position = list.firstIndex { $0.id == start } ?? 0
             }
         }
         .onDisappear { watch?.cancel() }

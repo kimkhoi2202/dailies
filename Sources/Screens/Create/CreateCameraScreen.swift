@@ -562,7 +562,7 @@ struct CreateCameraScreen: View {
                     }
                     .foregroundStyle(.white)
                     .frame(width: 58, height: 58)
-                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.black.opacity(0.6)))
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(white: 0.08)))
                     .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.8), lineWidth: 1.5))
                 }
                 .accessibilityLabel("Upload a video and tag it with the game")
