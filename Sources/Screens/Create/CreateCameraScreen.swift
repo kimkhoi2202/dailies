@@ -51,7 +51,6 @@ struct CreateCameraScreen: View {
 
     private enum Phase: Equatable { case idle, countdown(Int), starting, recording, finishing }
     private enum Recording { case none, screen, camera }
-    private enum Corner { case topLeading, topTrailing, bottomLeading, bottomTrailing }
 
     @StateObject private var camera = CreateCamera()
     @ObservedObject private var store = LiveStore.shared
@@ -78,11 +77,13 @@ struct CreateCameraScreen: View {
     @State private var nameToken = UUID()
     @State private var toast: String?
     @State private var toastToken = UUID()
-    @State private var corner: Corner = .topTrailing
     @State private var drag: CGSize = .zero
     /// Where the cutout's centre sits, as a fraction of the card. Pinching changes its size.
     @State private var cutoutAt = CGPoint(x: 0.5, y: 0.62)
     @State private var cutoutScale: CGFloat = 0.62
+    @State private var bubbleAt = CGPoint(x: 0.78, y: 0.2)
+    /// 1 is a 120 point bubble.
+    @State private var bubbleScale: CGFloat = 1
     @State private var pinch: CGFloat = 1
     @State private var frozen: UIImage?
     @State private var snapping = false
@@ -118,6 +119,7 @@ struct CreateCameraScreen: View {
                     .onChange(of: geo.frame(in: .global)) { _, rect in cardRect = rect }
             }
             .clipShape(RoundedRectangle(cornerRadius: DL.cardRadius, style: .continuous))
+            .simultaneousGesture(facePinch, including: phase == .idle ? .all : .subviews)
             modes
         }
         .background(Color.black.ignoresSafeArea())
@@ -161,60 +163,66 @@ struct CreateCameraScreen: View {
     }
 
     /// The game fills the card. The player sits on it: cut out of the background, or in a bubble.
+    /// Before recording, drag the player anywhere, and pinch with two fingers anywhere on the card to size them.
     private func stage(_ size: CGSize) -> some View {
         let w = size.width, h = size.height
-        let bubble: CGFloat = 120
+        let isBubble = layout == .bubble
+        let at = isBubble ? bubbleAt : cutoutAt
         let rect: CGRect
-        switch layout {
-        case .cutout:
+        if isBubble {
+            let side = min(w * 0.9, max(72, 120 * bubbleScale * pinch))
+            rect = CGRect(x: at.x * w - side / 2, y: at.y * h - side / 2, width: side, height: side)
+        } else {
             let width = w * min(1.1, max(0.3, cutoutScale * pinch))
             let height = width * 16 / 9
-            rect = CGRect(x: cutoutAt.x * w - width / 2, y: cutoutAt.y * h - height / 2, width: width, height: height)
-        case .bubble:
-            let left = corner == .topLeading || corner == .bottomLeading
-            let top = corner == .topLeading || corner == .topTrailing
-            let x = left ? 16 + bubble / 2 : w - 16 - bubble / 2
-            let y = top ? 76 + bubble / 2 : h - 210 - bubble / 2
-            rect = CGRect(x: x - bubble / 2, y: y - bubble / 2, width: bubble, height: bubble)
+            rect = CGRect(x: at.x * w - width / 2, y: at.y * h - height / 2, width: width, height: height)
         }
-        let isBubble = layout == .bubble
         return ZStack {
             gameView.frame(width: w, height: h)
             cameraView(layout: layout)
                 .frame(width: rect.width, height: rect.height)
-                .clipShape(RoundedRectangle(cornerRadius: isBubble ? bubble / 2 : 0, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: isBubble ? rect.width / 2 : 0, style: .continuous))
                 .overlay {
                     if isBubble { Circle().strokeBorder(.white.opacity(0.8), lineWidth: 2) }
                 }
                 .contentShape(isBubble ? AnyShape(Circle()) : AnyShape(Rectangle()))
+                .gesture(faceMove(size))
                 .offset(drag)
                 .position(x: rect.midX, y: rect.midY)
-                .gesture(isBubble ? AnyGesture(bubbleDrag(size).map { _ in () }) : cutoutMove(size))
                 // While recording every touch goes to the game.
                 .allowsHitTesting(phase == .idle)
         }
         .frame(width: w, height: h)
         .clipped()
         .animation(.snappy(duration: 0.4), value: layout)
-        .animation(.snappy(duration: 0.35), value: corner)
     }
 
-    /// Drag to move the cutout, pinch to size it.
-    private func cutoutMove(_ size: CGSize) -> AnyGesture<Void> {
-        let move = DragGesture()
+    /// Drag the player to move them.
+    private func faceMove(_ size: CGSize) -> some Gesture {
+        DragGesture()
             .onChanged { drag = $0.translation }
             .onEnded { value in
-                cutoutAt = CGPoint(x: min(0.95, max(0.05, cutoutAt.x + value.translation.width / size.width)),
-                                   y: min(0.95, max(0.1, cutoutAt.y + value.translation.height / size.height)))
+                let isBubble = layout == .bubble
+                let from = isBubble ? bubbleAt : cutoutAt
+                let to = CGPoint(x: min(0.95, max(0.05, from.x + value.translation.width / size.width)),
+                                 y: min(0.95, max(0.08, from.y + value.translation.height / size.height)))
+                if isBubble { bubbleAt = to } else { cutoutAt = to }
                 drag = .zero
             }
-        let size = MagnifyGesture()
+    }
+
+    /// Two fingers anywhere on the card size the player.
+    private var facePinch: some Gesture {
+        MagnifyGesture()
             .onChanged { pinch = $0.magnification }
             .onEnded { value in
-                cutoutScale = min(1.1, max(0.3, cutoutScale * value.magnification))
+                if layout == .bubble {
+                    bubbleScale = min(2.6, max(0.6, bubbleScale * value.magnification))
+                } else {
+                    cutoutScale = min(1.1, max(0.3, cutoutScale * value.magnification))
+                }
                 pinch = 1
             }
-        return AnyGesture(move.simultaneously(with: size).map { _ in () })
     }
 
     @ViewBuilder private var gameView: some View {
@@ -256,27 +264,6 @@ struct CreateCameraScreen: View {
                     if let frozen, layout == .bubble { Image(uiImage: frozen).resizable().scaledToFill() }
                 }
         }
-    }
-
-    private func bubbleDrag(_ size: CGSize) -> some Gesture {
-        DragGesture()
-            .onChanged { drag = $0.translation }
-            .onEnded { value in
-                let start: CGPoint = switch corner {
-                case .topLeading: CGPoint(x: 0, y: 0)
-                case .topTrailing: CGPoint(x: size.width, y: 0)
-                case .bottomLeading: CGPoint(x: 0, y: size.height)
-                case .bottomTrailing: CGPoint(x: size.width, y: size.height)
-                }
-                let x = start.x + value.predictedEndTranslation.width
-                let y = start.y + value.predictedEndTranslation.height
-                let left = x < size.width / 2, top = y < size.height / 2
-                withAnimation(.snappy(duration: 0.35)) {
-                    corner = top ? (left ? .topLeading : .topTrailing) : (left ? .bottomLeading : .bottomTrailing)
-                    drag = .zero
-                }
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            }
     }
 
     // MARK: Before recording
