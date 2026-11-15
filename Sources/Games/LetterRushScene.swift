@@ -292,8 +292,9 @@ struct LetterRushPainter {
         if let ending = frame.ending { endK = M.smooth(0, 0.45, ending) }
         if frame.showHUD { drawHUD(&ctx, fade: 1 - endK) }
         drawPill(&ctx)
-        drawTiles(&ctx)
+        drawTiles(&ctx, letters: false)
         drawPathLine(&ctx)
+        drawTiles(&ctx, letters: true)
         drawParticles(&ctx)
         drawFloaters(&ctx)
         drawPraise(&ctx)
@@ -484,7 +485,8 @@ struct LetterRushPainter {
 
     // MARK: Tiles
 
-    private func drawTiles(_ ctx: inout GraphicsContext) {
+    /// Two passes: the faces, then (over the path line) the letters.
+    private func drawTiles(_ ctx: inout GraphicsContext, letters: Bool) {
         let lip = 6 * u
         let radius = layout.tile * 0.2
         let showVerdict = frame.verdict != .none && frame.verdictAge < 0.6
@@ -523,10 +525,13 @@ struct LetterRushPainter {
             let s = layout.tile * scale
             let x = Double(c.x) - s / 2 + dx
             let y = Double(c.y) - s / 2
-            let base = CGRect(x: x, y: y + lip, width: s, height: s)
-            ctx.fill(Path(roundedRect: base, cornerRadius: radius), with: .color(under))
-            let top = CGRect(x: x, y: y + press, width: s, height: s)
-            ctx.fill(Path(roundedRect: top, cornerRadius: radius), with: .color(face))
+            if !letters {
+                let base = CGRect(x: x, y: y + lip, width: s, height: s)
+                ctx.fill(Path(roundedRect: base, cornerRadius: radius), with: .color(under))
+                let top = CGRect(x: x, y: y + press, width: s, height: s)
+                ctx.fill(Path(roundedRect: top, cornerRadius: radius), with: .color(face))
+                continue
+            }
             let letter = Text(frame.letters[index])
                 .font(.system(size: s * 0.5, weight: .black, design: .rounded))
                 .foregroundColor(Ink.ink)
@@ -544,14 +549,14 @@ struct LetterRushPainter {
         }
         let color = frame.wordState == .valid ? Ink.goldLip : Ink.ink
         if frame.path.count > 1 {
-            ctx.stroke(line, with: .color(color.opacity(0.42)),
-                       style: StrokeStyle(lineWidth: 12 * u, lineCap: .round, lineJoin: .round))
+            ctx.stroke(line, with: .color(color.opacity(0.3)),
+                       style: StrokeStyle(lineWidth: 14 * u, lineCap: .round, lineJoin: .round))
         }
-        let r = 7 * u
+        let r = layout.tile * 0.3
         for index in frame.path {
             let c = layout.center(index)
             let dot = CGRect(x: Double(c.x) - r, y: Double(c.y) + 2 * u - r, width: 2 * r, height: 2 * r)
-            ctx.fill(Path(ellipseIn: dot), with: .color(color.opacity(0.55)))
+            ctx.fill(Path(ellipseIn: dot), with: .color(color.opacity(0.16)))
         }
     }
 
