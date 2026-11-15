@@ -348,7 +348,7 @@ struct ShopScreen: View {
     }
 
     private func bundleCard(_ bundle: AvatarBundle) -> some View {
-        let items = bundle.items.compactMap { AvatarCatalog.item($0) }
+        let items = bundle.items.compactMap { AvatarCatalog.item($0) }.filter { [.hat, .gadget, .decor].contains($0.slot) }
         let full = bundle.fullPrice(owned: avatars.owned)
         let price = bundle.price(owned: avatars.owned)
         let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -895,7 +895,7 @@ struct ShopBundleSheet: View {
         }
     }
 
-    private var items: [AvatarItem] { bundle.items.compactMap { AvatarCatalog.item($0) } }
+    private var items: [AvatarItem] { bundle.items.compactMap { AvatarCatalog.item($0) }.filter { [.hat, .gadget, .decor].contains($0.slot) } }
     private var price: Int { bundle.price(owned: avatars.owned) }
     private var full: Int { bundle.fullPrice(owned: avatars.owned) }
     private var short: Int { max(0, price - store.s.balance) }

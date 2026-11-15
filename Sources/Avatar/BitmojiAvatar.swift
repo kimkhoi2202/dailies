@@ -51,8 +51,8 @@ struct BitmojiFigure: View {
                 }
                 if let hat = AvatarCatalog.item(look.hat) {
                     ItemArt(item: hat, shirt: shirt)
-                        .frame(width: w * 0.74, height: w * 0.62)
-                        .offset(y: -h * 0.045)
+                        .frame(width: w * 1.2, height: w * 0.8)
+                        .offset(y: -h * 0.12)
                 }
             }
             .frame(width: proxy.size.width, height: h, alignment: .top)
