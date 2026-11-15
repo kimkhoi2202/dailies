@@ -110,7 +110,7 @@ struct CommunityFriendsFeed: View {
                     Text("You").font(DL.text(12, .medium)).foregroundStyle(DL.ink2).padding(.top, 4)
                 }
                 .frame(width: 76)
-                .opens(.create)
+                .opens(.create(nil))
                 ForEach(Array(list.enumerated()), id: \.element.id) { index, story in
                     CommunityStoryBubble(name: story.name, chip: story.score, seen: community.seenStories.contains(story.name))
                         .opens(.story(index))
