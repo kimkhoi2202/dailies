@@ -31,6 +31,10 @@ enum Route: Hashable {
     case reviewProgress
     case reviewResult
     case reviewChanges
+    // making a clip
+    case create(String?)
+    case createPreview
+    case makeGame
 
     enum Style { case push, cover, sheet }
 
@@ -38,7 +42,8 @@ enum Route: Hashable {
         switch self {
         case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio:
             .push
-        case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges:
+        case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges,
+             .create, .createPreview, .makeGame:
             .cover
         case .comments, .fairness, .spend, .streak, .saveGold, .notify:
             .sheet
