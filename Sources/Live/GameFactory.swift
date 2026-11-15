@@ -18,6 +18,7 @@ enum GameFactory {
         case .letterRush: LetterRushGame(options: options, link: link)
         case .pourParty: PourPartyGame(options: options, link: link)
         case .deepEnd: DeepEndGame(options: options, link: link)
+        case .jamSlide: JamSlideGame(options: options, link: link)
         }
     }
 }
