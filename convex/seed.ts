@@ -145,7 +145,7 @@ const GAMES = [
     goldPerMinute: 1,
     likes: 261,
     dislikes: 22,
-    scores: [126, 168, 44, 72, 141, 97],
+    scores: [96, 131, 33, 41, 112, 74],
   },
   {
     slug: "brick-out",
