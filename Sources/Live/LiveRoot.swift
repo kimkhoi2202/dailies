@@ -23,10 +23,13 @@ struct LiveRoot: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { LiveTabBar() }
 
+            // Sheets are presented by iOS below, so they swipe down like any other sheet.
             ForEach(Array(nav.layers.enumerated()), id: \.element.id) { depth, layer in
-                LayerView(layer: layer)
-                    .zIndex(Double(depth + 1))
-                    .transition(layer.route.style.entrance)
+                if layer.route.style != .sheet {
+                    LayerView(layer: layer)
+                        .zIndex(Double(depth + 1))
+                        .transition(layer.route.style.entrance)
+                }
             }
 
             if let toast = nav.toast {
@@ -44,6 +47,13 @@ struct LiveRoot: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { store.rollDayIfNeeded() }
+        }
+        .sheet(item: Binding(get: { nav.layers.last.flatMap { $0.route.style == .sheet ? $0 : nil } },
+                             set: { shown in
+                                 // Swiped away: drop the sheet's layer, unless something already took it off.
+                                 if shown == nil, nav.layers.last?.route.style == .sheet { nav.layers.removeLast() }
+                             })) { layer in
+            LayerView(layer: layer).environment(\.dlInSystemSheet, true)
         }
         .statusBarHidden(nav.isPlaying)
         .persistentSystemOverlays(nav.isPlaying ? .hidden : .automatic)

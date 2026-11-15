@@ -340,23 +340,18 @@ struct CommunityStreakCard: View {
         let streak = live.s.streak
         let playedToday = live.s.lastPlayDay == live.s.day
         let seconds = live.s.secondsToday.values.reduce(0, +)
-        HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "flame.fill").font(.system(size: 20, weight: .bold)).foregroundStyle(DL.goldText)
-                    Text(streak > 0 ? "\(streak) day streak".uppercased() : "Start a streak".uppercased())
-                        .font(DL.display(30)).foregroundStyle(DL.ink)
-                }
-                dots(streak: streak, playedToday: playedToday)
-                Text(playedToday ? "Play tomorrow to make it \(streak + 1)." : "One round today keeps it going.")
-                    .font(DL.text(13)).foregroundStyle(DL.ink2)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: "flame.fill").font(.system(size: 20, weight: .bold)).foregroundStyle(DL.goldText)
+                Text(streak > 0 ? "\(streak) day streak".uppercased() : "Start a streak".uppercased())
+                    .font(DL.display(30)).foregroundStyle(DL.ink)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                Spacer(minLength: 8)
+                Text("\(LiveStore.playedText(seconds)) today").dlLabel(10.5).monospacedDigit()
             }
-            Spacer(minLength: 0)
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("Today").dlLabel(10)
-                Text(LiveStore.playedText(seconds)).font(DL.display(30)).foregroundStyle(DL.ink).monospacedDigit()
-                Text("played").dlLabel(10)
-            }
+            dots(streak: streak, playedToday: playedToday)
+            Text(playedToday ? "Play tomorrow to make it \(streak + 1)." : "One round today keeps it going.")
+                .font(DL.text(13)).foregroundStyle(DL.ink2)
         }
         .dlCard(padding: 16)
         .opens(.streak)
@@ -366,16 +361,18 @@ struct CommunityStreakCard: View {
         let calendar = Calendar.current
         // The last seven days, today on the right. A streak reaches back from today, or from yesterday until today is played.
         let lit = Set((0..<min(streak, 7)).map { $0 + (playedToday ? 0 : 1) })
-        return HStack(spacing: 7) {
+        // Spread across the card, so the week reads at a glance with no empty half.
+        return HStack(spacing: 0) {
             ForEach((0..<7).reversed(), id: \.self) { back in
                 let day = calendar.date(byAdding: .day, value: -back, to: Date()) ?? Date()
                 let initial = Mock.weekInitials[(calendar.component(.weekday, from: day) - 1) % 7]
-                VStack(spacing: 3) {
+                VStack(spacing: 4) {
                     Circle().fill(lit.contains(back) ? DL.gold : DL.sunken)
-                        .frame(width: 18, height: 18)
+                        .frame(width: 28, height: 28)
                         .overlay(Circle().strokeBorder(back == 0 ? DL.ink : Color.clear, lineWidth: 1.5))
-                    Text(initial).font(DL.label(9)).foregroundStyle(DL.ink3)
+                    Text(initial).font(DL.label(10)).foregroundStyle(DL.ink3)
                 }
+                .frame(maxWidth: .infinity)
             }
         }
     }
