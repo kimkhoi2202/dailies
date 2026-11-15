@@ -12,6 +12,7 @@ Consumer mobile app for [The Consumer Mobile Hackathon](https://consumermobileha
 
 - Expo SDK 58 with Expo Router and TypeScript at the repository root. Screens live in `src/app/`.
 - Convex backend in `convex/`. The dev deployment is `blissful-jackal-368` in the shared `dailies/dailies` Convex project (client URL `https://blissful-jackal-368.convex.cloud`, HTTP actions URL `https://blissful-jackal-368.convex.site`). Every teammate and cloud machine uses this one deployment through `CONVEX_DEPLOY_KEY`, so whoever pushes last sets the deployed functions; keep `convex/` changes close to `main`.
+- Games are plain JavaScript canvas files in `games/<slug>/game.js` that run in a WebView on the runtime in `games/sdk.js`; read `games/README.md` before writing or changing one. `node scripts/build-games.mjs` bundles them into the git-ignored `src/games/generated.ts`, so run it after editing a game and before any build or typecheck.
 - npm is the package manager.
 - After any change under `convex/`, run `npx convex dev --once` and fix what it reports.
 

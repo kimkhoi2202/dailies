@@ -2,17 +2,17 @@
 
 - **Project:** Dailies
 - **Event:** The Consumer Mobile Hackathon
-- **What it does:** Not documented yet
+- **What it does:** A daily feed of small phone games where playing collects gold, with likes, comments, leaderboards and rooms for playing the same level with friends.
 - **Live app:** not deployed
 - **Repo:** private
 - **Frontend:** not deployed
 - **Convex deployment:** https://blissful-jackal-368.convex.cloud
-- **Components:** none
-- **Convex features:** none yet
-- **Auth:** none
+- **Components:** @convex-dev/auth (auth, authPassword, authUsername)
+- **Convex features:** schema, tables, indexes, queries, mutations, realtime queries, optimistic updates
+- **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-11-15T18:02:39Z
-- **Last updated:** 2026-11-15T18:39:04Z
+- **Last updated:** 2026-11-15T19:35:08Z
 
 ## Log
 
@@ -29,3 +29,39 @@ added an empty schema, with no tables or functions yet (`convex/schema.ts`).
 
 ### 2026-11-15 - e8a5ab6
 Moved the development backend to the shared `dailies/dailies` Convex project. Synced the existing functions and verified the Expo client and HTTP action URLs point to the same deployment.
+
+### 2026-11-15 - 4a976ac
+Added the game runtime. Each game is one plain JavaScript canvas file under
+`games/<slug>/game.js` that runs in a WebView on top of a shared runtime
+(`games/sdk.js`): seeded randomness, score, haptics, tones, pause and a bot that
+plays the game for the video feed. `scripts/build-games.mjs` bundles them into
+the app (`games/README.md`, `src/components/game-view.tsx`).
+
+### 2026-11-15 - eb9cc79
+Built the backend. Each phone gets its own account through Convex Auth v2 with
+the username and password method, no sign up screen. Rounds start and finish on
+the server, which works out gold from active play time with a limit of 100 a day
+for one game and 300 a day for one studio. Added likes, comments, best scores
+and leaderboards, plus a seed for the six launch games. Convex features: schema,
+indexes, queries, mutations, Convex Auth (`convex/schema.ts`, `convex/auth.ts`,
+`convex/rounds.ts`, `convex/social.ts`, `convex/games.ts`, `convex/seed.ts`).
+
+### 2026-11-15 - ab3005d
+Built the app: Home with filters, a full screen Videos feed where a bot plays
+each game, the game page, the play screen with a live gold counter, pause and
+results, the gold screen, leaderboards, comments, search, profile and settings
+with light and dark appearance. Every screen reads live from Convex with
+`useQuery`, and likes use an optimistic update (`src/app/`, `src/lib/session.tsx`).
+
+### 2026-11-15 - 1cf3871
+First Revyl build ran on a cloud iPhone and showed the phone never signed in:
+an unsigned simulator build has no keychain. Session storage now tries
+`expo-secure-store` first and falls back to app storage, and sign in retries
+until it works (`src/lib/session.tsx`).
+
+### 2026-11-15 - 589d20b
+Added rooms. A host starts a room from any game and gets a four letter code,
+friends join with the code, and everyone plays the same seeded level while live
+scores from the others show on screen through a Convex query. Rounds played in a
+room collect gold like any other round (`convex/rooms.ts`,
+`src/app/room/[code].tsx`, `src/app/join.tsx`, `src/app/play/[slug].tsx`).
