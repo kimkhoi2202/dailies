@@ -36,14 +36,11 @@ enum Route: Hashable {
     case join
     case startRoom
     case room(String)
-<<<<<<< HEAD
     case libraryGame(String)
     /// One of your own posted clips, by its id.
     case myClip(String)
     /// A list of clips full screen ("mine", "saved" or "user:<handle>"), starting at a clip.
     case clipList(String, String)
-=======
->>>>>>> origin/main
     // the avatar
     /// An item id to open on its sheet, "closet" for the Closet, or nil.
     case shop(String?)
@@ -66,14 +63,11 @@ enum Route: Hashable {
     case newGroup
     case workplace
     case playTogether(String)
-<<<<<<< HEAD
     // money, through Whop
     case buyGold
     case earnings
     case sendEarnings
     case program(String)
-=======
->>>>>>> origin/main
 
     enum Style { case push, cover, sheet }
 
@@ -92,11 +86,7 @@ enum Route: Hashable {
             .sheet
         case .messages, .chat, .newGroup, .workplace:
             .push
-<<<<<<< HEAD
         case .playTogether, .libraryGame, .buyGold, .sendEarnings, .program:
-=======
-        case .playTogether:
->>>>>>> origin/main
             .sheet
         case .earnings:
             .push
