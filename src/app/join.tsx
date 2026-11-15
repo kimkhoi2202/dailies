@@ -27,7 +27,7 @@ export default function Join() {
   return (
     <View style={{ padding: 20, paddingTop: 30, paddingBottom: insets.bottom + 16, gap: 14 }}>
       <Display size={32}>Join a room</Display>
-      <Body color={t.ink2}>Enter the four letters on your friend's phone. Everyone plays the same level.</Body>
+      <Body color={t.ink2}>Enter the four letters from the host. Everyone plays the same level.</Body>
       <TextInput
         testID="room-code-input"
         value={code}

@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as games from "../games.js";
 import type * as lib from "../lib.js";
+import type * as rooms from "../rooms.js";
 import type * as rounds from "../rounds.js";
 import type * as seed from "../seed.js";
 import type * as social from "../social.js";
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   games: typeof games;
   lib: typeof lib;
+  rooms: typeof rooms;
   rounds: typeof rounds;
   seed: typeof seed;
   social: typeof social;
