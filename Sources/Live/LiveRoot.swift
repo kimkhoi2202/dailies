@@ -185,6 +185,8 @@ struct LayerView: View {
             CommunityStoryScreen(start: index)
         case .rate(let gameID):
             CommunityRatingSheet(gameID: gameID)
+        case .friendVideos(let start):
+            CommunityVideoPlayer(start: start)
         case .messages:
             MessagesInboxScreen()
         case .chat(let id):
@@ -573,6 +575,7 @@ enum LiveLaunch {
         case "startRoom": return .startRoom
         case "profile": return .profile(value.isEmpty ? "me" : value)
         case "room": return .room(value)
+        case "friendVideos": return .friendVideos(value)
         case "shop": return .shop(value.isEmpty ? nil : value)
         case "messages": return .messages
         case "chat": return .chat(value)
@@ -626,7 +629,7 @@ final class LiveHost: UIHostingController<LiveRoot> {
     override var preferredStatusBarStyle: UIStatusBarStyle {
         // A sheet leaves the screen under it showing, so the top screen that is not a sheet decides.
         switch LiveNav.shared.layers.last(where: { $0.route.style != .sheet })?.route {
-        case .gameReady, .play, .results, .gameDetail, .profile, .shop, .create, .createPreview, .story: .lightContent
+        case .gameReady, .play, .results, .gameDetail, .profile, .shop, .create, .createPreview, .story, .friendVideos: .lightContent
         case nil: LiveNav.shared.tab == 1 ? .lightContent : .default
         default: .default
         }
