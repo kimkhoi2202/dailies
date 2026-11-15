@@ -5,7 +5,7 @@ let src = fs.readFileSync(path.join(__dirname, '..', 'games/deep-end/game.js'), 
 src = src.replace('D.game({', 'window.__t = { lookup: lookup, bankFor: bankFor, PROMPTS: PROMPTS, norm: norm, GLYPH: GLYPH }; window.__s = function () { return { phase: phase, idx: idx, prompts: prompts, input: input, points: points, results: results, krill: krill, cam: cam, timeLeft: timeLeft }; };\n  D.game({');
 function makeEnv(clip) {
   const ctxStub = new Proxy({}, { get: (t, k) => k in t ? t[k] : (k === 'createPattern' ? () => ({}) : k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : () => {}), set: (t, k, v) => { t[k] = v; return true; } });
-  const canvas = () => ({ width: 0, height: 0, getContext: () => ctxStub });
+  const canvas = () => (globalThis.__made = (globalThis.__made || 0) + 1, { width: 0, height: 0, getContext: () => ctxStub });
   const calls = { end: [], score: [], haptic: [] };
   let seed = 7; const rand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
   const D = { W: 390, H: 844, safe: { top: 47, bottom: 34 }, clip: clip, best: 0, ctx: ctxStub, rand, haptic: k => calls.haptic.push(k), tone: () => {}, score: v => calls.score.push(v), end: r => { calls.end.push(r); env.state = 'over'; }, game: impl => { env.impl = impl; } };
@@ -39,7 +39,8 @@ const cases = [
   ['NAME A MUSICAL INSTRUMENT', 'theremin', 'THEREMIN'], ['NAME A HERB OR SPICE', 'clove', 'CLOVES'], ['NAME A BIRD', 'eagles', 'EAGLE'],
   ['NAME A BIRD', 'flamingoe', 'FLAMINGO'], ['NAME A CHEESE', 'gruyère', 'GRUYERE'], ['NAME AN OCEAN ANIMAL', 'killer whale', 'ORCA'],
   ['NAME A COLOR', 'grey', 'GRAY'], ['NAME A COLOR', 'reds', 'RED'], ['NAME A COLOR', 'bleu', null], ['NAME A BONE IN THE HUMAN BODY', 'vertebrae', 'VERTEBRA'],
-  ['NAME A DOG BREED', 'lab', 'LABRADOR'], ['NAME A CAR BRAND', 'mercedes-benz', 'MERCEDES'], ['NAME A FRUIT', '   ', null]
+  ['NAME A DOG BREED', 'lab', 'LABRADOR'], ['NAME A CAR BRAND', 'mercedes-benz', 'MERCEDES'], ['NAME A FRUIT', '   ', null], ['NAME A FRUIT', 'constructor', null], ['NAME A BIRD', '__proto__', null], ['NAME A BIRD', 'hasownproperty', null],
+  ['NAME A VEGETABLE', 'bacon', null], ['NAME A BIRD', 'carrot', null], ['NAME A COUNTRY IN AFRICA', 'tiger', null], ['NAME A BIRD', 'penquin', 'PENGUIN']
 ];
 cases.forEach(([q, input, want]) => { const i = find(q); const r = T.lookup(T.bankFor(i), input); const got = r ? r.name : null; if (got !== want) fail.push('lookup ' + q + ' "' + input + '" -> ' + got + ' want ' + want); });
 // 5: end-to-end play
@@ -99,6 +100,13 @@ for (let k = 0; k < 5; k++) {
 const small = makeEnv(false); small.D.W = 320; small.D.H = 568; small.D.safe = { top: 20, bottom: 0 };
 small.impl.resize(320, 568); small.impl.reset(2); small.impl.draw(small.D.ctx, 320, 568, 'ready'); small.state = 'playing'; small.impl.start();
 for (let i = 0; i < 200; i++) { small.impl.update(1/60, 'playing'); small.impl.draw(small.D.ctx, 320, 568, 'playing'); }
+{ const ce = makeEnv(false); ce.impl.reset(3); ce.state = 'playing'; ce.impl.start();
+  for (let i = 0; i < 90; i++) { ce.impl.update(1/60, 'playing'); ce.impl.draw(ce.D.ctx, 390, 844, 'playing'); }
+  const s = ce.s(); const bank = ce.t.bankFor(ce.t.PROMPTS.indexOf(s.prompts[s.idx])); const item = bank.list.find(x => x.tier === 6);
+  for (const ch of item.name.toLowerCase()) ce.impl.key(ch); ce.impl.key('Enter');
+  for (let i = 0; i < 20; i++) { ce.impl.update(1/60, 'playing'); ce.impl.draw(ce.D.ctx, 390, 844, 'playing'); }
+  const before = globalThis.__made; for (let i = 0; i < 100; i++) { ce.impl.update(1/60, 'playing'); ce.impl.draw(ce.D.ctx, 390, 844, 'playing'); }
+  const made = globalThis.__made - before; note.push('canvases created over 100 sinking frames: ' + made); if (made > 40) fail.push('per-frame canvas allocation: ' + made); }
 note.forEach(n => console.log(n));
 if (fail.length) { fail.forEach(f => console.error('FAIL ' + f)); process.exit(1); }
 console.log('deep-end: all checks passed');

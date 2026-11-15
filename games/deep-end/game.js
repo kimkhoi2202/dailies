@@ -293,7 +293,7 @@
   var bankCache = [];
   function bankFor(i) {
     if (bankCache[i]) return bankCache[i];
-    var p = PROMPTS[i], map = {}, list = [];
+    var p = PROMPTS[i], map = Object.create(null), list = [];
     for (var t = 0; t < p.t.length; t++) {
       var entries = p.t[t].split(',');
       for (var e = 0; e < entries.length; e++) {
@@ -335,14 +335,15 @@
     if (k.length > 3 && k.charAt(k.length - 1) === 's' && bank.map[k.slice(0, -1)]) return bank.map[k.slice(0, -1)];
     if (k.length > 2 && bank.map[k + 's']) return bank.map[k + 's'];
     if (k.length < 5) return null;
-    var max = k.length >= 9 ? 2 : 1, best = null, bestD = max + 1;
+    var max = k.length >= 9 ? 2 : 1, best = null, bestD = max + 1, tie = false;
     for (var i = 0; i < bank.keys.length; i++) {
       var key = bank.keys[i];
-      if (key.length < 5 || Math.abs(key.length - k.length) > max) continue;
+      if (key.length < 5 || key.charAt(0) !== k.charAt(0) || Math.abs(key.length - k.length) > max) continue;
       var d = distance(k, key, max);
-      if (d < bestD) { bestD = d; best = key; }
+      if (d < bestD) { bestD = d; best = key; tie = false; }
+      else if (d === bestD && bank.map[key] !== bank.map[best]) tie = true;
     }
-    return best ? bank.map[best] : null;
+    return best && !tie ? bank.map[best] : null;
   }
 
   var textCache = {}, textCacheSize = 0;
@@ -477,7 +478,7 @@
     var W = D.W, H = D.H, top = D.safe.top;
     L.W = W; L.H = H; L.top = top; L.bottom = D.safe.bottom;
     L.compact = H - top - D.safe.bottom < 700;
-    L.cardX = 16; L.cardY = top + (L.compact ? 72 : 116); L.cardW = W - 32; L.cardH = L.compact ? 100 : 136;
+    L.cardX = 16; L.cardY = top + (L.compact ? 84 : 116); L.cardW = W - 32; L.cardH = L.compact ? 100 : 136;
     L.kbBottom = H - D.safe.bottom - 16;
     var kh = L.compact ? 34 : 42, gy = L.compact ? 5 : 8, gx = 4, side = 6;
     var kw = (W - side * 2 - gx * 9) / 10;
@@ -745,7 +746,8 @@
 
   function drawHud(ctx, W) {
     var top = D.safe.top;
-    var px = Math.round(W / 2 - (ROUND * 12 + (ROUND - 1) * 5) / 2);
+    var pw = ROUND * 12 + (ROUND - 1) * 5;
+    var px = Math.round(Math.max(72, Math.min(W - 120 - pw, W / 2 - pw / 2)));
     for (var i = 0; i < ROUND; i++) {
       var x = px + i * 17, y = top + 18;
       if (i < results.length) {
@@ -759,11 +761,11 @@
       }
     }
     if (L.compact) {
-      drawChroma(ctx, fmt(shown) + 'M', W / 2, top + 40, 3, 'center');
+      drawChroma(ctx, fmt(shown) + 'M', W / 2, top + 58, 3, 'center', 1);
       return;
     }
     drawText(ctx, 'DEPTH', W / 2, top + 60, 1, DIM, 'center', 3);
-    drawChroma(ctx, fmt(shown) + 'M', W / 2, top + 74, 4, 'center');
+    drawChroma(ctx, fmt(shown) + 'M', W / 2, top + 74, 4, 'center', 1);
     drawText(ctx, points + ' PTS', W / 2, top + 108, 1, DIM, 'center', 2);
   }
 
@@ -790,8 +792,9 @@
     ctx.globalAlpha = a;
     var s = textWidth(reveal.name, 3) > W - 40 ? 2 : 3;
     if (reveal.tier) {
-      drawChroma(ctx, reveal.name, W / 2, y, s, 'center');
-      drawText(ctx, '+' + reveal.pts + '  ' + TIERS[reveal.tier - 1], W / 2, y + 7 * s + 10, 2, TIER_COLORS[reveal.tier - 1], 'center', 3);
+      var lines = wrap(reveal.name, s, W - 32);
+      for (var i = 0; i < lines.length; i++) drawChroma(ctx, lines[i], W / 2, y + i * (7 * s + 6), s, 'center');
+      drawText(ctx, '+' + reveal.pts + '  ' + TIERS[reveal.tier - 1], W / 2, y + lines.length * (7 * s + 6) + 4, 2, TIER_COLORS[reveal.tier - 1], 'center', 3);
     } else {
       drawText(ctx, 'TIME', W / 2, y, 3, PINK, 'center', 3);
       drawText(ctx, '+0', W / 2, y + 31, 2, DIM, 'center', 3);
