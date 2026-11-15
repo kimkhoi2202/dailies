@@ -1,41 +1,13 @@
-import { type Ref, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
-import { type StyleProp, View, type ViewStyle } from 'react-native';
+import { useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
-import { GAME_HEAD, GAME_SDK, GAME_SOURCES } from '@/games/generated';
-import { haptic, type HapticKind, useSettings } from '@/lib/settings';
+import { haptic, useSettings } from '@/lib/settings';
 
-export type GameMessage =
-  | { type: 'ready' }
-  | { type: 'start'; seed: number }
-  | { type: 'input' }
-  | { type: 'score'; score: number }
-  | { type: 'haptic'; kind: HapticKind }
-  | { type: 'end'; score?: number; unit?: string; headline?: string };
+import { gameHtml, type GameMessage, type GameViewProps } from './game-host';
 
-export type GameHandle = {
-  pause: () => void;
-  resume: () => void;
-  restart: (options: { seed: number; best: number }) => void;
-};
-
-export type GameViewProps = {
-  slug: string;
-  mode: 'play' | 'clip';
-  seed: number;
-  best?: number;
-  paused?: boolean;
-  onMessage?: (message: GameMessage) => void;
-  style?: StyleProp<ViewStyle>;
-  safeTop?: number;
-  safeBottom?: number;
-  ref?: Ref<GameHandle>;
-};
-
-export function gameHtml(slug: string, config: object) {
-  return `${GAME_HEAD}<script>window.DAILIES_CONFIG=${JSON.stringify(config)}</script><script>${GAME_SDK}</script><script>${GAME_SOURCES[slug] ?? ''}</script></body></html>`;
-}
+export type { GameHandle, GameMessage } from './game-host';
 
 export function GameView({ slug, mode, seed, best = 0, paused = false, onMessage, style, safeTop, safeBottom, ref }: GameViewProps) {
   const insets = useSafeAreaInsets();

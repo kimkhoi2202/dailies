@@ -1,10 +1,9 @@
 import { createElement, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { View } from 'react-native';
 
-import { gameHtml, type GameMessage, type GameViewProps } from './game-view';
+import { gameHtml, type GameMessage, type GameViewProps } from './game-host';
 
-export { gameHtml } from './game-view';
-export type { GameHandle, GameMessage, GameViewProps } from './game-view';
+export type { GameHandle, GameMessage } from './game-host';
 
 type GameWindow = Window & { Dailies?: { host: (type: string, data?: object) => void } };
 

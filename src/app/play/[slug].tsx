@@ -186,7 +186,7 @@ export default function Play() {
       )}
 
       {phase === 'over' && outcome && (
-        <Animated.View entering={FadeIn.duration(260)} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(14,14,15,0.62)' }}>
+        <Animated.View entering={FadeIn.duration(260)} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(14,14,15,0.92)' }}>
           <View style={{ position: 'absolute', top: insets.top + 6, left: Margin }}>
             <IconButton name="close" label="Close" fill="rgba(14,14,15,0.72)" color="#F3F0E9" onPress={() => router.back()} />
           </View>
