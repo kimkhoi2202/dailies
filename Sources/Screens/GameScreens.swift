@@ -165,12 +165,8 @@ struct ResultsScreen: View {
         } rows: {
             goldRow
             voteRow
-            HStack(spacing: 10) {
-                DLTextKey(title: "Again", symbol: "arrow.counterclockwise")
-                    .tap { LiveNav.shared.replaceTop(.play(game.id, solo: summary?.solo ?? false)) }
-                DLTextKey(title: "Next clip", symbol: "chevron.down", style: .neutral)
-                    .tap { LiveNav.shared.nextClip() }
-            }
+            DLTextKey(title: "Again")
+                .tap { LiveNav.shared.replaceTop(.play(game.id, solo: summary?.solo ?? false)) }
             postRow
         }
         .onAppear {
