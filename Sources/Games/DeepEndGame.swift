@@ -458,7 +458,7 @@ final class DeepEndModel {
             return true
         }
         pic.message = pic.input.trimmingCharacters(in: .whitespaces).isEmpty ? "TYPE ONE ANSWER" : "NOT ON THE LIST"
-        pic.messageColor = DeepEndInk.pink
+        pic.messageColor = DeepEndInk.red
         pic.messageTime = 1.4
         pic.shake = 0.35
         feedback.append(.rejected)
