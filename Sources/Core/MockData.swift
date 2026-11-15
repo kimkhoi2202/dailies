@@ -9,7 +9,8 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide, busRush, cornerPocket
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide, busRush, cornerPocket, canCannon
 }
 
 struct MockGame: Identifiable {
@@ -76,6 +77,7 @@ struct MockGame: Identifiable {
         case .jamSlide: JamSlideScene(phase: moment, showHUD: showHUD)
         case .busRush: BusRushScene(phase: moment, showHUD: showHUD)
         case .cornerPocket: CornerPocketScene(phase: moment, showHUD: showHUD)
+        case .canCannon: CanCannonScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -316,6 +318,13 @@ enum Mock {
         plays: "188K", likes: "23.4K", dislikes: "1.9K", approval: 92,
         bestScore: "100 points", clipPhase: 0.42, tint: Color(red: 0.18, green: 0.56, blue: 0.44)),
 
+      MockGame(
+        id: "can-cannon", kind: .canCannon, title: "Can Cannon", tagline: "Aim low. Knock it all down.",
+        category: "Arcade", players: "1 to 4 players", mode: "Casual", studio: "Sandcastle",
+        goldPerMinute: 1.0, avgSession: "2m 10s", seedEarned: 0,
+        plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
+        bestScore: "1,480 points", clipPhase: 0.5, tint: Color(red: 0.24, green: 0.42, blue: 0.88)),
+
     ]
 
     private static var counted: (version: Int, games: [MockGame], clips: [MockClip]) = (-1, [], [])
@@ -352,6 +361,7 @@ enum Mock {
     static var jamSlide: MockGame { games[14] }
     static var busRush: MockGame { games[15] }
     static var cornerPocket: MockGame { games[16] }
+    static var canCannon: MockGame { games[17] }
 
     // MARK: Videos
 

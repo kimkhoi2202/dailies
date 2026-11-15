@@ -275,6 +275,22 @@ const GAMES = [
     dislikes: 19,
     scores: [90, 100, 40, 60, 80, 30],
   },
+  {
+    slug: "can-cannon",
+    title: "Can Cannon",
+    studio: "Sandcastle",
+    pitch: "Aim low. Knock it all down.",
+    how: "Drag back to aim and let go to fire. Knock every can off the shelf with five balls to clear the level. Fewer balls give more stars.",
+    minPlayers: 1,
+    maxPlayers: 4,
+    mode: "casual" as const,
+    category: "Arcade",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 261,
+    dislikes: 22,
+    scores: [1210, 1480, 760, 540, 990, 310],
+  },
 ];
 
 const PLAYERS = [
@@ -304,6 +320,7 @@ const COMMENTS: Record<string, string[]> = {
   "jam-slide": ["the blue gate said 1 and I used it on the wrong block", "watched the chest open six times in one round"],
   "bus-rush": ["five slots, five wrong colours. never again", "sent the blue bus out first and the whole queue just flowed"],
   "corner-pocket": ["called the 8 off two rails and it dropped", "scratched on the break and still ran the table after"],
+  "can-cannon": ["one ball, whole pyramid. still not over it", "the giraffe level took me four tries"],
 };
 
 export const run = internalMutation({

@@ -26,6 +26,7 @@ enum LiveBoard {
         "daily-grid": ["kaz": 812, "wordnerd.sam": 690, "devon.plays": 544, "juno": 418, "tofu": 305, "noor.runs": 160],
         "letter-rush": ["wordnerd.sam": 3500, "kaz": 2900, "devon.plays": 2600, "juno": 2100, "noor.runs": 1900, "tofu": 1200],
         "pour-party": ["kaz": 1500, "wordnerd.sam": 1200, "juno": 1000, "devon.plays": 700, "tofu": 400, "noor.runs": 300],
+        "can-cannon": ["kaz": 1480, "devon.plays": 1210, "juno": 990, "noor.runs": 760, "tofu": 540, "wordnerd.sam": 310],
     ]
 
     /// Everyone on the board, best score first. The server's board once it has answered; until then
@@ -62,6 +63,7 @@ enum LiveBoard {
         case .jamSlide: "points"
         case .busRush: "riders"
         case .cornerPocket: "points"
+        case .canCannon: "points"
         }
     }
 
@@ -97,6 +99,7 @@ enum LiveBoard {
         case .jamSlide: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .busRush: return apart == 1 ? "1 rider" : "\(groupedNumber(apart)) riders"
         case .cornerPocket: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .canCannon: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         }
     }
 
