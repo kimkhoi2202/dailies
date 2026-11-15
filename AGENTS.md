@@ -1,4 +1,4 @@
-# Dailies
+# DEGEN
 
 Consumer mobile app for [The Consumer Mobile Hackathon](https://consumermobilehackathon.com) (Sunday, November 15, 2026). The site's tool guides are the source of truth for each sponsor tool; read the linked page before integrating one.
 
@@ -40,6 +40,8 @@ npx tsc --noEmit -p convex      # typecheck the backend
 - Frame rate on a real iPhone matters most: keep the rules in a plain Swift model, draw with `Canvas`, and allocate nothing per frame that can be kept.
 
 ## Wording
+
+The app is called DEGEN, in capitals, everywhere a person can read it: under the icon, in the logo, in share text and in store listings. It was first called Dailies, and the repository, the Xcode target and scheme, the bundle id and the Convex project keep that name; do not rename those.
 
 Words on screen are short plain sentences. Never the words win, prize, reward, cash, payout, bonus, bet, wager, jackpot, spin, lucky, token, mint. No exclamation marks, no emoji, no long dashes.
 

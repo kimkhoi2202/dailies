@@ -1,10 +1,10 @@
-# Dailies
+# DEGEN
 
 Consumer mobile app built at [The Consumer Mobile Hackathon](https://consumermobilehackathon.com/) (Sunday, November 15, 2026, YC, San Francisco). The app, the backend, and everything else for the hackathon live in this one repository.
 
 The hackathon's required stack is Capy (writes the app), Revyl (runs it on a device and checks it), and Convex (the backend).
 
-Dailies is a native iOS app written in Swift (SwiftUI). It is a daily feed of small phone games where playing collects gold, with likes, comments, leaderboards and a gold history, all kept in Convex.
+DEGEN (first called Dailies; the repository, the Xcode target and the bundle id keep that name) is a native iOS app written in Swift (SwiftUI). It is a daily feed of small phone games where playing collects gold, with likes, comments, leaderboards and a gold history, all kept in Convex.
 
 ## Run it
 
