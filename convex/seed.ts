@@ -1,3 +1,4 @@
+import type { Id } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
 
 const GAMES = [
@@ -28,10 +29,10 @@ const GAMES = [
     mode: "competitive" as const,
     category: "Word",
     unit: "points",
-    goldPerMinute: 1,
+    goldPerMinute: 1.1,
     likes: 674,
     dislikes: 35,
-    scores: [640, 585, 520, 455, 390, 310],
+    scores: [1210, 1385, 80, 725, 960, 1640],
   },
   {
     slug: "spiral-drop",
@@ -47,7 +48,7 @@ const GAMES = [
     goldPerMinute: 0.9,
     likes: 974,
     dislikes: 81,
-    scores: [777, 686, 540, 412, 365, 240],
+    scores: [651, 742, 434, 371, 196, 518],
   },
   {
     slug: "gulp-city",
@@ -63,7 +64,7 @@ const GAMES = [
     goldPerMinute: 1,
     likes: 402,
     dislikes: 39,
-    scores: [84, 77, 71, 63, 58, 44],
+    scores: [52, 38, 61, 87, 74, 24],
   },
   {
     slug: "inkland",
@@ -76,10 +77,11 @@ const GAMES = [
     mode: "competitive" as const,
     category: "Multiplayer",
     unit: "%",
-    goldPerMinute: 1.1,
+    goldPerMinute: 1.2,
     likes: 338,
     dislikes: 76,
-    scores: [41.5, 36.2, 31.8, 27.4, 22.9, 18.3],
+    // Share of the land in tenths of a percent, the way the game reports it.
+    scores: [236, 281, 152, 174, 342, 96],
   },
   {
     slug: "lane-dash",
@@ -92,10 +94,10 @@ const GAMES = [
     mode: "competitive" as const,
     category: "Runner",
     unit: "m",
-    goldPerMinute: 1.2,
+    goldPerMinute: 1,
     likes: 729,
     dislikes: 94,
-    scores: [2140, 1890, 1440, 1210, 980, 640],
+    scores: [1980, 1650, 2410, 760, 1180, 420],
   },
 ];
 
@@ -120,7 +122,7 @@ const COMMENTS: Record<string, string[]> = {
 export const run = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const playerIds = [];
+    const playerIds: Id<"users">[] = [];
     for (const player of PLAYERS) {
       const existing = await ctx.db
         .query("users")
@@ -151,6 +153,14 @@ export const run = internalMutation({
         .unique();
       if (existing) {
         await ctx.db.patch("games", existing._id, { ...fields, order, plays: Math.max(existing.plays, likes * 9) });
+        for (const [index, score] of scores.entries()) {
+          const best = await ctx.db
+            .query("bests")
+            .withIndex("by_user_and_gameSlug", (q) => q.eq("userId", playerIds[index]).eq("gameSlug", entry.slug))
+            .unique();
+          if (best) await ctx.db.patch("bests", best._id, { score });
+          else await ctx.db.insert("bests", { userId: playerIds[index], gameSlug: entry.slug, score, day: "2026-11-15" });
+        }
         continue;
       }
       created += 1;

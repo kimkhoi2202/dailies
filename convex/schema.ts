@@ -13,6 +13,8 @@ export default defineSchema({
     lastGoldDay: v.optional(v.string()),
     fastGold: v.boolean(),
     seeded: v.boolean(),
+    // Counts every change to this player's gold, so a phone can tell when its own change has landed.
+    changes: v.optional(v.number()),
   }).index("by_handle", ["handle"]),
 
   games: defineTable({
@@ -54,6 +56,7 @@ export default defineSchema({
     studio: v.string(),
     gold: v.number(),
     playMs: v.number(),
+    carry: v.optional(v.number()),
   }).index("by_user_and_day", ["userId", "day"]),
 
   bests: defineTable({
@@ -61,6 +64,8 @@ export default defineSchema({
     gameSlug: v.string(),
     score: v.number(),
     day: v.string(),
+    unit: v.optional(v.string()),
+    text: v.optional(v.string()),
   })
     .index("by_gameSlug_and_score", ["gameSlug", "score"])
     .index("by_user_and_gameSlug", ["userId", "gameSlug"]),
@@ -94,5 +99,28 @@ export default defineSchema({
     gameSlug: v.string(),
     userId: v.id("users"),
     body: v.string(),
-  }).index("by_gameSlug", ["gameSlug"]),
+    likes: v.optional(v.number()),
+  })
+    .index("by_gameSlug", ["gameSlug"])
+    .index("by_user", ["userId"]),
+
+  commentLikes: defineTable({
+    userId: v.id("users"),
+    key: v.string(),
+  }).index("by_user_and_key", ["userId", "key"]),
+
+  ledger: defineTable({
+    userId: v.id("users"),
+    kind: v.union(v.literal("round"), v.literal("spend")),
+    title: v.string(),
+    detail: v.string(),
+    amount: v.number(),
+    gameSlug: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
+
+  purchases: defineTable({
+    userId: v.id("users"),
+    item: v.string(),
+    price: v.number(),
+  }).index("by_user_and_item", ["userId", "item"]),
 });

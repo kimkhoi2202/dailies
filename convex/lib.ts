@@ -30,6 +30,13 @@ export function assertCurrentDay(day: string) {
   if (Math.abs(dayNumber(day) - Date.now() / 86400000) > 1.6) throw new ConvexError("Bad day");
 }
 
+export function playedText(playMs: number) {
+  const total = Math.max(0, Math.round(playMs / 1000));
+  if (total >= 3600) return `${Math.floor(total / 3600)}h ${Math.floor((total % 3600) / 60)}m`;
+  if (total >= 60) return `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, "0")}s`;
+  return `${total}s`;
+}
+
 export async function earningsFor(ctx: QueryCtx | MutationCtx, userId: Id<"users">, day: string) {
   return await ctx.db
     .query("earnings")

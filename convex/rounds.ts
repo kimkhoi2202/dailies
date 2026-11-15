@@ -8,6 +8,7 @@ import {
   dayNumber,
   earningsFor,
   gameBySlug,
+  playedText,
   requireUser,
 } from "./lib";
 import { roomByCode } from "./rooms";
@@ -39,6 +40,7 @@ export const start = mutation({
       roundId,
       seed,
       best: best?.score ?? 0,
+      carry: earnings.find((row) => row.gameSlug === game.slug)?.carry ?? 0,
       goldPerMinute: game.goldPerMinute * (user.fastGold ? FAST_GOLD_MULTIPLIER : 1),
       left: Math.max(0, Math.min(GAME_DAILY_LIMIT - today, STUDIO_DAILY_LIMIT - studioToday)),
     };
@@ -46,7 +48,13 @@ export const start = mutation({
 });
 
 export const finish = mutation({
-  args: { roundId: v.id("rounds"), score: v.number(), activeMs: v.number() },
+  args: {
+    roundId: v.id("rounds"),
+    score: v.number(),
+    activeMs: v.number(),
+    unit: v.optional(v.string()),
+    scoreText: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     const round = await ctx.db.get("rounds", args.roundId);
@@ -64,11 +72,33 @@ export const finish = mutation({
     const studioToday = earnings.filter((entry) => entry.studio === game.studio).reduce((sum, entry) => sum + entry.gold, 0);
     const left = Math.max(0, Math.min(GAME_DAILY_LIMIT - today, STUDIO_DAILY_LIMIT - studioToday));
     const rate = game.goldPerMinute * (user.fastGold ? FAST_GOLD_MULTIPLIER : 1);
-    const gold = Math.min(left, Math.floor((playMs / 60000) * rate));
+    // Part of a gold left over from the last round counts toward this one.
+    const raw = (row?.carry ?? 0) + (playMs / 60000) * rate;
+    const whole = Math.floor(raw);
+    const gold = Math.min(left, whole);
+    const carry = gold < whole ? 0 : raw - whole;
 
-    if (row) await ctx.db.patch("earnings", row._id, { gold: row.gold + gold, playMs: row.playMs + playMs });
+    if (row) await ctx.db.patch("earnings", row._id, { gold: row.gold + gold, playMs: row.playMs + playMs, carry });
     else
-      await ctx.db.insert("earnings", { userId: user._id, day: round.day, gameSlug: game.slug, studio: game.studio, gold, playMs });
+      await ctx.db.insert("earnings", {
+        userId: user._id,
+        day: round.day,
+        gameSlug: game.slug,
+        studio: game.studio,
+        gold,
+        playMs,
+        carry,
+      });
+
+    if (gold > 0)
+      await ctx.db.insert("ledger", {
+        userId: user._id,
+        kind: "round",
+        title: game.title,
+        detail: left - gold <= 0 ? "Daily limit reached" : `${playedText(playMs)} played`,
+        amount: gold,
+        gameSlug: game.slug,
+      });
 
     let streak = user.streak;
     let lastGoldDay = user.lastGoldDay;
@@ -82,6 +112,7 @@ export const finish = mutation({
       rounds: user.rounds + 1,
       streak,
       lastGoldDay,
+      changes: (user.changes ?? 0) + 1,
     });
 
     const best = await ctx.db
@@ -90,8 +121,10 @@ export const finish = mutation({
       .unique();
     const newBest = score > 0 && (best === null || score > best.score);
     if (newBest) {
-      if (best) await ctx.db.patch("bests", best._id, { score, day: round.day });
-      else await ctx.db.insert("bests", { userId: user._id, gameSlug: game.slug, score, day: round.day });
+      const unit = args.unit?.slice(0, 40);
+      const text = args.scoreText?.slice(0, 40);
+      if (best) await ctx.db.patch("bests", best._id, { score, day: round.day, unit, text });
+      else await ctx.db.insert("bests", { userId: user._id, gameSlug: game.slug, score, day: round.day, unit, text });
     }
 
     await ctx.db.patch("rounds", round._id, { endedAt: now, score, playMs, gold });
@@ -99,6 +132,8 @@ export const finish = mutation({
 
     return {
       gold,
+      playMs,
+      carry,
       balance: user.gold + gold,
       today: today + gold,
       left: left - gold,
@@ -106,6 +141,7 @@ export const finish = mutation({
       previousBest: best?.score ?? 0,
       newBest,
       streak,
+      changes: (user.changes ?? 0) + 1,
     };
   },
 });
