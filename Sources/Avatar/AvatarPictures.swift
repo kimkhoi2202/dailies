@@ -165,10 +165,11 @@ struct AvatarHead: View {
     var look: AvatarLook
     var shirt: VoxelColor = VoxelPalette.purple
     var size: CGFloat = 36
+    var handle: String = ""
 
     var body: some View {
-        AvatarPicture(look: look, shirt: shirt, headOnly: true)
-            .padding(size * 0.04)
+        Image("avatar-\(Bitmoji.name(look, handle: handle))-head")
+            .resizable().interpolation(.high).scaledToFill()
             .frame(width: size, height: size)
             .background(Color(hex: "FFC531"), in: Circle())
             .clipShape(Circle())
@@ -186,12 +187,9 @@ struct ItemArt: View {
             if item.slot == .decor {
                 DecorArt(id: item.id)
             } else if item.slot == .body {
-                Circle().fill(Color(uiColor: AvatarModel.skin(item.id)))
-                    .overlay(Circle().strokeBorder(Color(hex: "151412"), lineWidth: 2))
-                    .overlay(alignment: .topLeading) {
-                        Circle().fill(.white.opacity(0.35)).frame(width: 14, height: 14).padding(10)
-                    }
-                    .padding(8)
+                Image("avatar-\(Bitmoji.name(AvatarLook(body: item.id, face: "face.happy"), handle: ""))-head")
+                    .resizable().interpolation(.high).scaledToFit()
+                    .clipShape(Circle())
             } else {
                 let key = AvatarPictures.key(AvatarLook.starter(handle: ""), shirt: shirt, framing: .item(item))
                 if let image = pictures.image(key, look: AvatarLook.starter(handle: ""), shirt: shirt, framing: .item(item)) {

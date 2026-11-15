@@ -8,7 +8,7 @@ enum AvatarSlot: String, CaseIterable, Codable {
 
     var title: String {
         switch self {
-        case .body: "Body"
+        case .body: "Looks"
         case .face: "Faces"
         case .hair: "Hair"
         case .hat: "Hats"
@@ -99,9 +99,9 @@ struct AvatarLook: Codable, Equatable, Hashable {
 
     func wearing(_ item: AvatarItem) -> AvatarLook { with(item.slot, item.id) }
 
-    /// The same pick as defaultLook in convex/items.ts, so a new player looks the same before the server answers.
+    /// A player's look before they pick one: a character picked from the handle.
     static func starter(handle: String) -> AvatarLook {
-        let bodies = ["body.porcelain", "body.peach", "body.honey", "body.umber", "body.cocoa"]
+        let bodies = [Bitmoji.character(handle: handle)]
         let hair = ["hair.short", "hair.bob", "hair.spiky", "hair.bun"]
         var sum = 0
         for unit in handle.utf16 { sum = (sum * 31 + Int(unit)) % 100003 }
@@ -112,16 +112,20 @@ struct AvatarLook: Codable, Equatable, Hashable {
 
 enum AvatarCatalog {
     static let items: [AvatarItem] = [
-        AvatarItem(id: "body.porcelain", slot: .body, name: "Porcelain", price: 0, rarity: .common, detail: "A light skin tone."),
-        AvatarItem(id: "body.peach", slot: .body, name: "Peach", price: 0, rarity: .common, detail: "A warm skin tone."),
-        AvatarItem(id: "body.honey", slot: .body, name: "Honey", price: 0, rarity: .common, detail: "A golden skin tone."),
-        AvatarItem(id: "body.umber", slot: .body, name: "Umber", price: 0, rarity: .common, detail: "A deep skin tone."),
-        AvatarItem(id: "body.cocoa", slot: .body, name: "Cocoa", price: 0, rarity: .common, detail: "A rich dark skin tone."),
-        AvatarItem(id: "body.mint", slot: .body, name: "Mint", price: 0, rarity: .common, detail: "For a day off from being human."),
-        AvatarItem(id: "body.sky", slot: .body, name: "Sky", price: 0, rarity: .common, detail: "Calm and blue."),
-        AvatarItem(id: "body.lilac", slot: .body, name: "Lilac", price: 0, rarity: .common, detail: "Soft purple, like dusk."),
-        AvatarItem(id: "body.coral", slot: .body, name: "Coral", price: 0, rarity: .common, detail: "Bright and friendly."),
-        AvatarItem(id: "body.gold", slot: .body, name: "Gold", price: 0, rarity: .common, detail: "Our colour, head to toe."),
+        AvatarItem(id: "char.me", slot: .body, name: "Grey Hoodie", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.khoi", slot: .body, name: "Specs", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.ben", slot: .body, name: "Ginger Flannel", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.dylan", slot: .body, name: "Orange Tee", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.nyx", slot: .body, name: "Purple Punk", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.kiko", slot: .body, name: "Pink Pigtails", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.vanessa", slot: .body, name: "Cream Cardigan", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.kaz", slot: .body, name: "Puffer Vest", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.devon", slot: .body, name: "Varsity", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.noor", slot: .body, name: "Green Hijab", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.tofu", slot: .body, name: "Silver Hair", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.juno", slot: .body, name: "Curly Denim", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.sam", slot: .body, name: "Sweater Vest", price: 0, rarity: .common, detail: "A whole look, head to toe."),
+        AvatarItem(id: "char.blond", slot: .body, name: "Blond Tee", price: 0, rarity: .common, detail: "A whole look, head to toe."),
 
         AvatarItem(id: "face.happy", slot: .face, name: "Happy", price: 0, rarity: .common, detail: "Big eyes and a big smile."),
         AvatarItem(id: "face.smirk", slot: .face, name: "Smirk", price: 0, rarity: .common, detail: "You know something they do not."),
@@ -222,7 +226,7 @@ enum AvatarCatalog {
 
     /// Today's three drops. Everyone sees the same three, picked from the day number, and they leave at midnight.
     static func drops(day: Int) -> [AvatarItem] {
-        let paid = items.filter { !$0.isFree }
+        let paid = items.filter { !$0.isFree && [.hat, .gadget, .decor].contains($0.slot) }
         guard !paid.isEmpty else { return [] }
         var picks: [AvatarItem] = []
         var index = (day * 7) % paid.count

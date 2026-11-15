@@ -107,11 +107,13 @@ struct ProfileScreen: View {
 
     private func room(_ info: Shown, top: CGFloat) -> some View {
         ZStack(alignment: .top) {
-            AvatarRoom(floorAt: 0.72, decor: info.decor, trophies: info.bests.map(\.game.id))
-            AvatarStage(look: info.look, shirt: info.shirt, control: .turnOnly, distance: 9.0) {
+            AvatarRoom(floorAt: 0.72, decor: info.decor, trophies: info.bests.map(\.game.id),
+                       wall: isMe ? avatars.wallColor : nil)
+            BitmojiFigure(look: info.look, handle: info.handle, shirt: info.shirt) {
                 say(info)
             }
-            .padding(.top, top + 40)
+            .padding(.top, top + 74)
+            .padding(.bottom, 26)
             if let bubble {
                 Text(bubble)
                     .font(DL.text(15, .semibold)).foregroundStyle(DL.onGold)
@@ -290,6 +292,6 @@ struct MyAvatarHead: View {
     @ObservedObject private var avatars = AvatarStore.shared
 
     var body: some View {
-        AvatarHead(look: avatars.look, shirt: avatars.shirt, size: size)
+        AvatarHead(look: avatars.look, shirt: avatars.shirt, size: size, handle: Mock.handle)
     }
 }

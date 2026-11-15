@@ -31,9 +31,8 @@ struct ShopScreen: View {
         return AvatarCatalog.drops(day: Int(seconds / 86400))
     }
 
-    private static let shopSlots: [AvatarSlot] = [.hat, .outfit, .gadget, .hair, .face, .decor]
-    private static let closetSlots: [AvatarSlot] = [.hat, .outfit, .gadget, .hair, .face, .body, .decor]
-    private static let lookSlots: [AvatarSlot] = [.body, .face, .hair, .hat, .outfit, .gadget, .decor]
+    private static let shopSlots: [AvatarSlot] = [.hat, .gadget, .decor]
+    private static let closetSlots: [AvatarSlot] = [.hat, .gadget, .decor]
     private static let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
 
     private struct ShopSection: Identifiable, Hashable {
@@ -45,7 +44,7 @@ struct ShopScreen: View {
         let slots = segment == 0 ? Self.shopSlots : Self.closetSlots
         let lead = segment == 0
             ? [ShopSection(id: "drops", title: "Drops"), ShopSection(id: "bundles", title: "Bundles")]
-            : [ShopSection(id: "look", title: "Your look")]
+            : [ShopSection(id: "look", title: "Looks")]
         return lead + slots.map { ShopSection(id: Self.sectionID($0), title: $0.title) }
     }
 
@@ -100,10 +99,11 @@ struct ShopScreen: View {
 
     private func stage(top: CGFloat, height: CGFloat) -> some View {
         ZStack(alignment: .bottomLeading) {
-            AvatarRoom(floorAt: 0.78, decor: roomDecor, trophies: [])
-            AvatarStage(look: previewLook, shirt: avatars.shirt, control: .full, distance: 9.5, turnRequest: turn)
-                .padding(.top, top + 24)
-                .padding(.leading, 110)
+            AvatarRoom(floorAt: 0.78, decor: roomDecor, trophies: [], wall: avatars.wallColor)
+            BitmojiFigure(look: previewLook, handle: Mock.handle, shirt: avatars.shirt)
+                .padding(.top, top + 58)
+                .padding(.bottom, 14)
+                .padding(.leading, 150)
                 .keyframeAnimator(initialValue: 1.0, trigger: pop) { content, scale in
                     content.scaleEffect(scale, anchor: .bottom)
                 } keyframes: { _ in
@@ -113,11 +113,6 @@ struct ShopScreen: View {
             caption
                 .padding(.leading, DL.margin).padding(.trailing, 70).padding(.bottom, 16)
                 .allowsHitTesting(false)
-            DLMediaButton(symbol: "arrow.triangle.2.circlepath", size: 42)
-                .tap { turn += 1 }
-                .accessibilityLabel("Turn around")
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.horizontal, DL.margin).padding(.bottom, 16)
             HStack(spacing: 10) {
                 DLMediaButton(symbol: "chevron.left").goesBack().accessibilityLabel("Back")
                 Text("SHOP").font(DL.display(30)).foregroundStyle(.white).tracking(1)
@@ -449,11 +444,7 @@ struct ShopScreen: View {
             Capsule().fill(.white.opacity(0.13)).frame(width: 34, height: 6)
                 .rotationEffect(.degrees(-24)).offset(x: 46, y: 9)
             Group {
-                if item.slot == .body {
-                    ShopSwatch(color: Self.skin(item.id)).padding(18)
-                } else {
-                    ItemArt(item: item, shirt: avatars.shirt).padding(13)
-                }
+                ItemArt(item: item, shirt: avatars.shirt).padding(13)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             if tag, item.rarity != .common {
@@ -473,15 +464,35 @@ struct ShopScreen: View {
         }
     }
 
+    /// Every look, as faces. Tapping one puts it on at once.
     private func lookCard(_ reader: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 Text("YOUR LOOK").font(DL.display(28)).foregroundStyle(DL.ink)
                 Spacer()
-                Text("TAP ONE TO CHANGE IT").font(DL.label(10)).foregroundStyle(DL.ink2)
+                Text("TAP ONE TO WEAR IT").font(DL.label(10)).foregroundStyle(DL.ink2)
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 14) {
-                ForEach(Self.lookSlots, id: \.self) { slot in lookTile(slot, reader: reader) }
+                ForEach(AvatarCatalog.items(in: .body)) { item in lookTile(item) }
+            }
+            HStack(alignment: .firstTextBaseline) {
+                Text("ROOM COLOUR").font(DL.display(22)).foregroundStyle(DL.ink)
+                Spacer()
+            }
+            .padding(.top, 6)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(AvatarStore.walls, id: \.hex) { wall in
+                        let chosen = avatars.wall == wall.hex
+                        VStack(spacing: 5) {
+                            Circle().fill(wall.hex.isEmpty ? Color(hex: "2B2622") : Color(hex: wall.hex))
+                                .frame(width: 40, height: 40)
+                                .overlay(Circle().strokeBorder(chosen ? DL.gold : DL.line, lineWidth: chosen ? 3 : 1.5))
+                            Text(wall.name).font(DL.text(11, .semibold)).foregroundStyle(DL.ink2)
+                        }
+                        .tap { withAnimation(.snappy(duration: 0.3)) { avatars.wall = wall.hex } }
+                    }
+                }
             }
         }
         .padding(16)
@@ -490,29 +501,26 @@ struct ShopScreen: View {
         .padding(.horizontal, DL.margin)
     }
 
-    private func lookTile(_ slot: AvatarSlot, reader: ScrollViewProxy) -> some View {
-        let item = slot == .decor ? AvatarCatalog.item(avatars.decor.first) : AvatarCatalog.item(avatars.look.item(in: slot))
-        let label = slot == .decor ? "Room \(avatars.decor.count)/\(AvatarCatalog.roomSpots)" : (item?.name ?? "None")
+    private func lookTile(_ item: AvatarItem) -> some View {
+        let wearing = Bitmoji.name(avatars.look, handle: Mock.handle) == String(item.id.dropFirst(5))
         return VStack(spacing: 6) {
-            ZStack {
-                Circle().fill(Color(hex: "2B2622"))
-                if let item, item.slot == .body {
-                    ShopSwatch(color: Self.skin(item.id)).padding(10)
-                } else if let item {
-                    ItemArt(item: item, shirt: avatars.shirt).padding(9)
-                } else {
-                    Image(systemName: slot == .decor ? "sofa.fill" : "nosign")
-                        .font(.system(size: 20, weight: .semibold)).foregroundStyle(Color(hex: "8A8579"))
+            ItemArt(item: item, shirt: avatars.shirt)
+                .frame(width: 62, height: 62)
+                .background(Color(hex: "FFC531").opacity(0.25), in: Circle())
+                .overlay(Circle().strokeBorder(wearing ? DL.gold : DL.line, lineWidth: wearing ? 3.5 : 1.5))
+                .overlay(alignment: .bottomTrailing) {
+                    if wearing {
+                        Image(systemName: "checkmark.circle.fill").font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(DL.onGold, DL.gold).offset(x: 2, y: 2)
+                    }
                 }
-            }
-            .frame(width: 58, height: 58)
-            .overlay(Circle().strokeBorder(item == nil ? DL.line : DL.gold, lineWidth: 2.5))
-            Text(label).font(DL.text(11.5, .semibold)).foregroundStyle(DL.ink).lineLimit(1).minimumScaleFactor(0.7)
+            Text(item.name).font(DL.text(11, .semibold)).foregroundStyle(DL.ink).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
         .tap {
-            section = Self.sectionID(slot)
-            withAnimation(.snappy(duration: 0.4)) { reader.scrollTo(Self.sectionID(slot), anchor: .top) }
+            withAnimation(.snappy(duration: 0.25)) { selected = item }
+            avatars.equip(item, slot: .body)
+            pop += 1
         }
     }
 
@@ -798,11 +806,7 @@ struct ShopItemSheet: View {
         ZStack {
             Circle().fill(item.rarity.color.opacity(0.18))
             Circle().strokeBorder(item.rarity.color.opacity(0.6), lineWidth: 2)
-            if item.slot == .body {
-                ShopSwatch(color: ShopScreen.skin(item.id)).padding(44)
-            } else {
-                ItemArt(item: item, shirt: avatars.shirt).padding(34)
-            }
+            ItemArt(item: item, shirt: avatars.shirt).padding(34)
         }
         .frame(width: 170, height: 170)
     }

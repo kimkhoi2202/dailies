@@ -42,6 +42,16 @@ final class AvatarStore: ObservableObject {
     @Published private(set) var color: String
     /// Decor placed in the room, in spot order. At most AvatarCatalog.roomSpots.
     @Published private(set) var decor: [String]
+    /// The colour of the player's room wall, kept on this phone. Empty is the default dark wall.
+    @Published var wall: String = UserDefaults.standard.string(forKey: "dailies.room.wall") ?? "" {
+        didSet { UserDefaults.standard.set(wall, forKey: "dailies.room.wall") }
+    }
+
+    static let walls: [(name: String, hex: String)] = [
+        ("Dusk", ""), ("Teal", "1F5F5A"), ("Plum", "4A2F66"), ("Navy", "22305C"), ("Rose", "6B2F45"), ("Forest", "2F4A2A"), ("Gold", "6B5212"),
+    ]
+
+    var wallColor: Color? { wall.isEmpty ? nil : Color(hex: wall) }
 
     private static let cacheKey = "dailies.avatar.v1"
     private struct Cached: Codable {

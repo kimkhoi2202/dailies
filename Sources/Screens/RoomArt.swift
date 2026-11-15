@@ -536,6 +536,8 @@ struct AvatarRoom: View {
     var decor: [String] = []
     /// Game ids of earned trophies, one cup each on the shelf.
     var trophies: [String] = []
+    /// The wall colour the player picked, or nil for the default.
+    var wall: Color? = nil
 
     var body: some View {
         if decor.contains(where: DecorArt.animates) {
@@ -586,6 +588,12 @@ struct AvatarRoom: View {
         ctx.fill(Path(CGRect(x: 0, y: 0, width: w, height: fy)),
                  with: .linearGradient(Gradient(colors: [Color(hex: "1E1A16"), RoomHue.dusk, RoomHue.umber]),
                                        startPoint: .zero, endPoint: CGPoint(x: 0, y: fy)))
+        if let wall {
+            ctx.fill(Path(CGRect(x: 0, y: 0, width: w, height: fy)), with: .color(wall))
+            ctx.fill(Path(CGRect(x: 0, y: 0, width: w, height: fy)),
+                     with: .linearGradient(Gradient(colors: [.black.opacity(0.45), .black.opacity(0.05)]),
+                                           startPoint: .zero, endPoint: CGPoint(x: 0, y: fy)))
+        }
         let step = max(18, w / 15)
         var paper = Path()
         var dots = Path()
