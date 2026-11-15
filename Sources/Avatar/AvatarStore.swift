@@ -10,6 +10,7 @@ struct ConvexLocker: Decodable, Equatable {
     let look: AvatarLook
     let owned: [String]
     let color: String
+    let decor: [String]?
 }
 
 /// `avatar:profile`: anyone's profile, by handle.
@@ -28,6 +29,7 @@ struct ConvexProfile: Decodable, Equatable {
     let streak: Double
     let rounds: Double
     let look: AvatarLook
+    let decor: [String]?
     let you: Bool
     let bests: [Best]
 }
@@ -38,12 +40,15 @@ final class AvatarStore: ObservableObject {
     @Published private(set) var look: AvatarLook
     @Published private(set) var owned: Set<String>
     @Published private(set) var color: String
+    /// Decor placed in the room, in spot order. At most AvatarCatalog.roomSpots.
+    @Published private(set) var decor: [String]
 
     private static let cacheKey = "dailies.avatar.v1"
     private struct Cached: Codable {
         var look: AvatarLook
         var owned: [String]
         var color: String
+        var decor: [String]?
     }
 
     private let live = !ProcessInfo.processInfo.arguments.contains("-screen")
@@ -55,9 +60,9 @@ final class AvatarStore: ObservableObject {
     private init() {
         if let data = UserDefaults.standard.data(forKey: Self.cacheKey),
            let cached = try? JSONDecoder().decode(Cached.self, from: data) {
-            look = cached.look; owned = Set(cached.owned); color = cached.color
+            look = cached.look; owned = Set(cached.owned); color = cached.color; decor = cached.decor ?? []
         } else {
-            look = AvatarLook.starter(handle: "mira"); owned = []; color = "#7C5CFF"
+            look = AvatarLook.starter(handle: "mira"); owned = []; color = "#7C5CFF"; decor = []
         }
         guard live else { return }
         ConvexLink.shared.signedIn.sink { [weak self] on in
@@ -70,25 +75,74 @@ final class AvatarStore: ObservableObject {
 
     func owns(_ item: AvatarItem) -> Bool { item.isFree || owned.contains(item.id) }
 
-    func wears(_ item: AvatarItem) -> Bool { look.item(in: item.slot) == item.id }
+    func wears(_ item: AvatarItem) -> Bool {
+        item.slot == .decor ? decor.contains(item.id) : look.item(in: item.slot) == item.id
+    }
 
     private func open() {
         watch = ConvexLink.shared.watch("avatar:locker", as: ConvexLocker?.self) { [weak self] value in
             guard let self, let value, self.pending == 0 else { return }
-            self.apply(look: value.look, owned: Set(value.owned), color: value.color)
+            self.apply(look: value.look, owned: Set(value.owned), color: value.color, decor: value.decor ?? [])
         }
     }
 
-    private func apply(look: AvatarLook, owned: Set<String>, color: String) {
+    private func apply(look: AvatarLook, owned: Set<String>, color: String, decor: [String]? = nil) {
+        let decor = decor ?? self.decor
         if look != self.look { self.look = look }
         if owned != self.owned { self.owned = owned }
         if color != self.color { self.color = color }
-        let cached = Cached(look: look, owned: Array(owned), color: color)
+        if decor != self.decor { self.decor = decor }
+        let cached = Cached(look: look, owned: Array(owned), color: color, decor: decor)
         if let data = try? JSONEncoder().encode(cached) { UserDefaults.standard.set(data, forKey: Self.cacheKey) }
+    }
+
+    /// Puts an owned decor item in the room, or takes it out. Says so when the room is full.
+    func toggleDecor(_ item: AvatarItem) {
+        guard item.slot == .decor, owns(item) else { return }
+        let placing = !decor.contains(item.id)
+        if placing && decor.count >= AvatarCatalog.roomSpots {
+            LiveNav.shared.say("Your room is full. Take something out first.")
+            return
+        }
+        apply(look: look, owned: owned, color: color, decor: placing ? decor + [item.id] : decor.filter { $0 != item.id })
+        if LiveStore.shared.s.haptics { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+        guard live else { return }
+        pending += 1
+        let args: [String: ConvexEncodable?] = ["itemId": item.id, "placed": placing]
+        Task { @MainActor in
+            do { try await ConvexLink.shared.mutate("avatar:placeDecor", args) } catch {
+                LiveNav.shared.say(Self.message(error) ?? "That did not save. Try again.")
+            }
+            self.pending -= 1
+        }
+    }
+
+    /// Wears an owned item, or places it in the room if it is decor.
+    func use(_ item: AvatarItem) {
+        if item.slot == .decor { if !decor.contains(item.id) { toggleDecor(item) } } else { equip(item, slot: item.slot) }
+    }
+
+    /// Buys every item of a bundle not owned yet. Returns a message when it did not work.
+    @MainActor
+    func buy(_ bundle: AvatarBundle) async -> String? {
+        let ids = Set(bundle.items)
+        guard live else {
+            apply(look: look, owned: owned.union(ids), color: color)
+            return nil
+        }
+        do {
+            _ = try await ConvexLink.shared.mutate("shop:buyBundle", ["bundleId": bundle.id], as: ConvexSpend.self)
+            apply(look: look, owned: owned.union(ids), color: color)
+            if LiveStore.shared.s.haptics { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+            return nil
+        } catch {
+            return Self.message(error) ?? "The shop did not answer. Try again."
+        }
     }
 
     /// Puts an owned item on, or takes off whatever is in the slot when `item` is nil.
     func equip(_ item: AvatarItem?, slot: AvatarSlot) {
+        guard slot.worn else { return }
         if let item, !owns(item) { return }
         if item == nil && !slot.removable { return }
         apply(look: look.with(slot, item?.id), owned: owned, color: color)

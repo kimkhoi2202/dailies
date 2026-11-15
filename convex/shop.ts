@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { currentUser, gameBySlug, requireUser } from "./lib";
-import { itemById } from "./items";
+import { BUNDLES, itemById } from "./items";
 
 /** What gold can be spent on. Prices are decided here, never by the phone. */
 const ITEMS = [
@@ -77,6 +77,43 @@ export const buy = mutation({
       title: item.name,
       detail: "Bought in the Shop",
       amount: -item.price,
+    });
+    return { balance, changes };
+  },
+});
+
+/** Buys every item of a bundle that is not owned yet, for 20 percent less than buying them one by one. */
+export const buyBundle = mutation({
+  args: { bundleId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const bundle = BUNDLES.find((entry) => entry.id === args.bundleId);
+    if (!bundle) throw new ConvexError("No such bundle");
+    const missing = [];
+    for (const id of bundle.items) {
+      const item = itemById(id);
+      if (!item) continue;
+      const owned = await ctx.db
+        .query("inventory")
+        .withIndex("by_user_and_item", (q) => q.eq("userId", user._id).eq("itemId", id))
+        .unique();
+      if (owned === null) missing.push(item);
+    }
+    if (missing.length === 0) throw new ConvexError("You already have all of these");
+    const price = Math.floor(missing.reduce((sum, item) => sum + item.price, 0) * 0.8);
+    if (user.gold < price) throw new ConvexError("Not enough gold");
+    const balance = user.gold - price;
+    const changes = (user.changes ?? 0) + 1;
+    await ctx.db.patch("users", user._id, { gold: balance, changes });
+    for (const item of missing) {
+      await ctx.db.insert("inventory", { userId: user._id, itemId: item.id, price: Math.floor(item.price * 0.8) });
+    }
+    await ctx.db.insert("ledger", {
+      userId: user._id,
+      kind: "spend",
+      title: bundle.name,
+      detail: "Bundle bought in the Shop",
+      amount: -price,
     });
     return { balance, changes };
   },
