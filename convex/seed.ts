@@ -163,6 +163,22 @@ const GAMES = [
     dislikes: 22,
     scores: [1240, 980, 1510, 640, 870, 1120],
   },
+  {
+    slug: "jam-slide",
+    title: "Jam Slide",
+    studio: "Wobble Works",
+    pitch: "Every block has its gate.",
+    how: "Drag a block along its row or column. It slides out through a gate of its own color. A number on a gate is how many more blocks it lets through. Clear the tray to open the chest.",
+    minPlayers: 1,
+    maxPlayers: 1,
+    mode: "casual" as const,
+    category: "Puzzle",
+    unit: "coins",
+    goldPerMinute: 1,
+    likes: 234,
+    dislikes: 19,
+    scores: [2310, 1840, 1420, 1060, 760, 520],
+  },
 ];
 
 const PLAYERS = [
@@ -185,6 +201,7 @@ const COMMENTS: Record<string, string[]> = {
   "block-party": ["three rows at once and the whole board lit up", "saved the 3x3 for the corner. no regrets"],
   "wild-eights": ["held my eight until the last card. nobody saw it coming", "drew six times in a row and still went out first"],
   "brick-out": ["cleared four boards and lost on the fifth with one move left", "the yellow one was blocking everything the whole time"],
+  "jam-slide": ["the blue gate said 1 and I used it on the wrong block", "watched the chest open six times in one round"],
 };
 
 export const run = internalMutation({

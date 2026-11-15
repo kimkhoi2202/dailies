@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, jamSlide
 }
 
 struct MockGame: Identifiable {
@@ -59,6 +59,7 @@ struct MockGame: Identifiable {
         case .blockParty: BlockPartyScene(phase: moment, showHUD: showHUD)
         case .wildEights: WildEightsScene(phase: moment, showHUD: showHUD)
         case .brickOut: BrickOutScene(phase: moment, showHUD: showHUD)
+        case .jamSlide: JamSlideScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -226,7 +227,14 @@ enum Mock {
         plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
         bestScore: "1,240 points", clipPhase: 0.5, tint: Color(red: 0.42, green: 0.30, blue: 0.72))
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut]
+    static let jamSlide = MockGame(
+        id: "jam-slide", kind: .jamSlide, title: "Jam Slide", tagline: "Every block has its gate.",
+        category: "Puzzle", players: "1 player", mode: "Casual", studio: "Wobble Works",
+        goldPerMinute: 1.0, avgSession: "2m 40s", seedEarned: 0,
+        plays: "188K", likes: "23.4K", dislikes: "1.9K", approval: 92,
+        bestScore: "2,310 coins", clipPhase: 0.5, tint: Color(red: 0.36, green: 0.62, blue: 0.95))
+
+    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut, jamSlide]
 
     // MARK: Videos
 
