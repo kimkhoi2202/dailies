@@ -15,19 +15,11 @@ struct LiveRoot: View {
         ZStack {
             // The system bar stays hidden. LiveTabBar draws the bar, with the Create key in its middle.
             TabView(selection: $nav.tab) {
-<<<<<<< HEAD
                 Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().underTabBar() }
                 Tab("Reels", systemImage: "play.rectangle.on.rectangle.fill", value: 1) { LiveVideos().toolbar(.hidden, for: .tabBar) }
                 Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().underTabBar() }
                 Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesInboxScreen(showsBack: false).underTabBar() }
                 Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().underTabBar() }
-=======
-                Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().toolbar(.hidden, for: .tabBar) }
-                Tab("Reels", systemImage: "play.rectangle.on.rectangle.fill", value: 1) { LiveVideos().toolbar(.hidden, for: .tabBar) }
-                Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().toolbar(.hidden, for: .tabBar) }
-                Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesInboxScreen(showsBack: false).toolbar(.hidden, for: .tabBar) }
-                Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().toolbar(.hidden, for: .tabBar) }
->>>>>>> origin/main
             }
             // An inset on the TabView never reaches the pages inside its tabs, so the bar floats over
             // them and each page keeps its own room for it (underTabBar).
@@ -193,15 +185,12 @@ struct LayerView: View {
             StartRoomSheet()
         case .room(let code):
             RoomScreen(code: code)
-<<<<<<< HEAD
         case .libraryGame(let gameID):
             LibraryGameSheet(game: Mock.game(gameID))
         case .myClip(let clipID):
             LibraryClipScreen(clipID: clipID)
         case .clipList(let source, let start):
             ClipsViewer(source: ClipSource(source), start: start)
-=======
->>>>>>> origin/main
         case .makeChat(let creationID):
             G4CreateChatScreen(creationID: creationID)
         case .makePreview(let creationID):
@@ -224,7 +213,6 @@ struct LayerView: View {
             MessagesWorkplaceScreen()
         case .playTogether(let id):
             MessagesPlayTogetherSheet(chatID: id)
-<<<<<<< HEAD
         case .buyGold:
             WhopBuyGoldSheet()
         case .earnings:
@@ -233,8 +221,6 @@ struct LayerView: View {
             WhopSendSheet()
         case .program(let gameID):
             WhopProgramSheet(game: Mock.game(gameID))
-=======
->>>>>>> origin/main
         }
     }
 }
@@ -643,13 +629,10 @@ enum LiveLaunch {
         case "chat": return .chat(value)
         case "newGroup": return .newGroup
         case "workplace": return .workplace
-<<<<<<< HEAD
         case "buyGold": return .buyGold
         case "earnings": return .earnings
         case "sendEarnings": return .sendEarnings
         case "program": return .program(value)
-=======
->>>>>>> origin/main
         default: return nil
         }
     }
