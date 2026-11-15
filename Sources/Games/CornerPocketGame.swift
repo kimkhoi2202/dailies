@@ -313,8 +313,15 @@ final class CornerPocketModel {
         botClock += dt
         guard let plan = botPlan else {
             if botClock >= Self.botThink {
-                botPlan = CornerPocketPlanner.plan(table, wanted: wanted(by: turn), isBreak: isBreak,
-                                                   skill: CornerPocketPlanner.friend, rng: &rng)
+                // While the scripted player is losing on purpose, the friend hands the turn straight back
+                // so it can sink the 8 early. Once the player's group is gone that can no longer happen,
+                // so the friend plays on and closes the match itself.
+                let mine = players[0].group
+                let throwing = GameDemo.autopilot && (GameDemo.loseAfter.map { time >= $0 } ?? false)
+                    && (mine == 0 || table.left(group: mine) != 0)
+                botPlan = throwing ? CornerPocketPlanner.miss(table)
+                    : CornerPocketPlanner.plan(table, wanted: wanted(by: turn), isBreak: isBreak,
+                                               skill: CornerPocketPlanner.friend, rng: &rng)
                 botFrom = aimAngle
                 botClock = 0
             }
@@ -439,9 +446,11 @@ final class CornerPocketModel {
             }
         }
         if shots >= Self.shotCap {
-            let you = table.left(group: players[0].group).nonzeroBitCount
-            let them = table.left(group: players[1].group).nonzeroBitCount
-            end(winner: you <= them ? 0 : 1, banner: "Out of shots", line: you == 1 ? "1 ball left on your side" : "\(you) balls left on your side")
+            let open = players[0].group == 0
+            let you = open ? table.colorsLeft : table.left(group: players[0].group).nonzeroBitCount
+            let them = open ? table.colorsLeft : table.left(group: players[1].group).nonzeroBitCount
+            let side = open ? "on the table" : "on your side"
+            end(winner: you <= them ? 0 : 1, banner: "Out of shots", line: you == 1 ? "1 ball left \(side)" : "\(you) balls left \(side)")
             return
         }
         if why != nil || own == 0 { turn = other }
@@ -711,6 +720,27 @@ enum CornerPocketPlanner {
         return best
     }
 
+    /// The table once a shot has rolled out and every ball has stopped.
+    static func rollOut(_ table: CornerPocketTable, _ shot: CornerPocketShot) -> CornerPocketTable {
+        var copy = table
+        copy.strike(angle: shot.angle, power: shot.power)
+        var steps = 0
+        while copy.moving && steps < 2880 {
+            copy.advance(T.step)
+            steps += 1
+        }
+        return copy
+    }
+
+    /// A soft shot that drops nothing, so the turn passes. Only the scripted round asks for one.
+    static func miss(_ table: CornerPocketTable) -> CornerPocketShot {
+        for k in 0..<24 {
+            let shot = CornerPocketShot(angle: Double(k) * Double.pi / 12 + 0.13, power: 0.16)
+            if table.trace(angle: shot.angle).target < 0 && rollOut(table, shot).potted.isEmpty { return shot }
+        }
+        return CornerPocketShot(angle: Double.pi / 2, power: 0.08)
+    }
+
     /// Straight at the nearest wanted ball.
     static func straightAt(_ table: CornerPocketTable, wanted: (Int) -> Bool, power: Double) -> CornerPocketShot {
         let cue = table.cue
@@ -763,10 +793,21 @@ struct CornerPocketPilot {
     static let turnTime = 0.7
     static let pullTime = 0.5
 
+    /// Seconds of each frame the search may take. A Release build tries dozens of shots in that time.
+    static let searchBudget = 0.004
+
     private var rng: CornerPocketRandom
     private var plan: CornerPocketShot?
     private var clock = 0.0
     private var from = 0.0
+    /// Shots still to try while looking for one that loses. The table step is exact, so a shot that
+    /// loses on a copy of the table loses on the real one.
+    private var tries: [CornerPocketShot] = []
+    private var tried = 0
+    private var searching = false
+    /// The tried shot that leaves the 8 nearest a pocket, for when none loses outright.
+    private var closest: CornerPocketShot?
+    private var closestGap = Double.infinity
 
     init(seed: UInt64) {
         rng = CornerPocketRandom(seed: seed ^ 0x706F_6F6C, salt: CornerPocketRandom.pilot)
@@ -775,6 +816,7 @@ struct CornerPocketPilot {
     mutating func play(_ model: CornerPocketModel, dt: Double) {
         guard model.yourTurn else {
             plan = nil
+            searching = false
             clock = 0
             return
         }
@@ -782,8 +824,13 @@ struct CornerPocketPilot {
         guard let shot = plan else {
             if clock < (model.shots == 0 ? Self.firstHold : Self.hold) { return }
             let losing = GameDemo.loseAfter.map { model.time >= $0 } ?? false
-            plan = losing ? throwAway(model) : CornerPocketPlanner.plan(model.table, wanted: model.wanted(by: 0),
-                                                                       isBreak: model.isBreak, skill: CornerPocketPlanner.pilot, rng: &rng)
+            if losing && !model.isBreak {
+                guard let found = searchLosingShot(model) else { return }
+                plan = found
+            } else {
+                plan = CornerPocketPlanner.plan(model.table, wanted: model.wanted(by: 0), isBreak: model.isBreak,
+                                                skill: CornerPocketPlanner.pilot, rng: &rng)
+            }
             from = model.aimAngle
             clock = 0
             return
@@ -799,19 +846,53 @@ struct CornerPocketPilot {
         }
     }
 
-    /// A losing shot: the 8 while other balls are still up, or a soft shot at nothing.
-    private mutating func throwAway(_ model: CornerPocketModel) -> CornerPocketShot {
+    /// Looks a few shots further each frame for one that sinks the 8 too early or with the cue ball.
+    /// nil while still looking. When nothing loses outright it plays the shot that leaves the 8 nearest a
+    /// pocket, so the next look finds one.
+    private mutating func searchLosingShot(_ model: CornerPocketModel) -> CornerPocketShot? {
         let table = model.table
-        let eightEarly = model.solo ? table.colorsLeft > 0 : model.players[0].group == 0 || table.left(group: model.players[0].group) != 0
-        if eightEarly {
-            if let pot = CornerPocketPlanner.bestPot(table, wanted: { $0 == 8 }) { return pot }
-            return CornerPocketPlanner.straightAt(table, wanted: { $0 == 8 }, power: 0.8)
+        if !searching {
+            searching = true
+            tried = 0
+            closest = nil
+            closestGap = Double.infinity
+            tries.removeAll(keepingCapacity: true)
+            let cue = table.cue
+            var toward = -Double.pi / 2
+            if let i = table.index(of: 8), table.balls[i].live {
+                toward = atan2(table.balls[i].y - cue.y, table.balls[i].x - cue.x)
+            }
+            for k in 0..<90 {
+                let off = Double((k + 1) / 2) * (2 * Double.pi / 90) * (k % 2 == 0 ? 1 : -1)
+                for power in [0.55, 0.85, 0.3, 1] { tries.append(CornerPocketShot(angle: toward + off, power: power)) }
+            }
         }
-        for k in 0..<16 {
-            let angle = Double(k) * Double.pi / 8 + rng.range(-0.1, 0.1)
-            if table.trace(angle: angle).target < 0 { return CornerPocketShot(angle: angle, power: 0.15) }
+        let g = model.players[0].group
+        let early = model.solo ? table.colorsLeft > 0 : g == 0 || table.left(group: g) != 0
+        let start = ProcessInfo.processInfo.systemUptime
+        while tried < tries.count {
+            if tried > 0 && ProcessInfo.processInfo.systemUptime - start > Self.searchBudget { break }
+            let shot = tries[tried]
+            tried += 1
+            let after = CornerPocketPlanner.rollOut(table, shot)
+            let potted = after.potted
+            if potted.contains(8) && (early || potted.contains(0)) {
+                searching = false
+                return shot
+            }
+            guard !potted.contains(8), let i = after.index(of: 8) else { continue }
+            let eight = after.balls[i]
+            for hole in CornerPocketTable.holes {
+                let gap = (eight.x - hole.x) * (eight.x - hole.x) + (eight.y - hole.y) * (eight.y - hole.y)
+                if gap < closestGap {
+                    closestGap = gap
+                    closest = shot
+                }
+            }
         }
-        return CornerPocketShot(angle: Double.pi / 2, power: 0.1)
+        if tried < tries.count { return nil }
+        searching = false
+        return closest ?? CornerPocketPlanner.miss(table)
     }
 }
 
@@ -864,6 +945,10 @@ final class CornerPocketRunner: ObservableObject {
     func advance(to date: Date, link: GameLink) -> Int {
         if link.paused {
             lastDate = nil
+            if touch != .none {
+                touch = .none
+                model.pull(0)
+            }
             return frame
         }
         defer { lastDate = date }
@@ -943,7 +1028,11 @@ final class CornerPocketRunner: ObservableObject {
 
     func touchEnded(cancelled: Bool, link: GameLink) {
         defer { touch = .none }
-        guard touch == .meter || touch == .sling, model.yourTurn, !link.paused else { return }
+        if link.paused {
+            model.pull(0)
+            return
+        }
+        guard touch == .meter || touch == .sling, model.yourTurn else { return }
         if cancelled || !model.release() { model.pull(0) }
         settle(link)
     }
