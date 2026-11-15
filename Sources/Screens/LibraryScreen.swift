@@ -68,10 +68,15 @@ struct LibraryScreen: View {
             friendsCard
 
             HomeSectionTitle(title: "Your clips")
+<<<<<<< HEAD
             clipGrid
 
             HomeSectionTitle(title: "Saved clips")
             savedGrid
+=======
+            DLEmptyState(symbol: "video.fill", title: "No clips yet", detail: "Film yourself playing with the + button.",
+                         key: "Open camera") { LiveNav.shared.open(.create(nil)) }
+>>>>>>> origin/main
         }
         .defaultScrollAnchor(MockArgs.value("-scroll") == "bottom" ? .bottom : .top)
     }
