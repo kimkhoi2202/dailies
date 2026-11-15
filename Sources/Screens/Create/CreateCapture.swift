@@ -3,12 +3,16 @@ import UIKit
 import AVFoundation
 import CoreImage
 import ReplayKit
+import Vision
+import os
 
 // What the Create camera films with: the front camera, the screen recorder that puts the camera and
 // the game in one file, and a still of the screen for photos.
 
 /// The camera. Its frames are drawn by a sample buffer layer, which the screen recorder captures,
-/// and they are kept for stills. When the screen recorder is missing it writes the camera to a file itself.
+/// and they are kept for stills. With `cutout` on, the person is cut out of each frame and drawn on a
+/// clear background, so the game shows around them. When the screen recorder is missing it writes the
+/// camera to a file itself.
 final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                           AVCaptureAudioDataOutputSampleBufferDelegate {
     enum Access { case unknown, granted, denied }
@@ -27,6 +31,26 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published private(set) var torch = false
 
     let display = AVSampleBufferDisplayLayer()
+    /// The person alone, on a clear background.
+    let cutoutLayer = CALayer()
+
+    /// Set on the main thread, read on the camera queue.
+    var cutout: Bool {
+        get { cutoutLock.withLock { cutoutOn } }
+        set { cutoutLock.withLock { cutoutOn = newValue } }
+    }
+    private var cutoutOn = true
+    private let cutoutLock = NSLock()
+    private let segmentQueue = DispatchQueue(label: "dailies.create.segment")
+    private let segmenter: VNGeneratePersonSegmentationRequest = {
+        let request = VNGeneratePersonSegmentationRequest()
+        request.qualityLevel = .balanced
+        request.outputPixelFormat = kCVPixelFormatType_OneComponent8
+        return request
+    }()
+    private let renderer = CIContext()
+    /// Touched only on the camera queue. A frame is skipped while the last one is still being cut out.
+    private var segmenting = false
 
     private let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "dailies.create.camera")
@@ -44,6 +68,7 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     override init() {
         super.init()
         display.videoGravity = .resizeAspectFill
+        cutoutLayer.contentsGravity = .resizeAspect
     }
 
     var micGranted: Bool { AVCaptureDevice.authorizationStatus(for: .audio) == .authorized }
@@ -147,9 +172,13 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                let first = attachments.first {
                 first[kCMSampleAttachmentKey_DisplayImmediately] = true
             }
-            let renderer = display.sampleBufferRenderer
-            if renderer.status == .failed { renderer.flush() }
-            renderer.enqueue(sample)
+            let shown = display.sampleBufferRenderer
+            if shown.status == .failed { shown.flush() }
+            shown.enqueue(sample)
+            if cutout, !segmenting, let frame = lastFrame {
+                segmenting = true
+                segmentQueue.async { self.cutOut(frame) }
+            }
         }
         guard writing, let writer else { return }
         if writer.status == .unknown {
@@ -161,6 +190,28 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             input.append(sample)
         } else if output === audioOut, let input = audioIn, input.isReadyForMoreMediaData {
             input.append(sample)
+        }
+    }
+
+    /// Cuts the person out of one frame and shows them on a clear background.
+    private func cutOut(_ frame: CVPixelBuffer) {
+        defer { queue.async { self.segmenting = false } }
+        let handler = VNImageRequestHandler(cvPixelBuffer: frame, options: [:])
+        guard (try? handler.perform([segmenter])) != nil, let mask = segmenter.results?.first?.pixelBuffer else { return }
+        let image = CIImage(cvPixelBuffer: frame)
+        var matte = CIImage(cvPixelBuffer: mask)
+        matte = matte.transformed(by: CGAffineTransform(scaleX: image.extent.width / matte.extent.width,
+                                                        y: image.extent.height / matte.extent.height))
+        let person = image.applyingFilter("CIBlendWithMask", parameters: [
+            kCIInputBackgroundImageKey: CIImage.empty(),
+            kCIInputMaskImageKey: matte,
+        ])
+        guard let picture = renderer.createCGImage(person, from: image.extent) else { return }
+        DispatchQueue.main.async {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            self.cutoutLayer.contents = picture
+            CATransaction.commit()
         }
     }
 
@@ -220,30 +271,47 @@ final class CreateCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
 }
 
 /// Shows the camera's frames.
+/// Shows the camera's frames, or with `cutout` the person alone on a clear background.
 struct CreateCameraView: UIViewRepresentable {
     let camera: CreateCamera
+    var cutout = false
 
-    func makeUIView(context: Context) -> Host { Host(shown: camera.display) }
-    func updateUIView(_ view: Host, context: Context) {}
+    func makeUIView(context: Context) -> Host { Host(full: camera.display, cutout: camera.cutoutLayer) }
+
+    func updateUIView(_ view: Host, context: Context) {
+        view.showCutout(cutout)
+    }
 
     final class Host: UIView {
-        private let shown: CALayer
+        private let full: CALayer
+        private let cutout: CALayer
 
-        init(shown: CALayer) {
-            self.shown = shown
+        init(full: CALayer, cutout: CALayer) {
+            self.full = full
+            self.cutout = cutout
             super.init(frame: .zero)
-            backgroundColor = .black
             clipsToBounds = true
-            layer.addSublayer(shown)
+            layer.addSublayer(full)
+            layer.addSublayer(cutout)
         }
 
         required init?(coder: NSCoder) { fatalError("Host is created in code") }
+
+        func showCutout(_ on: Bool) {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            full.isHidden = on
+            cutout.isHidden = !on
+            backgroundColor = on ? .clear : .black
+            CATransaction.commit()
+        }
 
         override func layoutSubviews() {
             super.layoutSubviews()
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            shown.frame = bounds
+            full.frame = bounds
+            cutout.frame = bounds
             CATransaction.commit()
         }
     }
@@ -251,7 +319,16 @@ struct CreateCameraView: UIViewRepresentable {
 
 /// In-app screen recording: the file holds exactly what is on screen, the camera and the game together.
 enum CreateScreenRecorder {
-    static var isAvailable: Bool { RPScreenRecorder.shared().isAvailable }
+    static let log = Logger(subsystem: "com.kimkhoi2202.dailies", category: "create")
+
+    /// false on a simulator, where the recorder writes black frames.
+    static var isAvailable: Bool {
+        #if targetEnvironment(simulator)
+        return false
+        #else
+        return RPScreenRecorder.shared().isAvailable
+        #endif
+    }
 
     static func start(mic: Bool) async throws {
         let recorder = RPScreenRecorder.shared()

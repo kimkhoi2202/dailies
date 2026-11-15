@@ -5,27 +5,24 @@ import ConvexMobile
 // Clips players make with the Create camera: the take waiting in the preview, the posting, and the
 // feed of posted clips that Videos shows ahead of the catalog clips.
 
+/// How the player sits on the game, which always fills the screen.
 enum CreateLayout: String, CaseIterable {
-    /// Camera on the top half, game on the bottom half.
-    case split
-    /// Game full screen, the face in a circle that can sit in any corner.
+    /// The player cut out of the camera's background, dragged and pinched anywhere over the game.
+    case cutout
+    /// The player's face in a circle that sits in a corner.
     case bubble
-    /// Camera full screen, the game over it in the lower two thirds.
-    case overlay
 
     var title: String {
         switch self {
-        case .split: "Split"
+        case .cutout: "Cutout"
         case .bubble: "Bubble"
-        case .overlay: "Overlay"
         }
     }
 
     var symbol: String {
         switch self {
-        case .split: "rectangle.split.1x2"
+        case .cutout: "person.crop.rectangle"
         case .bubble: "pip"
-        case .overlay: "square.on.square"
         }
     }
 

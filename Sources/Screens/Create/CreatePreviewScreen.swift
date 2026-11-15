@@ -62,22 +62,20 @@ struct CreateReplayStage<Camera: View>: View {
             let w = geo.size.width, h = geo.size.height
             ZStack(alignment: .topLeading) {
                 Color.black
+                scene.frame(width: w, height: h)
                 switch layout {
-                case .split:
-                    VStack(spacing: 0) {
-                        camera().frame(width: w, height: h / 2).clipped()
-                        scene.frame(width: w, height: h / 2).clipped()
-                    }
+                case .cutout:
+                    // A camera-only recording still has its background, so it sits as a card low on the game.
+                    camera()
+                        .frame(width: w * 0.42, height: w * 0.42 * 16 / 9)
+                        .clipShape(RoundedRectangle(cornerRadius: DL.tileRadius, style: .continuous))
+                        .position(x: w * 0.5, y: h - w * 0.42 * 8 / 9 - 40)
                 case .bubble:
-                    scene.frame(width: w, height: h)
                     camera()
                         .frame(width: 120, height: 120)
                         .clipShape(Circle())
                         .overlay(Circle().strokeBorder(.white.opacity(0.8), lineWidth: 2))
                         .position(x: w - 76, y: 140)
-                case .overlay:
-                    camera().frame(width: w, height: h).clipped()
-                    scene.frame(width: w, height: h * 2 / 3).opacity(0.85).offset(y: h / 3)
                 }
             }
         }
@@ -285,6 +283,7 @@ private struct CreatePreviewContent: View {
                 LiveNav.shared.goToTab(1)
                 withAnimation(.snappy(duration: 0.3)) { LiveNav.shared.videoIndex = 0 }
             } catch {
+                CreateScreenRecorder.log.error("Posting a clip failed: \(String(describing: error), privacy: .public)")
                 posting = false
                 LiveNav.shared.say("Could not post. Try again")
             }
@@ -365,7 +364,7 @@ struct CreateClipPage: View {
     }
 
     @ViewBuilder private func media(_ game: MockGame) -> some View {
-        let layout = CreateLayout(rawValue: clip.layout) ?? .split
+        let layout = CreateLayout(rawValue: clip.layout) ?? .cutout
         if let address = clip.url, let url = URL(string: address) {
             if clip.kind == "photo" {
                 AsyncImage(url: url) { image in

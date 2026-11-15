@@ -61,7 +61,7 @@ struct CreateCameraScreen: View {
     @State private var centeredID: String?
     @State private var userPicked = false
     @State private var cleared = false
-    @State private var layout: CreateLayout = .split
+    @State private var layout: CreateLayout = .cutout
     @State private var length: CreateLength = .long
     @State private var timer = 0
     @State private var flash = false
@@ -80,6 +80,10 @@ struct CreateCameraScreen: View {
     @State private var toastToken = UUID()
     @State private var corner: Corner = .topTrailing
     @State private var drag: CGSize = .zero
+    /// Where the cutout's centre sits, as a fraction of the card. Pinching changes its size.
+    @State private var cutoutAt = CGPoint(x: 0.5, y: 0.62)
+    @State private var cutoutScale: CGFloat = 0.62
+    @State private var pinch: CGFloat = 1
     @State private var frozen: UIImage?
     @State private var snapping = false
     @State private var shutter = false
@@ -156,49 +160,61 @@ struct CreateCameraScreen: View {
         }
     }
 
-    /// The camera and the game, placed by the layout. The two views stay the same views when the
-    /// layout changes, so a change slides them into place.
+    /// The game fills the card. The player sits on it: cut out of the background, or in a bubble.
     private func stage(_ size: CGSize) -> some View {
         let w = size.width, h = size.height
         let bubble: CGFloat = 120
-        let cameraRect: CGRect
-        let gameRect: CGRect
+        let rect: CGRect
         switch layout {
-        case .split:
-            cameraRect = CGRect(x: 0, y: 0, width: w, height: h / 2)
-            gameRect = CGRect(x: 0, y: h / 2, width: w, height: h / 2)
+        case .cutout:
+            let width = w * min(1.1, max(0.3, cutoutScale * pinch))
+            let height = width * 16 / 9
+            rect = CGRect(x: cutoutAt.x * w - width / 2, y: cutoutAt.y * h - height / 2, width: width, height: height)
         case .bubble:
             let left = corner == .topLeading || corner == .bottomLeading
             let top = corner == .topLeading || corner == .topTrailing
             let x = left ? 16 + bubble / 2 : w - 16 - bubble / 2
             let y = top ? 76 + bubble / 2 : h - 210 - bubble / 2
-            cameraRect = CGRect(x: x - bubble / 2, y: y - bubble / 2, width: bubble, height: bubble)
-            gameRect = CGRect(x: 0, y: 0, width: w, height: h)
-        case .overlay:
-            cameraRect = CGRect(x: 0, y: 0, width: w, height: h)
-            gameRect = CGRect(x: 0, y: h / 3, width: w, height: h * 2 / 3)
+            rect = CGRect(x: x - bubble / 2, y: y - bubble / 2, width: bubble, height: bubble)
         }
+        let isBubble = layout == .bubble
         return ZStack {
-            gameView
-                .frame(width: gameRect.width, height: gameRect.height)
-                .clipped()
-                .opacity(layout == .overlay ? 0.85 : 1)
-                .position(x: gameRect.midX, y: gameRect.midY)
-                .zIndex(1)
-            cameraView(small: layout == .bubble)
-                .frame(width: cameraRect.width, height: cameraRect.height)
-                .clipShape(RoundedRectangle(cornerRadius: layout == .bubble ? bubble / 2 : 0, style: .continuous))
+            gameView.frame(width: w, height: h)
+            cameraView(layout: layout)
+                .frame(width: rect.width, height: rect.height)
+                .clipShape(RoundedRectangle(cornerRadius: isBubble ? bubble / 2 : 0, style: .continuous))
                 .overlay {
-                    if layout == .bubble { Circle().strokeBorder(.white.opacity(0.8), lineWidth: 2) }
+                    if isBubble { Circle().strokeBorder(.white.opacity(0.8), lineWidth: 2) }
                 }
+                .contentShape(isBubble ? AnyShape(Circle()) : AnyShape(Rectangle()))
                 .offset(drag)
-                .position(x: cameraRect.midX, y: cameraRect.midY)
-                .gesture(bubbleDrag(size), including: layout == .bubble ? .all : .none)
-                .zIndex(layout == .bubble ? 2 : 0)
+                .position(x: rect.midX, y: rect.midY)
+                .gesture(isBubble ? AnyGesture(bubbleDrag(size).map { _ in () }) : AnyGesture(cutoutMove(size)))
+                // While recording every touch goes to the game.
+                .allowsHitTesting(phase == .idle)
         }
         .frame(width: w, height: h)
+        .clipped()
         .animation(.snappy(duration: 0.4), value: layout)
         .animation(.snappy(duration: 0.35), value: corner)
+    }
+
+    /// Drag to move the cutout, pinch to size it.
+    private func cutoutMove(_ size: CGSize) -> some Gesture {
+        let move = DragGesture()
+            .onChanged { drag = $0.translation }
+            .onEnded { value in
+                cutoutAt = CGPoint(x: min(0.95, max(0.05, cutoutAt.x + value.translation.width / size.width)),
+                                   y: min(0.95, max(0.1, cutoutAt.y + value.translation.height / size.height)))
+                drag = .zero
+            }
+        let size = MagnifyGesture()
+            .onChanged { pinch = $0.magnification }
+            .onEnded { value in
+                cutoutScale = min(1.1, max(0.3, cutoutScale * value.magnification))
+                pinch = 1
+            }
+        return move.simultaneously(with: size).map { _ in () }
     }
 
     @ViewBuilder private var gameView: some View {
@@ -213,22 +229,31 @@ struct CreateCameraScreen: View {
         }
     }
 
-    @ViewBuilder private func cameraView(small: Bool) -> some View {
+    @ViewBuilder private func cameraView(layout: CreateLayout) -> some View {
         if !CreateCamera.hasHardware {
-            ZStack {
+            if layout == .bubble {
                 LinearGradient(colors: [DL.sunken, Color.black], startPoint: .top, endPoint: .bottom)
-                VStack(spacing: 8) {
-                    Image(systemName: "camera.fill").font(.system(size: small ? 22 : 30, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.6))
-                    if !small {
-                        Text("Camera needs a real phone").dlLabel(12, color: .white.opacity(0.7))
-                    }
+                    .overlay(Image(systemName: "camera.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(.white.opacity(0.6)))
+            } else {
+                // Where the player would stand: a dark silhouette over the game.
+                VStack(spacing: 10) {
+                    Spacer()
+                    Image(systemName: "person.fill")
+                        .resizable().scaledToFit()
+                        .foregroundStyle(LinearGradient(colors: [DL.sunken, Color.black], startPoint: .top, endPoint: .bottom))
+                        .opacity(0.85)
+                        .padding(.horizontal, 10)
+                    Text("Camera needs a real phone")
+                        .dlLabel(11, color: .white)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(Capsule().fill(.black.opacity(0.6)))
+                        .padding(.bottom, 8)
                 }
             }
         } else {
-            CreateCameraView(camera: camera)
+            CreateCameraView(camera: camera, cutout: layout == .cutout)
                 .overlay {
-                    if let frozen { Image(uiImage: frozen).resizable().scaledToFill() }
+                    if let frozen, layout == .bubble { Image(uiImage: frozen).resizable().scaledToFill() }
                 }
         }
     }
@@ -509,6 +534,7 @@ struct CreateCameraScreen: View {
 
     private func appear() {
         Task { await camera.start(ownAudio: !CreateScreenRecorder.isAvailable) }
+        camera.cutout = layout == .cutout
         historyWatch = ConvexLink.shared.watch("rounds:history", as: [CreateHistoryRow].self) { rows in
             var counts: [String: Int] = [:]
             for row in rows { counts[row.gameSlug, default: 0] += 1 }
@@ -573,6 +599,7 @@ struct CreateCameraScreen: View {
 
     private func cycleLayout() {
         layout = layout.next
+        camera.cutout = layout == .cutout
         drag = .zero
         say(layout.title)
     }
@@ -640,7 +667,10 @@ struct CreateCameraScreen: View {
         let seconds = Date().timeIntervalSince(recordStart)
         var url: URL?
         switch recording {
-        case .screen: url = try? await CreateScreenRecorder.stop()
+        case .screen:
+            do { url = try await CreateScreenRecorder.stop() } catch {
+                CreateScreenRecorder.log.error("Screen recording failed: \(String(describing: error), privacy: .public)")
+            }
         case .camera: url = await camera.stopRecording()
         case .none: break
         }
