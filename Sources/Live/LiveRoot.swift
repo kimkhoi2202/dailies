@@ -154,7 +154,7 @@ struct LayerView: View {
         case .createPreview:
             CreatePreviewScreen()
         case .makeGame:
-            CreateMakeGameScreen()
+            G4CreateScreen()
         case .profile(let handle):
             ProfileScreen(handle: handle)
         case .shop(let focus):
@@ -165,6 +165,10 @@ struct LayerView: View {
             StartRoomSheet()
         case .room(let code):
             RoomScreen(code: code)
+        case .makeChat(let creationID):
+            G4CreateChatScreen(creationID: creationID)
+        case .makePreview(let creationID):
+            G4CreatePreviewScreen(creationID: creationID)
         }
     }
 }
@@ -470,10 +474,11 @@ struct LiveResultsScreen: View {
 ///   -video <n>          the clip showing in Videos
 ///   -play <game id>     open straight into a game (-solo 1 to play alone, -seed <n> for a fixed round)
 ///   -route <name>       open a screen: gold, history, streak, search, inbox, settings, saveGold, notify, studio,
-///                       reviewProgress, reviewResult, reviewChanges, or one that takes a value:
+///                       reviewProgress, reviewResult, reviewChanges, makeGame, or one that takes a value:
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
 ///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
 ///                       create[:<game id>], join, startRoom, profile:<handle>, room:<code>,
+///                       makeChat:<creation id>, makePreview:<creation id>,
 ///                       shop, shop:closet, shop:<item id> (opens that item's sheet)
 ///   -tryon <item id>    in the Shop, try an item on without opening its sheet
 ///   -shopturn 1         in the Shop, turn the Dailie round to show its back
@@ -520,6 +525,9 @@ enum LiveLaunch {
         case "reviewProgress": return .reviewProgress
         case "reviewResult": return .reviewResult
         case "reviewChanges": return .reviewChanges
+        case "makeGame": return .makeGame
+        case "makeChat": return .makeChat(value)
+        case "makePreview": return .makePreview(value)
         case "gameReady": return .gameReady(value)
         case "gameDetail": return .gameDetail(value)
         case "leaderboard": return .leaderboard(value)

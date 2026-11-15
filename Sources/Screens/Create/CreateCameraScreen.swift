@@ -785,22 +785,3 @@ enum CreateWait {
     }
 }
 
-/// GAME under the camera: making games is coming.
-struct CreateMakeGameScreen: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            DLIconButton(symbol: "xmark").goesBack().accessibilityLabel("Close")
-            Spacer()
-            Text("MAKE A GAME").font(DL.display(48)).foregroundStyle(DL.ink)
-            Text("Soon you can make a small game here and send it to friends. For now, film yourself playing one.")
-                .font(DL.text(17)).foregroundStyle(DL.ink2)
-                .fixedSize(horizontal: false, vertical: true)
-            DLTextKey(title: "Back to the camera", symbol: "camera.fill", style: .neutral).goesBack()
-            Spacer()
-        }
-        .padding(.horizontal, DL.margin)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(DL.body.ignoresSafeArea())
-    }
-}

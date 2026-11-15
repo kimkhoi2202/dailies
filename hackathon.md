@@ -8,9 +8,9 @@
 - **Frontend:** not deployed
 - **Convex deployment:** https://blissful-jackal-368.convex.cloud
 - **Components:** @convex-dev/auth (auth, authPassword, authUsername)
-- **Convex features:** schema, tables, indexes, queries, mutations, realtime queries
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, scheduler, environment variables, realtime queries
 - **Auth:** Convex Auth
-- **AI models:** none
+- **AI models:** gpt-6-luna (OpenAI Responses API, from a Convex action)
 - **Started:** 2026-11-15T18:02:39Z
 - **Last updated:** 2026-11-15T21:13:57Z
 
@@ -121,3 +121,22 @@ the same round (`Sources/Screens/LibraryScreen.swift`,
 `Sources/Screens/RoomScreens.swift`). Saved games live in Convex
 (`convex/library.ts`, a `saved` table in `convex/schema.ts`). Home gained the
 player's avatar at the top right, which opens the profile.
+
+### 2026-11-15 - 285f965
+Added the studio's game creation pipeline, on the `game-creation` branch.
+From the studio a player says what game they want, or asks to be inspired, and
+talks to the studio until it has enough to build. The studio is an OpenAI model
+(`gpt-6-luna`, Responses API with a JSON schema) behind a Convex action that
+reads `OPENAI_API_KEY` from the Convex environment; each reply is a line with
+tappable choices, three ideas, or the finished design (`convex/ai.ts`). A
+creation and its conversation live in two new tables, the app watches them
+with live queries, and when the design is settled a scheduled mutation puts the
+game in the `games` table, private to its maker, playing on one of the six
+built-in engines with the studio's title, pitch, instructions and colour
+(`convex/creations.ts`, `convex/schema.ts`, `convex/games.ts`). In the app:
+the wish screen, the talk, the building screen and the game's preview with a
+Play key, plus the list of made games in the studio (`Sources/Screens/G4_Create.swift`,
+`Sources/Screens/G3_Studio.swift`, `Sources/Live/LiveStore.swift`). The whole
+talk was run against the deployment from the CLI: a wish for inspiration got
+four moods, a mood got three ideas, and picking one built a game on the Spiral
+Drop engine within ten seconds.

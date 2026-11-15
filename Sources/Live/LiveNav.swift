@@ -42,13 +42,16 @@ enum Route: Hashable {
     // making a clip
     case create(String?)
     case createPreview
+    // making a game in the studio
     case makeGame
+    case makeChat(String)
+    case makePreview(String)
 
     enum Style { case push, cover, sheet }
 
     var style: Style {
         switch self {
-        case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room, .shop:
+        case .gameDetail, .leaderboard, .gold, .history, .search, .inbox, .settings, .studio, .profile, .room, .shop, .makeChat, .makePreview:
             .push
         case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges,
              .create, .createPreview, .makeGame:
@@ -60,7 +63,7 @@ enum Route: Hashable {
 
     fileprivate var isPublishing: Bool {
         switch self {
-        case .publish, .reviewProgress, .reviewResult, .reviewChanges: true
+        case .publish, .reviewProgress, .reviewResult, .reviewChanges, .makeGame, .makeChat, .makePreview: true
         default: false
         }
     }
