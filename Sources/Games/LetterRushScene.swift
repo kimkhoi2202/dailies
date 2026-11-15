@@ -4,7 +4,8 @@ import SwiftUI
 //
 // Everything is painted into one Canvas by LetterRushPainter from a LetterRushFrame, which is
 // one moment of the game. The clip in the video feed builds a frame from a phase (0...1) and a
-// fixed script; the playable game builds one from its live model. No assets, any frame size.
+// fixed script; the playable game builds one from its live model. The pictures are the
+// letter-rush-* images in Resources/GameArt, resolved once per frame by LetterRushArt. Any frame size.
 
 public struct LetterRushScene: View {
     public var phase: Double
@@ -253,6 +254,26 @@ struct LetterRushLayout {
     }
 }
 
+// MARK: - Pictures
+
+/// The game's pictures, resolved once per frame.
+struct LetterRushArt {
+    let background: GraphicsContext.ResolvedImage
+    let tray: GraphicsContext.ResolvedImage
+    let tile: GraphicsContext.ResolvedImage
+    let tilePicked: GraphicsContext.ResolvedImage
+    let spark: GraphicsContext.ResolvedImage
+
+    init(_ ctx: GraphicsContext) {
+        func load(_ name: String) -> GraphicsContext.ResolvedImage { ctx.resolve(Image("letter-rush-" + name)) }
+        background = load("background")
+        tray = load("tray")
+        tile = load("tile")
+        tilePicked = load("tile-picked")
+        spark = load("spark")
+    }
+}
+
 // MARK: - Painter
 
 struct LetterRushPainter {
@@ -272,13 +293,20 @@ struct LetterRushPainter {
     var u: CGFloat { layout.u }
 
     func draw(_ ctx: inout GraphicsContext) {
-        ctx.fill(Path(CGRect(x: 0, y: 0, width: layout.w, height: layout.h)), with: .color(Ink.paper))
+        let art = LetterRushArt(ctx)
+        let back = art.background.size
+        let fill = Swift.max(layout.w / back.width, layout.h / back.height)
+        let bw = back.width * fill
+        let bh = back.height * fill
+        ctx.draw(art.background, in: CGRect(x: (layout.w - bw) / 2, y: (layout.h - bh) / 2, width: bw, height: bh))
+        let side = LetterRushLayout.gridWidth * u
+        drawTray(&ctx, art.tray, in: CGRect(x: layout.gridLeft - 12 * u, y: layout.gridTop - 12 * u, width: side + 24 * u, height: side + 29 * u))
         if showHUD { drawHeader(&ctx) }
         drawBubble(&ctx)
-        drawTiles(&ctx)
+        drawTiles(&ctx, art)
         drawPath(&ctx)
         drawLetters(&ctx)
-        drawSparks(&ctx)
+        drawSparks(&ctx, art)
         drawPops(&ctx)
         if showHUD { drawFooter(&ctx) }
         drawPraise(&ctx)
@@ -328,6 +356,27 @@ struct LetterRushPainter {
     }
 
     static func words(_ n: Int) -> String { n == 1 ? "1 word" : "\(n) words" }
+
+    // MARK: Tray
+
+    /// The tray under the tiles, stretched with its rim kept thin: the outer 14% of the picture on
+    /// each edge maps to a fixed corner size.
+    func drawTray(_ ctx: inout GraphicsContext, _ image: GraphicsContext.ResolvedImage, in rect: CGRect) {
+        let corner = 23 * u
+        let cuts: [CGFloat] = [0, 0.14, 0.86, 1]
+        let xs: [CGFloat] = [rect.minX, rect.minX + corner, rect.maxX - corner, rect.maxX]
+        let ys: [CGFloat] = [rect.minY, rect.minY + corner, rect.maxY - corner, rect.maxY]
+        for i in 0..<3 {
+            for j in 0..<3 {
+                let piece = CGRect(x: xs[i], y: ys[j], width: xs[i + 1] - xs[i], height: ys[j + 1] - ys[j])
+                let fw = piece.width / (cuts[i + 1] - cuts[i])
+                let fh = piece.height / (cuts[j + 1] - cuts[j])
+                var part = ctx
+                part.clip(to: Path(piece.insetBy(dx: -0.3, dy: -0.3)))
+                part.draw(image, in: CGRect(x: xs[i] - cuts[i] * fw, y: ys[j] - cuts[j] * fh, width: fw, height: fh))
+            }
+        }
+    }
 
     // MARK: Header
 
@@ -422,8 +471,7 @@ struct LetterRushPainter {
 
     // MARK: Grid
 
-    func drawTiles(_ ctx: inout GraphicsContext) {
-        let radius = 17 * u
+    func drawTiles(_ ctx: inout GraphicsContext, _ art: LetterRushArt) {
         let lift = 5 * u
         for cell in 0..<16 {
             let rect = layout.tileRect(cell)
@@ -433,8 +481,7 @@ struct LetterRushPainter {
                 scale = 1 + 0.07 * CGFloat(M.outBack(frame.joinAge[cell] / 0.14))
             }
             let r = rect.insetBy(dx: rect.width * (1 - scale) / 2, dy: rect.height * (1 - scale) / 2)
-            ctx.fill(soft(r.offsetBy(dx: 0, dy: lift), radius), with: .color(picked ? Ink.goldEdge : Ink.cardEdge))
-            ctx.fill(soft(r, radius), with: .color(picked ? Ink.gold : Ink.card))
+            ctx.draw(picked ? art.tilePicked : art.tile, in: CGRect(x: r.minX, y: r.minY, width: r.width, height: r.height + lift))
         }
     }
 
@@ -462,7 +509,8 @@ struct LetterRushPainter {
 
     // MARK: Juice
 
-    func drawSparks(_ ctx: inout GraphicsContext) {
+    func drawSparks(_ ctx: inout GraphicsContext, _ art: LetterRushArt) {
+        var glow = ctx
         for spark in frame.sparks {
             let k = M.clamp(spark.age / 0.7)
             if k >= 1 { continue }
@@ -470,9 +518,9 @@ struct LetterRushPainter {
             let c = layout.center(spark.cell)
             let p = CGPoint(x: c.x + CGFloat(cos(spark.angle) * travel) * u,
                             y: c.y + CGFloat(sin(spark.angle) * travel - 30 * k * k) * u)
-            let r = CGFloat(4.5 - 3.5 * k) * u
-            ctx.fill(Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r)),
-                     with: .color(Ink.gold.opacity(1 - k * k)))
+            let r = CGFloat(4.5 - 3.5 * k) * u * 2.4
+            glow.opacity = 1 - k * k
+            glow.draw(art.spark, in: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r))
         }
     }
 

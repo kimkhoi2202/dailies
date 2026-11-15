@@ -929,7 +929,7 @@ struct ShortStackBackdrop: View, Equatable {
     var body: some View {
         Canvas(opaque: true, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
             if size.width <= 8 || size.height <= 8 { return }
-            ShortStackPainter(size: size).drawStill(&context)
+            ShortStackPainter(size: size, context: context).drawStill(&context)
         }
     }
 }
@@ -943,7 +943,7 @@ struct ShortStackCanvas: View {
     var body: some View {
         Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: false) { context, size in
             if size.width <= 8 || size.height <= 8 { return }
-            ShortStackPainter(size: size).drawLive(&context, model.frame, showHUD: true)
+            ShortStackPainter(size: size, context: context).drawLive(&context, model.frame, showHUD: true)
         }
     }
 }
