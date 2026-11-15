@@ -245,6 +245,8 @@ struct WildEightsLayout {
         case .hand(let pos, let count):
             let (p, a) = hand(pos, count, lift: 1)
             return (p, a, cw)
+        case .point(let x, let y):
+            return (CGPoint(x: x, y: y), 0, cw)
         }
     }
 
@@ -325,6 +327,7 @@ struct WildEightsPainter {
         }
         if live { drawHint(&ctx) }
         drawHand(&ctx)
+        drawCarried(&ctx)
         drawFlights(&ctx)
         drawParticles(&ctx)
         drawFloaters(&ctx)
@@ -450,7 +453,7 @@ struct WildEightsPainter {
     }
 
     private func drawHint(_ ctx: inout GraphicsContext) {
-        guard m.played == 0, m.canAct, m.draws == 0 else { return }
+        guard m.played == 0, m.canAct, m.draws == 0, m.hasPlayable else { return }
         let alpha = 0.6 + 0.3 * sin(now * 3.4)
         let text = Text(m.selected == nil ? "Tap a card to lift it" : "Tap it again to play")
             .font(.system(size: 15 * u, weight: .bold, design: .rounded))
@@ -462,7 +465,7 @@ struct WildEightsPainter {
     private func drawHand(_ ctx: inout GraphicsContext) {
         let count = m.slots.count
         let mine = m.canAct
-        for (k, slot) in m.slots.enumerated() {
+        for (k, slot) in m.slots.enumerated() where k != m.dragIndex {
             var (p, a) = L.hand(slot.pos, count, lift: slot.lift)
             var w = L.cw
             var flip: CGFloat = 1
@@ -487,6 +490,12 @@ struct WildEightsPainter {
                 drawBack(&ctx, p, w, angle: a, squeeze: -flip)
             }
         }
+    }
+
+    /// The card the finger is carrying, drawn over everything else on the table.
+    private func drawCarried(_ ctx: inout GraphicsContext) {
+        guard let k = m.dragIndex, m.slots.indices.contains(k) else { return }
+        drawFace(&ctx, m.slots[k].card, m.dragPoint, L.cw * 1.08, angle: 0, glow: 1)
     }
 
     private func drawFlights(_ ctx: inout GraphicsContext) {

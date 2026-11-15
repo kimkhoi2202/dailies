@@ -74,6 +74,8 @@ final class WildEightsModel {
         case seat(Int)
         /// The player's hand: the card's place in the fan and how many cards the fan had.
         case hand(Double, Int)
+        /// Where the finger let go of a carried card.
+        case point(Double, Double)
     }
 
     struct Rival {
@@ -167,6 +169,9 @@ final class WildEightsModel {
     private(set) var played = 0
     private(set) var draws = 0
     private var streak = 0
+    /// A lifted card the finger is carrying, and where the finger is.
+    private(set) var dragIndex: Int?
+    private(set) var dragPoint = CGPoint.zero
     private(set) var shakeCard: WildEightsCard?
     private(set) var shakeAt = -10.0
 
@@ -302,9 +307,12 @@ final class WildEightsModel {
     private func playPlayer(_ index: Int) {
         let slot = slots.remove(at: index)
         selected = nil
+        let carried = dragIndex == index
+        dragIndex = nil
         let card = slot.card
         let under = top
-        flights.append(Flight(card: card, from: .hand(slot.pos, slots.count + 1), to: .discard, start: clock,
+        let from: Spot = carried ? .point(Double(dragPoint.x), Double(dragPoint.y)) : .hand(slot.pos, slots.count + 1)
+        flights.append(Flight(card: card, from: from, to: .discard, start: clock,
                               length: Self.playFlight, faceFrom: true, faceTo: true, spin: rng.range(-0.25, 0.25)))
         discard.append(card)
         played += 1
@@ -347,10 +355,29 @@ final class WildEightsModel {
 
     private func endTurn() {
         selected = nil
+        dragIndex = nil
         drewThisTurn = false
         turn = (turn + 1) % seatCount
         turnStartedAt = clock
-        if turn != 0 { wait = rng.range(0.7, 1.05) }
+        if turn != 0 {
+            wait = rng.range(0.7, 1.05)
+        } else {
+            owe(.tap)
+        }
+    }
+
+    /// The finger moved while holding the lifted card: carry it.
+    func carry(_ index: Int, to point: CGPoint) {
+        guard canAct, selected == index else { return }
+        dragIndex = index
+        dragPoint = point
+    }
+
+    /// The finger let go. Over the table the carried card is played; back on the hand it drops back.
+    func release(overTable: Bool) {
+        guard let index = dragIndex else { return }
+        dragIndex = nil
+        if overTable && canAct && selected == index { apply(.card(index)) }
     }
 
     // MARK: Rivals
@@ -756,11 +783,32 @@ final class WildEightsRunner: ObservableObject {
             if m.sheet > 0.6, let suit = layout.suitButton(at: point, sheet: m.sheet) { m.apply(.suit(suit)) }
         } else if let index = layout.handIndex(at: point, model: m) {
             m.apply(.card(index))
+            if m.selected == index { held = index }
         } else if layout.deckRect.contains(point) {
             m.apply(.deck)
         } else if layout.discardRect.contains(point) {
             m.apply(.pile)
         }
+        settle(link)
+    }
+
+    /// The card picked up by the current touch, if any.
+    private var held: Int?
+
+    func move(to point: CGPoint, from start: CGPoint, link: GameLink) {
+        guard let index = held, !link.paused else { return }
+        let dx = point.x - start.x
+        let dy = point.y - start.y
+        if dx * dx + dy * dy < 144 && model.dragIndex == nil { return }
+        model.carry(index, to: point)
+    }
+
+    func lift(at point: CGPoint, in size: CGSize, link: GameLink) {
+        defer { held = nil }
+        guard held != nil, model.dragIndex != nil else { return }
+        let layout = WildEightsLayout(size: size)
+        model.release(overTable: point.y < layout.handY - layout.ch * 0.75 || layout.discardRect.contains(point))
+        model.apply(.touch)
         settle(link)
     }
 
@@ -821,6 +869,12 @@ private struct WildEightsRound: View {
                         if down { return }
                         down = true
                         runner.touch(at: value.startLocation, in: geo.size, link: link)
+                    }
+                    .onChanged { value in
+                        runner.move(to: value.location, from: value.startLocation, link: link)
+                    }
+                    .onEnded { value in
+                        runner.lift(at: value.location, in: geo.size, link: link)
                     }
             )
         }
