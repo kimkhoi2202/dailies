@@ -94,3 +94,16 @@ and the streak week (`Sources/Live/LiveStore.swift`, `Sources/Live/LiveScreens.s
 amount of two digits (`Sources/Screens/GameScreens.swift`). Built the app on
 Revyl, installed it on a cloud iPhone and played a round by touch; the round and
 its gold appeared in Convex under a new device account.
+
+### 2026-11-15 - 18d94c1
+Rebuilt the tab bar as our own floating frosted pill with five slots: Home,
+Reels, a raised gold Create key that opens the camera screen (a placeholder for
+now), Messages (a placeholder until chats land) and a new Library tab
+(`Sources/Live/LiveTabBar.swift`, `Sources/Live/LiveRoot.swift`). The Library
+shows the games you played lately from your round history, every game with your
+best and the gold it has left today, a bookmark to save games, and rooms you can
+start or join with a 4 letter code, with a live lobby that takes everyone into
+the same round (`Sources/Screens/LibraryScreen.swift`,
+`Sources/Screens/RoomScreens.swift`). Saved games live in Convex
+(`convex/library.ts`, a `saved` table in `convex/schema.ts`). Home gained the
+player's avatar at the top right, which opens the profile.
