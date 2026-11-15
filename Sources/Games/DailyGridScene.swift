@@ -4,7 +4,8 @@ import SwiftUI
 //
 // The whole screen is painted into one Canvas by DailyGridPainter from a DailyGridFrame, a plain
 // description of one moment. The clip in the Videos feed builds a frame from a phase (0...1) and
-// a fixed script; the playable game builds one from its live model. No assets, any frame size.
+// a fixed script; the playable game builds one from its live model. The pictures it draws are the
+// daily-grid-* images in Resources/GameArt, resolved once per frame by DailyGridArt. Any frame size.
 
 public struct DailyGridScene: View {
     public var phase: Double
@@ -121,11 +122,9 @@ struct DailyGridTint {
 }
 
 enum DailyGridPalette {
-    static let paper = DailyGridTint(hex: 0xECE8E1)
     static let card = DailyGridTint(hex: 0xF8F6F1)
     static let ink = DailyGridTint(hex: 0x151412)
     static let soft = DailyGridTint(hex: 0x6E6A63)
-    static let cross = DailyGridTint(hex: 0x8A857C)
     static let red = DailyGridTint(hex: 0xE0553F)
     /// Peach, sky, mint, butter, lilac, rose: one for each colour region.
     static let regions: [DailyGridTint] = [0xF6C9B2, 0xBFD9F2, 0xC8E8C9, 0xF5E3A5, 0xD9CFF2, 0xF7C4D9]
@@ -288,6 +287,31 @@ struct DailyGridLayout {
     }
 }
 
+// MARK: - Pictures
+
+/// The game's pictures, resolved once per frame.
+struct DailyGridArt {
+    /// One tile for each colour region, in the order of DailyGridPalette.regions.
+    static let tileNames = ["peach", "sky", "mint", "butter", "lilac", "rose"]
+
+    let background: GraphicsContext.ResolvedImage
+    let frame: GraphicsContext.ResolvedImage
+    let crown: GraphicsContext.ResolvedImage
+    let crownWrong: GraphicsContext.ResolvedImage
+    let cross: GraphicsContext.ResolvedImage
+    let tiles: [GraphicsContext.ResolvedImage]
+
+    init(_ ctx: GraphicsContext) {
+        func load(_ name: String) -> GraphicsContext.ResolvedImage { ctx.resolve(Image("daily-grid-" + name)) }
+        background = load("background")
+        frame = load("frame")
+        crown = load("crown")
+        crownWrong = load("crown-wrong")
+        cross = load("cross")
+        tiles = DailyGridArt.tileNames.map { load("tile-" + $0) }
+    }
+}
+
 // MARK: - Painter
 
 struct DailyGridPainter {
@@ -302,9 +326,14 @@ struct DailyGridPainter {
     }
 
     func draw(_ ctx: inout GraphicsContext, _ f: DailyGridFrame) {
-        ctx.fill(Path(CGRect(x: 0, y: 0, width: L.W, height: L.H)), with: .color(P.paper.color()))
-        if f.showHUD { drawHUD(&ctx, f) }
-        drawBoard(&ctx, f)
+        let art = DailyGridArt(ctx)
+        let back = art.background.size
+        let fill = Swift.max(L.W / Double(back.width), L.H / Double(back.height))
+        let bw = Double(back.width) * fill
+        let bh = Double(back.height) * fill
+        ctx.draw(art.background, in: CGRect(x: (L.W - bw) / 2, y: (L.H - bh) / 2, width: bw, height: bh))
+        if f.showHUD { drawHUD(&ctx, f, art) }
+        drawBoard(&ctx, f, art)
         if f.showHUD {
             drawKeys(&ctx, f)
             drawRules(&ctx)
@@ -314,7 +343,7 @@ struct DailyGridPainter {
 
     // MARK: Top
 
-    private func drawHUD(_ ctx: inout GraphicsContext, _ f: DailyGridFrame) {
+    private func drawHUD(_ ctx: inout GraphicsContext, _ f: DailyGridFrame, _ art: DailyGridArt) {
         let title = Text("DAILY GRID").font(.system(size: 18 * u, weight: .heavy, design: .rounded)).kerning(1.4 * u)
         ctx.draw(title.foregroundColor(P.ink.color()), at: CGPoint(x: L.W / 2, y: L.titleY), anchor: .center)
 
@@ -334,26 +363,28 @@ struct DailyGridPainter {
         ctx.draw(Text(f.gridText).font(small).foregroundColor(P.soft.color()),
                  at: CGPoint(x: L.W / 2, y: L.infoY), anchor: .center)
 
-        // Tries left, as little crowns. A spent one is only an outline.
+        // Tries left, as little crowns. A spent one is faded.
         let step = 20 * u
+        var spent = ctx
+        spent.opacity = 0.28
         for k in 0..<3 {
             let x = L.grid.maxX - 9 * u - Double(2 - k) * step
-            let crown = Self.crown(at: CGPoint(x: x, y: L.infoY), size: 13 * u)
+            let rect = CGRect(x: x - 8.5 * u, y: L.infoY - 8 * u, width: 17 * u, height: 15.7 * u)
             if k < f.lives {
-                ctx.fill(crown, with: .color(P.ink.color()))
+                ctx.draw(art.crown, in: rect)
             } else {
-                ctx.stroke(crown, with: .color(P.cross.color(0.8)), lineWidth: Swift.max(1, 1.2 * u))
+                spent.draw(art.crown, in: rect)
             }
         }
     }
 
     // MARK: Board
 
-    private func drawBoard(_ ctx: inout GraphicsContext, _ f: DailyGridFrame) {
+    private func drawBoard(_ ctx: inout GraphicsContext, _ f: DailyGridFrame, _ art: DailyGridArt) {
         let n = DailyGridPuzzle.size
         let radius = 6 * u
-        let shadow = L.grid.offsetBy(dx: 0, dy: 4 * u).insetBy(dx: -2 * u, dy: -2 * u)
-        ctx.fill(Path(roundedRect: shadow, cornerRadius: radius + 2 * u), with: .color(P.ink.color(0.08)))
+        let outer = L.grid.insetBy(dx: -12 * u, dy: -12 * u)
+        ctx.fill(Path(roundedRect: outer.offsetBy(dx: 0, dy: 5 * u), cornerRadius: 16 * u), with: .color(P.ink.color(0.1)))
         ctx.fill(Path(roundedRect: L.grid.insetBy(dx: -2 * u, dy: -2 * u), cornerRadius: radius + 2 * u),
                  with: .color(P.card.color()))
 
@@ -361,18 +392,22 @@ struct DailyGridPainter {
         var board = ctx
         board.clip(to: Path(roundedRect: L.grid, cornerRadius: radius))
 
+        // The tiles fade in over the plain card as a board comes up.
+        var tiles = board
+        tiles.opacity = arrive
+        for cell in 0..<DailyGridPuzzle.cells {
+            let region = Swift.max(0, Swift.min(art.tiles.count - 1, f.regions[cell]))
+            tiles.draw(art.tiles[region], in: L.cellRect(cell))
+        }
         for cell in 0..<DailyGridPuzzle.cells {
             let rect = L.cellRect(cell)
-            let region = Swift.max(0, Swift.min(P.regions.count - 1, f.regions[cell]))
-            var tint = P.card.mix(P.regions[region], arrive)
-            if f.conflict[cell] { tint = tint.mix(P.red, 0.28) }
+            if f.conflict[cell] { board.fill(Path(rect), with: .color(P.red.color(0.28))) }
             if let age = f.solvedAge {
                 // A wave of light runs from the top left corner to the bottom right.
                 let d = Double(cell / n + cell % n) / 10
                 let local = age * 2.4 - d
-                if local > 0 && local < 1 { tint = tint.mix(DailyGridTint.white, 0.6 * sin(local * .pi)) }
+                if local > 0 && local < 1 { board.fill(Path(rect), with: .color(DailyGridTint.white.color(0.6 * sin(local * .pi)))) }
             }
-            board.fill(Path(rect), with: .color(tint.color()))
         }
 
         // Thin lines between squares, thick ones where the colour changes.
@@ -410,17 +445,12 @@ struct DailyGridPainter {
             mark.translateBy(x: rect.midX, y: rect.midY)
             mark.scaleBy(x: scale, y: scale)
             if f.marks[cell] == .cross {
-                let a = L.cell * 0.17
-                var x = Path()
-                x.move(to: CGPoint(x: -a, y: -a))
-                x.addLine(to: CGPoint(x: a, y: a))
-                x.move(to: CGPoint(x: a, y: -a))
-                x.addLine(to: CGPoint(x: -a, y: a))
-                mark.stroke(x, with: .color(P.cross.color()), style: StrokeStyle(lineWidth: 2.6 * u, lineCap: .round))
+                let a = L.cell * 0.2
+                mark.draw(art.cross, in: CGRect(x: -a, y: -a, width: 2 * a, height: 2 * a))
             } else {
-                let crown = Self.crown(at: .zero, size: L.cell * 0.56)
-                let tint: DailyGridTint = f.conflict[cell] ? P.red : P.ink
-                mark.fill(crown, with: .color(tint.color()))
+                let w = L.cell * 0.7
+                let h = w * 0.92
+                mark.draw(f.conflict[cell] ? art.crownWrong : art.crown, in: CGRect(x: -w / 2, y: -h * 0.54, width: w, height: h))
             }
         }
 
@@ -428,7 +458,7 @@ struct DailyGridPainter {
             board.fill(Path(L.grid), with: .color(P.ink.color(0.1 * M.smooth(0, 0.3, f.endAge))))
         }
 
-        ctx.stroke(Path(roundedRect: L.grid, cornerRadius: radius), with: .color(P.ink.color()), lineWidth: 3 * u)
+        drawFrame(&ctx, art.frame, in: outer)
 
         if let age = f.solvedAge { drawSparks(&ctx, f.sparks, age: age) }
     }
@@ -539,23 +569,25 @@ struct DailyGridPainter {
         pill.draw(resolved, at: .zero, anchor: .center)
     }
 
-    // MARK: Shapes
+    // MARK: Frame
 
-    /// A crown with three points and a base, centred on the point.
-    static func crown(at c: CGPoint, size s: Double) -> Path {
-        let w = s * 0.5
-        var p = Path()
-        p.move(to: CGPoint(x: c.x - w, y: c.y + s * 0.2))
-        p.addLine(to: CGPoint(x: c.x - w, y: c.y - s * 0.16))
-        p.addLine(to: CGPoint(x: c.x - w * 0.5, y: c.y + s * 0.02))
-        p.addLine(to: CGPoint(x: c.x, y: c.y - s * 0.42))
-        p.addLine(to: CGPoint(x: c.x + w * 0.5, y: c.y + s * 0.02))
-        p.addLine(to: CGPoint(x: c.x + w, y: c.y - s * 0.16))
-        p.addLine(to: CGPoint(x: c.x + w, y: c.y + s * 0.2))
-        p.closeSubpath()
-        p.addRoundedRect(in: CGRect(x: c.x - w, y: c.y + s * 0.26, width: 2 * w, height: s * 0.16),
-                         cornerSize: CGSize(width: s * 0.04, height: s * 0.04))
-        return p
+    /// The gold frame around the board, stretched along its sides with its corners kept whole:
+    /// the outer 12% of the picture on each edge maps to a fixed corner size.
+    private func drawFrame(_ ctx: inout GraphicsContext, _ image: GraphicsContext.ResolvedImage, in rect: CGRect) {
+        let corner = 21.8 * u
+        let cuts: [Double] = [0, 0.12, 0.88, 1]
+        let xs: [Double] = [Double(rect.minX), Double(rect.minX) + corner, Double(rect.maxX) - corner, Double(rect.maxX)]
+        let ys: [Double] = [Double(rect.minY), Double(rect.minY) + corner, Double(rect.maxY) - corner, Double(rect.maxY)]
+        for i in 0..<3 {
+            for j in 0..<3 {
+                let piece = CGRect(x: xs[i], y: ys[j], width: xs[i + 1] - xs[i], height: ys[j + 1] - ys[j])
+                let fw = Double(piece.width) / (cuts[i + 1] - cuts[i])
+                let fh = Double(piece.height) / (cuts[j + 1] - cuts[j])
+                var part = ctx
+                part.clip(to: Path(piece.insetBy(dx: -0.3, dy: -0.3)))
+                part.draw(image, in: CGRect(x: xs[i] - cuts[i] * fw, y: ys[j] - cuts[j] * fh, width: fw, height: fh))
+            }
+        }
     }
 }
 

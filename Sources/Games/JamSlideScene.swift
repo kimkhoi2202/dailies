@@ -6,7 +6,8 @@ import SwiftUI
 //
 // This file holds what the clip in Videos and the playable game share: numbers, colors, the level
 // maker, where everything sits on the screen, and the painter. JamSlideGame.swift holds the rules
-// of a live round, the scripted player and the view the app shows.
+// of a live round, the scripted player and the view the app shows. The pictures are the jam-slide-*
+// images in Resources/GameArt, resolved once per frame by JamSlideArt.
 
 public struct JamSlideScene: View {
     public var phase: Double
@@ -124,8 +125,6 @@ enum JamSlidePalette {
     static let blocks: [JamSlideTint] = [0xF23F5D, 0xFF8A1F, 0xFFC61F, 0x22C35E, 0x2C7BFF, 0xA459FF]
         .map { JamSlideTint(hex: $0) }
 
-    static let skyTop = JamSlideTint(hex: 0xDDF0FF)
-    static let skyBottom = JamSlideTint(hex: 0xA6CEF6)
     static let frameSide = JamSlideTint(hex: 0xC2D2EA)
     static let frameRim = JamSlideTint(hex: 0xE8F0FA)
     static let floor = JamSlideTint(hex: 0xDAE4F2)
@@ -134,12 +133,8 @@ enum JamSlidePalette {
     static let shadow = JamSlideTint(hex: 0x2B4B80)
     static let badge = JamSlideTint(hex: 0x2F6FE6)
     static let badgeDark = JamSlideTint(hex: 0x1C4AAE)
-    static let trim = JamSlideTint(hex: 0xF3F8FF)
-    static let trimDark = JamSlideTint(hex: 0xB4CBE4)
     static let ice = JamSlideTint(hex: 0x3FB6F5)
     static let alarm = JamSlideTint(hex: 0xE5304C)
-    static let chest = JamSlideTint(hex: 0x1FA89F)
-    static let chestDark = JamSlideTint(hex: 0x10746E)
 
     static func block(_ index: Int) -> JamSlideTint {
         blocks[Swift.max(0, Swift.min(blocks.count - 1, index))]
@@ -507,6 +502,36 @@ struct JamSlideLayout {
     }
 }
 
+// MARK: - Pictures
+
+/// The game's pictures, resolved once per frame.
+struct JamSlideArt {
+    /// One block and one stud for each block color, in the order of JamSlidePalette.blocks.
+    static let colorNames = ["red", "orange", "yellow", "green", "blue", "purple"]
+
+    let background: GraphicsContext.ResolvedImage
+    let blocks: [GraphicsContext.ResolvedImage]
+    let studs: [GraphicsContext.ResolvedImage]
+    let chest: GraphicsContext.ResolvedImage
+    let chestOpen: GraphicsContext.ResolvedImage
+    /// Freeze, hammer, shuffle.
+    let boosters: [GraphicsContext.ResolvedImage]
+
+    init(_ ctx: GraphicsContext) {
+        func load(_ name: String) -> GraphicsContext.ResolvedImage { ctx.resolve(Image("jam-slide-" + name)) }
+        background = load("background")
+        blocks = JamSlideArt.colorNames.map { load("block-" + $0) }
+        studs = JamSlideArt.colorNames.map { load("stud-" + $0) }
+        chest = load("chest")
+        chestOpen = load("chest-open")
+        boosters = ["freeze", "hammer", "shuffle"].map { load("booster-" + $0) }
+    }
+
+    func block(_ index: Int) -> GraphicsContext.ResolvedImage { blocks[Swift.max(0, Swift.min(blocks.count - 1, index))] }
+
+    func stud(_ index: Int) -> GraphicsContext.ResolvedImage { studs[Swift.max(0, Swift.min(studs.count - 1, index))] }
+}
+
 // MARK: - Painter
 
 struct JamSlidePainter {
@@ -528,24 +553,23 @@ struct JamSlidePainter {
 
     func draw(_ ctx: inout GraphicsContext, _ f: JamSlideFrame) {
         let lay = JamSlideLayout(size: CGSize(width: W, height: H), cols: f.cols, rows: f.rows)
-        drawSky(&ctx, f)
+        let art = JamSlideArt(ctx)
+        drawSky(&ctx, f, art)
         drawBoard(&ctx, lay, f)
-        drawBlocks(&ctx, lay, f)
+        drawBlocks(&ctx, lay, f, art)
         drawParticles(&ctx, lay, f)
         drawFloats(&ctx, lay, f)
         if f.endFade > 0.01 { drawEnd(&ctx, lay, f) }
         if f.showHUD { drawHUD(&ctx, lay, f) }
-        if let age = f.chestAge { drawChest(&ctx, lay, age: age) }
+        if let age = f.chestAge { drawChest(&ctx, lay, art, age: age) }
         if let words = f.callout { drawCallout(&ctx, lay, words, sub: f.calloutSub, age: f.calloutAge) }
         if f.showHUD {
-            drawBoosters(&ctx, lay, f)
+            drawBoosters(&ctx, lay, f, art)
             if let hint = f.hint, f.hintAlpha > 0.01 { drawHint(&ctx, lay, hint, alpha: f.hintAlpha, pulse: f.hintPulse) }
         }
     }
 
     // MARK: Helpers
-
-    private var screen: Path { Path(CGRect(x: 0, y: 0, width: W, height: H)) }
 
     private func rounded(_ r: CGRect, _ radius: Double) -> Path {
         Path(roundedRect: r, cornerRadius: Swift.max(0, Swift.min(radius, Swift.min(r.width, r.height) / 2)), style: .continuous)
@@ -588,11 +612,12 @@ struct JamSlidePainter {
 
     // MARK: Sky
 
-    private func drawSky(_ ctx: inout GraphicsContext, _ f: JamSlideFrame) {
-        let bands = Gradient(colors: [P.skyTop.color(), P.skyBottom.color()])
-        ctx.fill(screen, with: .linearGradient(bands, startPoint: CGPoint(x: W / 2, y: 0), endPoint: CGPoint(x: W / 2, y: H)))
-        ctx.fill(screen, with: .radialGradient(Gradient(colors: [Color.white.opacity(0.55), Color.white.opacity(0)]),
-                                               center: CGPoint(x: W * 0.5, y: H * 0.45), startRadius: 0, endRadius: H * 0.48))
+    private func drawSky(_ ctx: inout GraphicsContext, _ f: JamSlideFrame, _ art: JamSlideArt) {
+        let back = art.background.size
+        let fill = Swift.max(W / Double(back.width), H / Double(back.height))
+        let bw = Double(back.width) * fill
+        let bh = Double(back.height) * fill
+        ctx.draw(art.background, in: CGRect(x: (W - bw) / 2, y: (H - bh) / 2, width: bw, height: bh))
         // Big soft bubbles drifting up, so the backdrop is never still.
         var rng = JamSlideRandom(seed: 7, salt: JamSlideRandom.level)
         let wrap = H + 120 * u
@@ -700,15 +725,35 @@ struct JamSlidePainter {
 
     // MARK: Blocks
 
-    private func drawBlocks(_ ctx: inout GraphicsContext, _ lay: JamSlideLayout, _ f: JamSlideFrame) {
+    private func drawBlocks(_ ctx: inout GraphicsContext, _ lay: JamSlideLayout, _ f: JamSlideFrame, _ art: JamSlideArt) {
         if f.sprites.isEmpty { return }
         var inside = ctx
         inside.clip(to: rounded(lay.frame.insetBy(dx: 3 * u, dy: 3 * u), 18 * u))
-        for s in f.sprites where s.lift < 0.01 { drawBlock(&inside, lay, s) }
-        for s in f.sprites where s.lift >= 0.01 { drawBlock(&inside, lay, s) }
+        for s in f.sprites where s.lift < 0.01 { drawBlock(&inside, lay, s, art) }
+        for s in f.sprites where s.lift >= 0.01 { drawBlock(&inside, lay, s, art) }
     }
 
-    private func drawBlock(_ ctx: inout GraphicsContext, _ lay: JamSlideLayout, _ s: JamSlideSprite) {
+    /// Draws a block picture stretched to rect with its rounded corners and its side kept whole.
+    /// one is the size of a single cell's block, which the picture is drawn for.
+    private func drawBlockImage(_ ctx: inout GraphicsContext, _ image: GraphicsContext.ResolvedImage, in rect: CGRect, one: Double) {
+        let cutX: [Double] = [0, 0.25, 0.75, 1]
+        let cutY: [Double] = [0, 0.25, 0.68, 1]
+        let xs: [Double] = [Double(rect.minX), Double(rect.minX) + 0.25 * one, Double(rect.maxX) - 0.25 * one, Double(rect.maxX)]
+        let ys: [Double] = [Double(rect.minY), Double(rect.minY) + 0.25 * one, Double(rect.maxY) - 0.32 * one, Double(rect.maxY)]
+        for i in 0..<3 {
+            for j in 0..<3 {
+                let piece = CGRect(x: xs[i], y: ys[j], width: xs[i + 1] - xs[i], height: ys[j + 1] - ys[j])
+                if piece.width <= 0 || piece.height <= 0 { continue }
+                let fw = Double(piece.width) / (cutX[i + 1] - cutX[i])
+                let fh = Double(piece.height) / (cutY[j + 1] - cutY[j])
+                var part = ctx
+                part.clip(to: Path(piece.insetBy(dx: -0.3, dy: -0.3)))
+                part.draw(image, in: CGRect(x: xs[i] - cutX[i] * fw, y: ys[j] - cutY[j] * fh, width: fw, height: fh))
+            }
+        }
+    }
+
+    private func drawBlock(_ ctx: inout GraphicsContext, _ lay: JamSlideLayout, _ s: JamSlideSprite, _ art: JamSlideArt) {
         if s.scale <= 0.02 { return }
         let tint = P.block(s.color)
         let gap = 2.4 * u
@@ -717,35 +762,32 @@ struct JamSlidePainter {
         let box = full.insetBy(dx: gap, dy: gap)
         let grow = (s.scale - 1) + 0.06 * s.lift
         let rect = box.insetBy(dx: -box.width * grow / 2, dy: -box.height * grow / 2).offsetBy(dx: 0, dy: -6 * u * s.lift)
-        let depth = 6 * u
         let radius = 10 * u
+        let one = Swift.min(Double(rect.width) / Double(s.w), Double(rect.height) / Double(s.h))
+        let depth = 0.17 * one
 
         if s.lift > 0.01 {
             ctx.fill(rounded(rect.offsetBy(dx: 0, dy: 12 * u * s.lift).insetBy(dx: -2 * u, dy: -2 * u), radius),
                      with: .color(P.shadow.color(0.28 * s.lift)))
         }
-        // The side, then the top face with a glossy strip.
-        ctx.fill(rounded(rect, radius), with: .color(tint.scaled(0.66).color()))
+        if s.w == 1 && s.h == 1 {
+            ctx.draw(art.block(s.color), in: rect)
+        } else {
+            drawBlockImage(&ctx, art.block(s.color), in: rect, one: one)
+        }
         let top = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height - depth)
-        let faces = Gradient(colors: [tint.mix(.white, 0.28).color(), tint.color()])
-        ctx.fill(rounded(top, radius), with: .linearGradient(faces, startPoint: CGPoint(x: top.minX, y: top.minY), endPoint: CGPoint(x: top.minX, y: top.maxY)))
-        let gloss = CGRect(x: top.minX + 5 * u, y: top.minY + 3 * u, width: top.width - 10 * u, height: Swift.min(7 * u, top.height * 0.2))
-        ctx.fill(rounded(gloss, 4 * u), with: .color(Color.white.opacity(0.32)))
 
         // One round stud per cell.
         let sx = rect.width / Double(s.w)
         let sy = top.height / Double(s.h)
         let r = Swift.min(sx, sy) * 0.27
-        let ring = tint.scaled(0.74).color()
-        let face = tint.mix(.white, 0.14).color()
-        let shine = Color.white.opacity(0.42)
+        let stud = art.stud(s.color)
+        let tall = 2 * r * Double(stud.size.height) / Swift.max(1, Double(stud.size.width))
         for i in 0..<s.w {
             for j in 0..<s.h {
                 let cx = rect.minX + sx * (Double(i) + 0.5)
                 let cy = top.minY + sy * (Double(j) + 0.5)
-                ctx.fill(circle(CGPoint(x: cx, y: cy + 2 * u), r), with: .color(ring))
-                ctx.fill(circle(CGPoint(x: cx, y: cy), r), with: .color(face))
-                ctx.fill(Path(ellipseIn: CGRect(x: cx - r * 0.55, y: cy - r * 0.7, width: r * 0.75, height: r * 0.45)), with: .color(shine))
+                ctx.draw(stud, in: CGRect(x: cx - r, y: cy - r, width: 2 * r, height: tall))
             }
         }
 
@@ -852,7 +894,7 @@ struct JamSlidePainter {
 
     // MARK: Chest
 
-    private func drawChest(_ ctx: inout GraphicsContext, _ lay: JamSlideLayout, age t: Double) {
+    private func drawChest(_ ctx: inout GraphicsContext, _ lay: JamSlideLayout, _ art: JamSlideArt, age t: Double) {
         let appear = M.easeOut(M.clamp(t / 0.22)) * M.pop(t / 0.42)
         let fade = 1 - M.smooth(JamSlideChest.length - 0.35, JamSlideChest.length, t)
         let open = M.easeOut(M.clamp((t - 0.3) / 0.22))
@@ -882,39 +924,11 @@ struct JamSlidePainter {
             local.opacity = fade
             local.translateBy(x: c.x, y: c.y)
             local.scaleBy(x: appear, y: appear)
-            let body = CGRect(x: -74 * u, y: -8 * u, width: 148 * u, height: 74 * u)
-            local.fill(rounded(body.offsetBy(dx: 0, dy: 8 * u), 14 * u), with: .color(P.shadow.color(0.22)))
-            local.fill(rounded(body, 14 * u), with: .color(P.chestDark.color()))
-            local.fill(rounded(CGRect(x: body.minX, y: body.minY, width: body.width, height: body.height - 8 * u), 14 * u), with: .color(P.chest.color()))
-            for x in [-54.0, 42.0] {
-                local.fill(Path(CGRect(x: x * u, y: body.minY, width: 12 * u, height: body.height - 2 * u)), with: .color(P.trim.color()))
-            }
-            if open > 0.01 {
-                local.fill(Path(ellipseIn: CGRect(x: -66 * u, y: -20 * u, width: 132 * u, height: 24 * u)), with: .color(P.chestDark.scaled(0.55).color()))
-                for k in 0..<7 {
-                    let x = (Double(k) - 3) * 17 * u
-                    let y = -12 * u - (k % 2 == 0 ? 5 * u : 0)
-                    let tint = P.block(k % P.blocks.count)
-                    local.fill(circle(CGPoint(x: x, y: y + 2 * u), 10 * u), with: .color(tint.scaled(0.66).color()))
-                    local.fill(circle(CGPoint(x: x, y: y), 10 * u), with: .color(tint.color()))
-                    local.fill(Path(ellipseIn: CGRect(x: x - 5.5 * u, y: y - 7 * u, width: 7.5 * u, height: 4.5 * u)), with: .color(Color.white.opacity(0.45)))
-                }
-            }
-            local.fill(Path(CGRect(x: body.minX, y: body.minY, width: body.width, height: 9 * u)), with: .color(P.trimDark.color()))
-            local.fill(rounded(CGRect(x: -13 * u, y: -2 * u, width: 26 * u, height: 28 * u), 6 * u), with: .color(P.trim.color()))
-            local.fill(circle(CGPoint(x: 0, y: 9 * u), 4 * u), with: .color(P.chestDark.color()))
-
-            var lid = local
-            lid.translateBy(x: 0, y: -8 * u - 34 * u * open)
-            lid.rotate(by: .radians(-0.22 * open))
-            let lidRect = CGRect(x: -78 * u, y: -40 * u, width: 156 * u, height: 40 * u)
-            lid.fill(rounded(lidRect, 18 * u), with: .color(P.chest.mix(.white, 0.12).color()))
-            lid.fill(Path(CGRect(x: lidRect.minX, y: -12 * u, width: lidRect.width, height: 12 * u)), with: .color(P.chestDark.color()))
-            for x in [-56.0, 44.0] {
-                lid.fill(Path(CGRect(x: x * u, y: -38 * u, width: 12 * u, height: 38 * u)), with: .color(P.trim.color()))
-            }
-            lid.fill(Path(CGRect(x: lidRect.minX, y: -6 * u, width: lidRect.width, height: 7 * u)), with: .color(P.trim.color()))
-            lid.fill(rounded(CGRect(x: -60 * u, y: -34 * u, width: 120 * u, height: 7 * u), 3.5 * u), with: .color(Color.white.opacity(0.28)))
+            let picture = open > 0.3 ? art.chestOpen : art.chest
+            let wide = (open > 0.3 ? 168.0 : 160.0) * u
+            let tall = wide * Double(picture.size.height) / Swift.max(1, Double(picture.size.width))
+            local.fill(Path(ellipseIn: CGRect(x: -70 * u, y: 58 * u, width: 140 * u, height: 18 * u)), with: .color(P.shadow.color(0.22)))
+            local.draw(picture, in: CGRect(x: -wide / 2, y: 68 * u - tall, width: wide, height: tall))
         }
 
         // The sparks on their way to the points counter, each in a block color.
@@ -992,7 +1006,7 @@ struct JamSlidePainter {
 
     // MARK: Boosters
 
-    private func drawBoosters(_ ctx: inout GraphicsContext, _ lay: JamSlideLayout, _ f: JamSlideFrame) {
+    private func drawBoosters(_ ctx: inout GraphicsContext, _ lay: JamSlideLayout, _ f: JamSlideFrame, _ art: JamSlideArt) {
         let u = ui
         for k in 0..<3 {
             let rect = lay.boosterRect(k)
@@ -1006,46 +1020,14 @@ struct JamSlidePainter {
             let rim = armed ? P.badge.color(0.7 + 0.3 * sin(f.ambient * 8)) : P.frameRim.color()
             ctx.stroke(rounded(rect.insetBy(dx: 1.5 * u, dy: 1.5 * u), radius - 1.5 * u), with: .color(rim), lineWidth: 2.5 * u)
 
-            let c = CGPoint(x: rect.midX, y: rect.midY)
-            let stroke = StrokeStyle(lineWidth: 3.4 * u, lineCap: .round, lineJoin: .round)
-            switch k {
-            case 0:
-                var flake = Path()
-                for i in 0..<3 {
-                    let t = Double(i) * .pi / 3 + .pi / 6
-                    let dx = cos(t) * 14 * u
-                    let dy = sin(t) * 14 * u
-                    flake.move(to: CGPoint(x: c.x + dx, y: c.y + dy))
-                    flake.addLine(to: CGPoint(x: c.x - dx, y: c.y - dy))
-                }
-                ctx.stroke(flake, with: .color(P.ice.color(alpha)), style: stroke)
-                ctx.fill(circle(c, 4 * u), with: .color(P.ice.scaled(0.8).color(alpha)))
-            case 1:
-                var local = ctx
-                local.translateBy(x: c.x, y: c.y)
-                local.rotate(by: .degrees(-40))
-                var handle = Path()
-                handle.move(to: CGPoint(x: 0, y: -2 * u))
-                handle.addLine(to: CGPoint(x: 0, y: 16 * u))
-                local.stroke(handle, with: .color(P.block(1).color(alpha)), style: StrokeStyle(lineWidth: 6 * u, lineCap: .round))
-                local.fill(rounded(CGRect(x: -14 * u, y: -15 * u, width: 28 * u, height: 14 * u), 4 * u), with: .color(P.block(4).color(alpha)))
-                local.fill(rounded(CGRect(x: -10 * u, y: -13 * u, width: 20 * u, height: 4 * u), 2 * u), with: .color(Color.white.opacity(0.4 * alpha)))
-            default:
-                let x = Double(c.x)
-                let y = Double(c.y)
-                var swap = Path()
-                swap.move(to: CGPoint(x: x - 13 * u, y: y - 5 * u))
-                swap.addLine(to: CGPoint(x: x + 11 * u, y: y - 5 * u))
-                swap.move(to: CGPoint(x: x + 5 * u, y: y - 11 * u))
-                swap.addLine(to: CGPoint(x: x + 11 * u, y: y - 5 * u))
-                swap.addLine(to: CGPoint(x: x + 5 * u, y: y + 1 * u))
-                swap.move(to: CGPoint(x: x + 13 * u, y: y + 7 * u))
-                swap.addLine(to: CGPoint(x: x - 11 * u, y: y + 7 * u))
-                swap.move(to: CGPoint(x: x - 5 * u, y: y + 1 * u))
-                swap.addLine(to: CGPoint(x: x - 11 * u, y: y + 7 * u))
-                swap.addLine(to: CGPoint(x: x - 5 * u, y: y + 13 * u))
-                ctx.stroke(swap, with: .color(P.block(3).color(alpha)), style: stroke)
-            }
+            var icon = ctx
+            icon.opacity = alpha
+            let picture = art.boosters[Swift.min(k, art.boosters.count - 1)]
+            let box = rect.insetBy(dx: 11 * u, dy: 11 * u)
+            let fit = Swift.min(Double(box.width) / Double(picture.size.width), Double(box.height) / Double(picture.size.height))
+            let iw = Double(picture.size.width) * fit
+            let ih = Double(picture.size.height) * fit
+            icon.draw(picture, in: CGRect(x: Double(box.midX) - iw / 2, y: Double(box.midY) - ih / 2, width: iw, height: ih))
 
             let dot = CGRect(x: Double(rect.maxX) - 15 * u, y: Double(rect.minY) - 6 * u, width: 22 * u, height: 22 * u)
             ctx.fill(Path(ellipseIn: dot), with: .color(alive ? P.badge.color() : P.frameSide.color()))
