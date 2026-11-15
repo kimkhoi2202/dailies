@@ -163,6 +163,22 @@ const GAMES = [
     dislikes: 22,
     scores: [1240, 980, 1510, 640, 870, 1120],
   },
+  {
+    slug: "deep-end",
+    title: "Deep End",
+    studio: "Paper Lantern",
+    pitch: "Rarer answers sink deeper.",
+    how: "Each prompt asks for one thing, like a bird or a cheese. Type one answer before the clock runs out. Rarer answers score more and sink the krill deeper. Seven prompts in a round.",
+    minPlayers: 1,
+    maxPlayers: 4,
+    mode: "casual" as const,
+    category: "Word",
+    unit: "m",
+    goldPerMinute: 1,
+    likes: 114,
+    dislikes: 8,
+    scores: [4650, 3610, 5120, 2380, 3940, 2870],
+  },
 ];
 
 const PLAYERS = [
@@ -185,6 +201,7 @@ const COMMENTS: Record<string, string[]> = {
   "block-party": ["three rows at once and the whole board lit up", "saved the 3x3 for the corner. no regrets"],
   "wild-eights": ["held my eight until the last card. nobody saw it coming", "drew six times in a row and still went out first"],
   "brick-out": ["cleared four boards and lost on the fifth with one move left", "the yellow one was blocking everything the whole time"],
+  "deep-end": ["typed kakapo and sank straight past the titanic", "blanked on a cheese for twenty seconds and said cheddar"],
 };
 
 export const run = internalMutation({

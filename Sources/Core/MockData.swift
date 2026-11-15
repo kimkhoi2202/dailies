@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, deepEnd
 }
 
 struct MockGame: Identifiable {
@@ -59,6 +59,7 @@ struct MockGame: Identifiable {
         case .blockParty: BlockPartyScene(phase: moment, showHUD: showHUD)
         case .wildEights: WildEightsScene(phase: moment, showHUD: showHUD)
         case .brickOut: BrickOutScene(phase: moment, showHUD: showHUD)
+        case .deepEnd: DeepEndScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -226,7 +227,14 @@ enum Mock {
         plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
         bestScore: "1,240 points", clipPhase: 0.5, tint: Color(red: 0.42, green: 0.30, blue: 0.72))
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut]
+    static let deepEnd = MockGame(
+        id: "deep-end", kind: .deepEnd, title: "Deep End", tagline: "Rarer answers sink deeper.",
+        category: "Word", players: "1 to 4 players", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "2m 50s", seedEarned: 0,
+        plays: "96K", likes: "11.4K", dislikes: "0.8K", approval: 93,
+        bestScore: "4,650 m", clipPhase: 0.5, tint: Color(red: 0.14, green: 0.38, blue: 0.62))
+
+    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut, deepEnd]
 
     // MARK: Videos
 
