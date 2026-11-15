@@ -12,7 +12,7 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-11-15T18:02:39Z
-- **Last updated:** 2026-11-15T18:10:45Z
+- **Last updated:** 2026-11-15T18:39:04Z
 
 ## Log
 
@@ -26,3 +26,6 @@ Scaffolded the Expo app with Expo Router and TypeScript at the repository root
 and wrapped it in a Convex provider that reads the deployment URL from the
 environment (`src/app/_layout.tsx`). Provisioned a Convex dev deployment and
 added an empty schema, with no tables or functions yet (`convex/schema.ts`).
+
+### 2026-11-15 - e8a5ab6
+Moved the development backend to the shared `dailies/dailies` Convex project. Synced the existing functions and verified the Expo client and HTTP action URLs point to the same deployment.

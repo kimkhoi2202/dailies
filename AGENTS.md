@@ -11,7 +11,7 @@ Consumer mobile app for [The Consumer Mobile Hackathon](https://consumermobileha
 ## Stack
 
 - Expo SDK 58 with Expo Router and TypeScript at the repository root. Screens live in `src/app/`.
-- Convex backend in `convex/`. The dev deployment is `blissful-jackal-368` in the `dailies` project of the shared `dailies` Convex team (client URL `https://blissful-jackal-368.convex.cloud`, HTTP actions URL `https://blissful-jackal-368.convex.site`). Every teammate and cloud machine uses this one deployment through `CONVEX_DEPLOY_KEY`, so whoever pushes last sets the deployed functions; keep `convex/` changes close to `main`.
+- Convex backend in `convex/`. The dev deployment is `blissful-jackal-368` in the shared `dailies/dailies` Convex project (client URL `https://blissful-jackal-368.convex.cloud`, HTTP actions URL `https://blissful-jackal-368.convex.site`). Every teammate and cloud machine uses this one deployment through `CONVEX_DEPLOY_KEY`, so whoever pushes last sets the deployed functions; keep `convex/` changes close to `main`.
 - npm is the package manager.
 - After any change under `convex/`, run `npx convex dev --once` and fix what it reports.
 
