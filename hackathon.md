@@ -160,3 +160,50 @@ fields on users, and ownership is a new `inventory` table
 (`convex/seed.ts`). A convex-test run covered buying, refusing short balances
 and repeat buys, and equipping only owned items. An earlier voxel version and an
 image-model turnaround were tried first and replaced after owner feedback.
+
+
+### 2026-11-15 - b72b9a1
+Tuned Short Stack. A sitting is seven hands. The other seats now stay in against
+a raise of any size once their hand is strong enough, so going all in on every
+hand stops working, and they take a little longer to act. Every seat has the same
+plate, and the seat to act wears a gold ring that runs down with its time. The
+game's clip in Videos is timed to the feed and lights the keys while the table
+waits for the player (`Sources/Games/ShortStackGame.swift`,
+`Sources/Games/ShortStackScene.swift`). The results screen has one Again key
+(`Sources/Screens/GameScreens.swift`).
+
+### 2026-11-15 - 271209b
+Renamed the app to DEGEN wherever a person reads the name: under the icon, in
+share text, in Settings and in accessibility labels. The logo on Home is drawn in
+code, the D mark followed by EGEN, in place of two lockup images
+(`Sources/DS/Components.swift`, `project.yml`). The repository, the Xcode
+target, the bundle id and the Convex project keep the name Dailies. Replaced the
+app icon with one 1024 px image
+(`Resources/Assets.xcassets/AppIcon.appiconset`). Prepared the app for App Store
+Connect: version 1.0.0, the games category, the export compliance answer, iPhone
+as the only device, and a privacy manifest that declares UserDefaults, no
+tracking and no collected data (`project.yml`, `Resources/PrivacyInfo.xcprivacy`).
+An archive of this commit, signed for the team's App Store Connect account under
+its own bundle id, was uploaded to TestFlight as 1.0.0 (3). It is available to
+the team's internal testers and is waiting for Apple's beta review, which the
+public TestFlight link needs before it opens. After the merge, `main` was built
+on Revyl and opened on a cloud iPhone, where Home loaded with all seven games.
+
+### 2026-11-15 - 285f965
+Added the studio's game creation pipeline, on the `game-creation` branch.
+From the studio a player says what game they want, or asks to be inspired, and
+talks to the studio until it has enough to build. The studio is an OpenAI model
+(`gpt-6-luna`, Responses API with a JSON schema) behind a Convex action that
+reads `OPENAI_API_KEY` from the Convex environment; each reply is a line with
+tappable choices, three ideas, or the finished design (`convex/ai.ts`). A
+creation and its conversation live in two new tables, the app watches them
+with live queries, and when the design is settled a scheduled mutation puts the
+game in the `games` table, private to its maker, playing on one of the six
+built-in engines with the studio's title, pitch, instructions and colour
+(`convex/creations.ts`, `convex/schema.ts`, `convex/games.ts`). In the app:
+the wish screen, the talk, the building screen and the game's preview with a
+Play key, plus the list of made games in the studio (`Sources/Screens/G4_Create.swift`,
+`Sources/Screens/G3_Studio.swift`, `Sources/Live/LiveStore.swift`). The whole
+talk was run against the deployment from the CLI: a wish for inspiration got
+four moods, a mood got three ideas, and picking one built a game on the Spiral
+Drop engine within ten seconds.
