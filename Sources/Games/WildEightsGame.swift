@@ -47,6 +47,11 @@ final class WildEightsModel {
     static let passDelay = 0.55
     static let endLength = 2.1
     static let liftRate = 16.0
+    // Scoring. A card played is worth a little, and the total stays under what going out is worth.
+    static let cardPoints = 2
+    static let eightPoints = 5
+    static let playCap = 49
+    static let outPoints = 50
 
     let solo: Bool
     private var rng: WildEightsRandom
@@ -143,7 +148,7 @@ final class WildEightsModel {
         if turn != 0 { return "\(players[turn].name) is thinking" }
         if pendingEight != nil { return "Pick a suit" }
         if hasPlay {
-            if drewThisTurn { return "Play a card" }
+            if drewThisTurn { return "Play it or tap the deck to pass" }
             if let wildSuit { return "Your turn. Match \(wildSuit.symbol)" }
             if let top { return "Your turn. Match \(top.suit.symbol) or \(top.label)" }
             return "Your turn"
@@ -156,11 +161,13 @@ final class WildEightsModel {
         let count = players.count
         let left = players[0].hand.count
         if winner == 0 {
+            if solo { return GameResult(score: score, unit: "points", detail: "Went out first") }
             return GameResult(score: score, unit: "points", detail: "Went out first", placement: 1, playerCount: count)
         }
+        let line = left == 1 ? "1 card left in hand" : "\(left) cards left in hand"
+        if solo { return GameResult(score: score, unit: "points", detail: line) }
         var ahead = 0
         for k in 1..<count where players[k].hand.count < left { ahead += 1 }
-        let line = left == 1 ? "1 card left in hand" : "\(left) cards left in hand"
         return GameResult(score: score, unit: "points", detail: line, placement: 1 + ahead, playerCount: count)
     }
 
@@ -195,21 +202,23 @@ final class WildEightsModel {
         if selected != nil { selected = nil }
     }
 
-    /// A tap on the deck: draw one card, once a turn.
+    /// A tap on the deck: draw one card, or pass once a card has been drawn this turn.
     func tapDeck() {
         guard yourTurn, flights.isEmpty, pendingEight == nil else { return }
-        if drewThisTurn {
-            events.append(.reject)
-            return
-        }
         selected = nil
         refill()
-        if deck.isEmpty {
-            passWait = Self.passDelay
-            events.append(.reject)
+        if drewThisTurn || deck.isEmpty {
+            passNow()
             return
         }
         draw(0)
+    }
+
+    private func passNow() {
+        // Only passes with nothing left to draw count toward a stuck table.
+        passes = deck.isEmpty ? passes + 1 : 0
+        events.append(.pass)
+        endTurn()
     }
 
     /// The suit picked for an eight the player put down.
@@ -315,10 +324,7 @@ final class WildEightsModel {
                 let left = wait - dt
                 if left <= 0 {
                     passWait = nil
-                    // Only passes with nothing left to draw count toward a stuck table.
-                    passes = deck.isEmpty ? passes + 1 : 0
-                    events.append(.pass)
-                    endTurn()
+                    passNow()
                 } else {
                     passWait = left
                 }
@@ -382,8 +388,11 @@ final class WildEightsModel {
         let from: WildEightsSpot = who == 0 ? .hand(index, count) : .seat(who - 1)
         flights.append(Flight(card: card, from: from, to: .pile, age: 0, length: Self.playFlight, faceUp: true, player: who, wild: wild))
         if who == 0 {
-            score += card.points
-            notes.append(WildEightsNote(text: "+\(card.points)", age: 0, x: 0.63, y: 0.36))
+            let add = Swift.min(card.isEight ? Self.eightPoints : Self.cardPoints, Swift.max(0, Self.playCap - score))
+            if add > 0 {
+                score += add
+                notes.append(WildEightsNote(text: "+\(add)", age: 0, x: 0.63, y: 0.36))
+            }
             if card.isEight {
                 praise = "Nice"
                 praiseAge = 0
@@ -464,7 +473,7 @@ final class WildEightsModel {
         drewThisTurn = false
         selected = nil
         passWait = nil
-        botWait = turn == 0 ? 0 : rng.range(0.75, 1.15)
+        botWait = turn == 0 ? 0 : rng.range(0.6, 0.9)
         if passes >= players.count {
             finishRound(winner: nil)
         }
@@ -527,12 +536,13 @@ final class WildEightsModel {
         pendingEight = nil
         dragIndex = nil
         if who == 0 {
-            var sweep = 0
+            // Going out is worth a flat amount plus every card still in the other hands.
+            var sweep = Self.outPoints
             for k in 1..<players.count {
                 for card in players[k].hand { sweep += card.points }
             }
             score += sweep
-            if sweep > 0 { notes.append(WildEightsNote(text: "+\(sweep)", age: 0, x: 0.5, y: 0.3)) }
+            notes.append(WildEightsNote(text: "+\(sweep)", age: 0, x: 0.5, y: 0.3))
             banner = "You went out"
             praise = "Great"
             praiseAge = 0
@@ -563,6 +573,7 @@ final class WildEightsModel {
         f.pile = pile
         f.deckCount = deck.count
         f.wildSuit = wildSuit
+        f.deckPass = yourTurn && drewThisTurn && pendingEight == nil && flights.isEmpty
         f.pill = pill
         f.pillHot = yourTurn && pendingEight == nil
         let n = players[0].hand.count
@@ -621,7 +632,8 @@ struct WildEightsCanvas: View {
 ///
 /// It reads the model and makes the same calls a finger makes: lift a card, tap it again, tap the
 /// deck, pick a suit. It plays well with the odd second-best card, and once GameDemo.loseAfter has
-/// passed it draws when it could play and sheds its cheapest cards, so the others go out first.
+/// passed it hands the next player cards they can follow, or draws and passes, so one of the others
+/// goes out first.
 struct WildEightsPilot {
     private var rng: WildEightsRandom
     private var nextAt = 0.0
@@ -648,7 +660,9 @@ struct WildEightsPilot {
             }
             sawSheet = false
             let wanted: WildEightsSuit
-            if rng.chance(0.2) {
+            if let limit = GameDemo.loseAfter, now >= limit {
+                wanted = Self.favourite(of: model.players[1].hand)
+            } else if rng.chance(0.2) {
                 wanted = WildEightsSuit(rawValue: rng.int(0...3)) ?? .hearts
             } else {
                 var counts = [0, 0, 0, 0]
@@ -662,16 +676,32 @@ struct WildEightsPilot {
             return
         }
 
+        if let limit = GameDemo.loseAfter, now >= limit {
+            // Lose on purpose: hand the next player cards they can follow, and otherwise draw and pass,
+            // until someone else goes out. It never plays its own last card.
+            if let selected = model.selected {
+                model.tapHand(selected)
+                nextAt = now + rng.range(0.3, 0.45)
+                return
+            }
+            if hand.count >= 2, let feed = Self.feed(model) {
+                model.tapHand(feed)
+                nextAt = now + rng.range(0.25, 0.4)
+                return
+            }
+            model.tapDeck()
+            nextAt = now + (model.drewThisTurn ? rng.range(0.4, 0.55) : rng.range(0.25, 0.4))
+            return
+        }
+
         if let selected = model.selected {
             model.tapHand(selected)
             nextAt = now + rng.range(0.5, 0.8)
             return
         }
 
-        let losing = GameDemo.loseAfter.map { now >= $0 } ?? false
         // While a loss is planned it never goes out: a draw first keeps the hand at two or more.
-        let holdBack = GameDemo.loseAfter != nil && hand.count <= 2
-        if (losing || holdBack), !model.drewThisTurn, model.hasPlay {
+        if GameDemo.loseAfter != nil, hand.count <= 2, !model.drewThisTurn, model.hasPlay {
             model.tapDeck()
             nextAt = now + rng.range(0.6, 0.9)
             return
@@ -686,17 +716,7 @@ struct WildEightsPilot {
         }
 
         var choice = legal[0]
-        if losing {
-            // The cheapest card goes, and eights stay in the hand.
-            var cheapest = 1000
-            for i in legal {
-                let cost = hand[i].isEight ? 500 : hand[i].points
-                if cost < cheapest {
-                    cheapest = cost
-                    choice = i
-                }
-            }
-        } else if rng.chance(0.2) {
+        if rng.chance(0.2) {
             choice = legal[rng.int(0...(legal.count - 1))]
         } else {
             var bestValue = -1.0
@@ -714,6 +734,40 @@ struct WildEightsPilot {
         }
         model.tapHand(choice)
         nextAt = now + rng.range(0.35, 0.55)
+    }
+
+    /// The suit a hand holds most of, eights aside.
+    static func favourite(of cards: [WildEightsCard]) -> WildEightsSuit {
+        var counts = [0, 0, 0, 0]
+        for card in cards where !card.isEight { counts[card.suit.rawValue] += 1 }
+        var pick = 0
+        for k in 1..<4 where counts[k] > counts[pick] { pick = k }
+        return WildEightsSuit(rawValue: pick) ?? .hearts
+    }
+
+    /// The legal card that leaves the next player the most cards to follow with. nil when none helps.
+    static func feed(_ model: WildEightsModel) -> Int? {
+        let next: [WildEightsCard] = model.players[1].hand
+        var nextEights = 0
+        var suits = [0, 0, 0, 0]
+        for card in next {
+            if card.isEight { nextEights += 1 } else { suits[card.suit.rawValue] += 1 }
+        }
+        var pick: Int?
+        var most = 0
+        for (i, card) in model.hand.enumerated() where model.canPlay(card) {
+            var follows = nextEights
+            if card.isEight {
+                follows += suits.max() ?? 0
+            } else {
+                for other in next where !other.isEight && (other.suit == card.suit || other.rank == card.rank) { follows += 1 }
+            }
+            if follows > most {
+                most = follows
+                pick = i
+            }
+        }
+        return pick
     }
 }
 
@@ -810,7 +864,12 @@ final class WildEightsRunner: ObservableObject {
             touchSuit = nil
             touchMoved = false
         }
-        if link.paused || link.isFinished { return }
+        if link.paused || link.isFinished {
+            // A touch the app cut off puts everything back as it was.
+            model.dropDrag(play: false)
+            model.pressSuit(nil)
+            return
+        }
         let painter = WildEightsPainter(size: size)
         if let suit = touchSuit {
             model.pressSuit(nil)

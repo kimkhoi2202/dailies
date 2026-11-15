@@ -21,7 +21,7 @@ enum LiveBoard {
         "inkland": ["juno": 342, "kaz": 281, "devon.plays": 236, "tofu": 174, "noor.runs": 152, "wordnerd.sam": 96],
         "spiral-drop": ["kaz": 742, "devon.plays": 651, "wordnerd.sam": 518, "noor.runs": 434, "tofu": 371, "juno": 196],
         "gulp-city": ["tofu": 87, "juno": 74, "noor.runs": 61, "devon.plays": 52, "kaz": 38, "wordnerd.sam": 24],
-        "wild-eights": ["kaz": 168, "juno": 141, "devon.plays": 126, "wordnerd.sam": 97, "tofu": 72, "noor.runs": 44],
+        "wild-eights": ["kaz": 131, "juno": 112, "devon.plays": 96, "wordnerd.sam": 74, "tofu": 41, "noor.runs": 33],
     ]
 
     /// Everyone on the board, best score first.
