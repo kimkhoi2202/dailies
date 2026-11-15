@@ -165,7 +165,7 @@ export const fundProgram = action({
       gameSlug: args.slug,
       rate: args.rate,
     });
-    const made = await checkout(orderId, `DEGEN creator program, ${args.slug}`, args.budget);
+    const made = await checkout(orderId, "DEGEN creator program", args.budget);
     await ctx.runMutation(internal.whop.attachCheckout, { orderId, checkoutId: made.checkoutId });
     return { orderId, url: made.url };
   },
