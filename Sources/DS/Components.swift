@@ -589,6 +589,30 @@ struct DLDivider: View {
     }
 }
 
+/// What a page shows when it has nothing yet: a big icon, a title, a line and one key, on a card.
+struct DLEmptyState: View {
+    var symbol: String
+    var title: String
+    var detail: String? = nil
+    var key: String
+    var action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: symbol).font(.system(size: 42, weight: .semibold)).foregroundStyle(DL.ink3)
+                .padding(.bottom, 4)
+            Text(title.uppercased()).font(DL.display(28)).foregroundStyle(DL.ink).multilineTextAlignment(.center)
+            if let detail {
+                Text(detail).font(DL.text(15)).foregroundStyle(DL.ink2).multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            DLTextKey(title: key, style: .ink).tap(action).frame(maxWidth: 260).padding(.top, 6)
+        }
+        .frame(maxWidth: .infinity)
+        .dlCard(padding: 22)
+    }
+}
+
 /// A small capsule tag in capitals.
 struct DLTag: View {
     var text: String
