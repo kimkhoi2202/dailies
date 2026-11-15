@@ -129,7 +129,7 @@ export const get = query({
     for (const seat of seats) {
       const player = await ctx.db.get("users", seat.userId);
       if (player === null) continue;
-      const current = seat.round === room.round;
+      const current = room.round > 0 && seat.round === room.round;
       players.push({
         id: seat.userId,
         name: player.name,
