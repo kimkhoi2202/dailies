@@ -80,6 +80,7 @@ struct HomeScreen: View {
                     Spacer()
                     DLGoldChip(onMedia: false).opens(.gold)
                     DLIconButton(symbol: "magnifyingglass").opens(.search).accessibilityLabel("Search")
+                    DLAvatar(name: Mock.handle, size: 36).opens(.profile("me")).accessibilityLabel("Your profile")
                 }
                 .padding(.bottom, 2)
 

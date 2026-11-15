@@ -154,6 +154,41 @@ struct ConvexRoundFinish: Decodable {
     let changes: Double?
 }
 
+/// One row of `rounds:history`: a finished round of the player's.
+struct ConvexHistoryRound: Decodable, Equatable, Identifiable {
+    let id: String
+    let gameSlug: String
+    let score: Double
+    let endedAt: Double
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case gameSlug, score, endedAt
+    }
+}
+
+/// `rooms:get`: a room the player is in, with everyone in it, best score first.
+struct ConvexRoom: Decodable, Equatable {
+    struct Player: Decodable, Equatable, Identifiable {
+        let id: String
+        let name: String
+        let color: String
+        let you: Bool
+        let host: Bool
+        let score: Double
+        let done: Bool
+        let playing: Bool
+    }
+
+    let code: String
+    let slug: String
+    let round: Double
+    let seed: Double
+    let status: String
+    let host: Bool
+    let players: [Player]
+}
+
 /// The answer to `shop:spend`.
 struct ConvexSpend: Decodable {
     let balance: Double

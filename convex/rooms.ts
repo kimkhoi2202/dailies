@@ -146,6 +146,7 @@ export const get = query({
       code: room.code,
       slug: room.gameSlug,
       round: room.round,
+      seed: room.seed,
       status: room.status,
       host: room.hostId === user._id,
       players,

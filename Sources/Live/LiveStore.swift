@@ -92,6 +92,10 @@ final class LiveStore: ObservableObject {
     private(set) var catalogVersion = 0
     @Published private(set) var boards: [String: [ConvexRank]] = [:]
     @Published private(set) var gameComments: [String: [ConvexComment]] = [:]
+    /// The player's finished rounds, newest first.
+    @Published private(set) var history: [ConvexHistoryRound] = []
+    /// The games the player saved in the Library.
+    @Published private(set) var saved: Set<String> = []
 
     private static let cacheKey = "dailies.live.convex.v1"
 
@@ -175,6 +179,8 @@ final class LiveStore: ObservableObject {
         openRound = nil
         boards = [:]
         gameComments = [:]
+        history = []
+        saved = []
     }
 
     private func openWatches() {
@@ -206,6 +212,12 @@ final class LiveStore: ObservableObject {
                 guard let self, let value else { return }
                 self.lastLiked = value
                 self.rebuild()
+            },
+            link.watch("rounds:history", as: [ConvexHistoryRound].self) { [weak self] value in
+                self?.history = value
+            },
+            link.watch("library:mySaved", as: [String].self) { [weak self] value in
+                self?.saved = Set(value)
             },
         ]
     }
@@ -497,6 +509,13 @@ final class LiveStore: ObservableObject {
             self.minChanges = max(self.minChanges, Int(answer.changes ?? 0))
         }
         return true
+    }
+
+    /// Saves a game to the Library, or takes it out again.
+    func toggleSave(_ gameID: String) {
+        if saved.contains(gameID) { saved.remove(gameID) } else { saved.insert(gameID) }
+        guard live else { return }
+        Task { _ = try? await self.link.mutate("library:toggleSave", ["slug": gameID], as: Bool.self) }
     }
 
     // MARK: Settings switches
