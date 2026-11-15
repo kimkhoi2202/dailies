@@ -256,6 +256,8 @@ struct PourPartyLayout {
     let undo: CGRect
     let hintY: CGFloat
     let scoreY: CGFloat
+    /// Touches above this line belong to the top row, below it to the bottom row.
+    let rowSplit: CGFloat
 
     init(size: CGSize, count: Int) {
         W = size.width
@@ -274,7 +276,7 @@ struct PourPartyLayout {
         let gap = 18 * u
         let first = count <= 5 ? count : (count + 1) / 2
         let second = count - first
-        let rowYs: [CGFloat] = second == 0 ? [H * 0.5] : [H * 0.385, H * 0.615]
+        let rowYs: [CGFloat] = second == 0 ? [H * 0.5] : [H * 0.375, H * 0.625]
         var slots: [CGRect] = []
         slots.reserveCapacity(count)
         for (row, n) in [first, second].enumerated() where n > 0 {
@@ -286,6 +288,13 @@ struct PourPartyLayout {
             }
         }
         rects = slots
+        if second == 0 {
+            rowSplit = CGFloat.greatestFiniteMagnitude
+        } else {
+            let topBottom: CGFloat = rowYs[0] + tubeH / 2
+            let lowTop: CGFloat = rowYs[1] - tubeH / 2 - 24 * u
+            rowSplit = (topBottom + lowTop) / 2
+        }
 
         let buttonY = H - GameLayout.bottomInset - 30 * u
         restart = CGRect(x: W / 2 - 152 * u, y: buttonY - 26 * u, width: 140 * u, height: 52 * u)
@@ -294,13 +303,21 @@ struct PourPartyLayout {
         scoreY = GameLayout.topBand + 30 * u
     }
 
-    /// The tube under a touch, if any. A lifted tube is still hit above its slot.
+    /// The tube under a touch, if any. A lifted tube is still hit above its slot. The two rows'
+    /// areas meet at rowSplit and never overlap.
     func tube(at point: CGPoint) -> Int? {
         var best: Int?
         var bestDistance = CGFloat.greatestFiniteMagnitude
         for (i, r) in rects.enumerated() {
-            let hit = CGRect(x: r.minX - 9 * u, y: r.minY - lift - 16 * u, width: r.width + 18 * u, height: r.height + lift + 24 * u)
-            if !hit.contains(point) { continue }
+            var top: CGFloat = r.minY - lift - 16 * u
+            var bottom: CGFloat = r.maxY + 8 * u
+            if r.midY < rowSplit {
+                bottom = Swift.min(bottom, rowSplit)
+            } else {
+                top = Swift.max(top, rowSplit)
+            }
+            if point.y < top || point.y > bottom { continue }
+            if point.x < r.minX - 9 * u || point.x > r.maxX + 9 * u { continue }
             let distance = abs(point.x - r.midX)
             if distance < bestDistance {
                 bestDistance = distance
@@ -544,20 +561,31 @@ struct PourPartyPainter {
                   angle: 0, side: 0, scale: scale, alpha: alpha, glow: glow)
     }
 
-    /// Where the pouring tube is right now, and the point the liquid leaves it.
+    /// How far a pouring tube tips: a little as it arrives, more as it empties.
+    static let tiltStart = 0.6
+    static let tiltEnd = 0.9
+    /// How far the lowest point of a pouring tube reaches below the target's rim, in design points.
+    /// The lip rises or falls with the tilt to keep it there, so the tube hangs above its neighbours.
+    static let hangDepth: CGFloat = 52
+
+    /// Where the pouring tube is right now, and the point the liquid leaves it. Over the target the
+    /// tube turns about its lip, so the stream stays put while it tips.
     private func pourPose(_ p: PourPartyPourPose) -> (center: CGPoint, angle: Double, side: Double, lip: CGPoint) {
         let rest = L.rects[p.from]
         let target = L.rects[p.to]
         let w = Double(L.tubeW)
         let h = Double(L.tubeH)
-        func spot(_ side: Double) -> (center: CGPoint, lip: CGPoint, angle: Double) {
-            let theta = -side * 1.25
-            let lip = CGPoint(x: target.midX + CGFloat(side) * 5 * u, y: target.minY - 10 * u)
+        let tilt = M.lerp(Self.tiltStart, Self.tiltEnd, M.smooth(0, 1, M.pourShare(p.progress)))
+        func spot(_ side: Double, _ amount: Double) -> (center: CGPoint, lip: CGPoint) {
+            let theta = -side * amount
             let lx = -side * w / 2
             let ly = -h / 2
             let rx = lx * cos(theta) - ly * sin(theta)
             let ry = lx * sin(theta) + ly * cos(theta)
-            return (CGPoint(x: lip.x - CGFloat(rx), y: lip.y - CGFloat(ry)), lip, theta)
+            let lowest = -ry + (h / 2 - w / 2) * cos(amount) + w / 2
+            let lipY = Double(target.minY + Self.hangDepth * u) - lowest
+            let lip = CGPoint(x: target.midX + CGFloat(side) * 4 * u, y: CGFloat(lipY))
+            return (CGPoint(x: lip.x - CGFloat(rx), y: lip.y - CGFloat(ry)), lip)
         }
         var side: Double
         if rest.midX > target.midX + 1 {
@@ -567,18 +595,20 @@ struct PourPartyPainter {
         } else {
             side = target.midX < W / 2 ? 1 : -1
         }
-        var s = spot(side)
-        // The tipped tube reaches about 1.6 tube heights from its centre: keep it on the screen.
-        if s.center.x < W * 0.23 || s.center.x > W * 0.77 {
-            side = -side
-            s = spot(side)
+        // At its steepest the tube reaches this far sideways from its centre: keep it on the screen.
+        let reachOut = CGFloat((h / 2 - w / 2) * sin(Self.tiltEnd) + w / 2)
+        let steep = spot(side, Self.tiltEnd).center.x
+        if steep - reachOut < 0 || steep + reachOut > W {
+            let other = spot(-side, Self.tiltEnd).center.x
+            if other - reachOut >= 0 && other + reachOut <= W { side = -side }
         }
+        let s = spot(side, tilt)
         let reach = M.pourReach(p.progress)
         let fromX = Double(rest.midX)
         let fromY = Double(rest.midY - L.lift)
         let x = M.lerp(fromX, Double(s.center.x), reach)
         let y = M.lerp(fromY, Double(s.center.y), reach) - sin(Double.pi * reach) * 10 * Double(u)
-        return (CGPoint(x: x, y: y), s.angle * reach, side, s.lip)
+        return (CGPoint(x: x, y: y), -side * tilt * reach, side, s.lip)
     }
 
     private func drawPouring(_ ctx: inout GraphicsContext, _ p: PourPartyPourPose, _ f: PourPartyFrame) {
@@ -627,7 +657,8 @@ struct PourPartyPainter {
         var liquid = g
         liquid.clip(to: inner)
         let base = h / 2 - inset
-        let slope = CGFloat(side * tan(Swift.min(abs(angle), 0.85)))
+        // The surfaces stay level in the world, so inside the tipped tube they slope by the full angle.
+        let slope = CGFloat(side * tan(Swift.min(abs(angle), 1.2)))
         let hx = w / 2 - inset
         var level: CGFloat = 0
         for (k, band) in bands.enumerated() {
@@ -721,7 +752,7 @@ struct PourPartyPainter {
         case .timeUp:
             front = PourPartyInk.hex(0x3A3846)
             back = PourPartyInk.hex(0x26242E)
-            words = "Time"
+            words = "Time is up"
         }
         // The ribbon's tails, hanging a little lower than the front.
         let tailTop: CGFloat = -h / 2 + 10 * u
@@ -773,7 +804,7 @@ struct PourPartyPainter {
 enum PourPartyClip {
     /// A busy board: 5 colours in 7 tubes, bottom to top.
     static let busy: [[Int]] = [[0, 3, 3], [2, 0, 0, 1], [4, 4, 2, 2], [1, 3, 1], [3, 4, 4], [0, 2, 1], []]
-    /// The last two pours of the level.
+    /// Two pours from solved: yellow-green from tube 1 onto tube 4, then pink-red from tube 5 into tube 1.
     static let nearlyDone: [[Int]] = [[0, 0, 0, 0], [1, 1, 4, 4], [2, 2, 2, 2], [3, 3, 3, 3], [4, 4], [1, 1], []]
     static let done: [[Int]] = [[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3], [4, 4, 4, 4], [], []]
 
@@ -803,32 +834,43 @@ enum PourPartyClip {
             }
             PourPartyPoses.build(tubes: tubes, pours: pours, into: &poses)
             f.pours = pours
-        } else if phase < 0.74 {
+        } else if phase < 0.79 {
             f.score = 1500
             f.clock = 70 - (phase - 0.5) * 12
             var tubes = nearlyDone
             var pours: [PourPartyPourPose] = []
-            if phase >= 0.56 {
-                let t = M.clamp((phase - 0.56) / 0.18)
-                tubes[4].append(4)
-                tubes[4].append(4)
-                tubes[1].removeLast(2)
+            tubes[4].append(4)
+            tubes[4].append(4)
+            tubes[1].removeLast(2)
+            if phase >= 0.665 {
+                // Then the last two units of the pink-red colour go from tube 5 into tube 1.
+                let t = M.clamp((phase - 0.665) / 0.125)
+                tubes[1].append(1)
+                tubes[1].append(1)
+                tubes[5].removeAll()
+                pours.append(PourPartyPourPose(from: 5, to: 1, color: 1, units: 2, progress: t))
+                f.popped = 4
+                f.popAge = (phase - 0.665) * 8
+            } else if phase >= 0.54 {
+                // The two yellow-green units go from tube 1 onto tube 4.
+                let t = M.clamp((phase - 0.54) / 0.125)
                 pours.append(PourPartyPourPose(from: 1, to: 4, color: 4, units: 2, progress: t))
             } else {
+                tubes = nearlyDone
                 f.lifted = 1
                 f.lift = M.clamp((phase - 0.5) / 0.04)
             }
             PourPartyPoses.build(tubes: tubes, pours: pours, into: &poses)
             f.pours = pours
         } else {
-            let age = (phase - 0.74) * 5
-            f.score = 1500 + Int(600 * M.clamp(age / 0.8))
+            let age = (phase - 0.79) * 6
+            f.score = 1500 + Int(600 * M.clamp(age / 0.4))
             f.clock = 67
             f.banner = .solved
             f.bannerAge = age
             f.bannerLength = 10
             f.confettiAge = age
-            f.popped = 4
+            f.popped = 1
             f.popAge = age
             if age < 1.1 { f.floats = [PourPartyFloat(text: "+600", tube: -1, age: age)] }
             PourPartyPoses.build(tubes: done, pours: [], into: &poses)
