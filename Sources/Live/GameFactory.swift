@@ -1,0 +1,15 @@
+import SwiftUI
+
+/// The playable view for each game.
+enum GameFactory {
+    @ViewBuilder static func view(for kind: GameKind, options: GameOptions, link: GameLink) -> some View {
+        switch kind {
+        case .fiveUp: FiveUpGame(options: options, link: link)
+        case .tippyTower: TippyTowerGame(options: options, link: link)
+        case .spiralDrop: SpiralDropGame(options: options, link: link)
+        case .laneDash: LaneDashGame(options: options, link: link)
+        case .gulpCity: GulpCityGame(options: options, link: link)
+        case .inkland: InklandGame(options: options, link: link)
+        }
+    }
+}

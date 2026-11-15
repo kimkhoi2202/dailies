@@ -33,6 +33,16 @@ export const comments = query({
       .withIndex("by_gameSlug", (q) => q.eq("gameSlug", args.slug))
       .order("desc")
       .take(50);
+    const liked = new Set(
+      me === null
+        ? []
+        : (
+            await ctx.db
+              .query("commentLikes")
+              .withIndex("by_user_and_key", (q) => q.eq("userId", me._id))
+              .take(300)
+          ).map((row) => row.key),
+    );
     return await Promise.all(
       rows.map(async (row) => {
         const author = await ctx.db.get("users", row.userId);
@@ -43,9 +53,60 @@ export const comments = query({
           handle: author?.handle ?? "someone",
           color: author?.color ?? "#7C5CFF",
           mine: me !== null && row.userId === me._id,
+          likes: row.likes ?? 0,
+          liked: liked.has(row._id),
         };
       }),
     );
+  },
+});
+
+/** The signed-in player's own comments across every game, newest first. */
+export const myComments = query({
+  args: {},
+  handler: async (ctx) => {
+    const me = await currentUser(ctx);
+    if (me === null) return null;
+    const rows = await ctx.db
+      .query("comments")
+      .withIndex("by_user", (q) => q.eq("userId", me._id))
+      .order("desc")
+      .take(50);
+    return rows.map((row) => ({ _id: row._id, gameSlug: row.gameSlug, body: row.body, at: row._creationTime }));
+  },
+});
+
+/** Keys of the comments the signed-in player has liked. A key is a comment id, or the app's own id for a sample comment. */
+export const likedComments = query({
+  args: {},
+  handler: async (ctx) => {
+    const me = await currentUser(ctx);
+    if (me === null) return null;
+    const rows = await ctx.db
+      .query("commentLikes")
+      .withIndex("by_user_and_key", (q) => q.eq("userId", me._id))
+      .take(300);
+    return rows.map((row) => row.key);
+  },
+});
+
+export const likeComment = mutation({
+  args: { key: v.string(), liked: v.boolean() },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const key = args.key.trim();
+    if (key.length === 0 || key.length > 80) throw new ConvexError("Bad comment");
+    const existing = await ctx.db
+      .query("commentLikes")
+      .withIndex("by_user_and_key", (q) => q.eq("userId", user._id).eq("key", key))
+      .unique();
+    if ((existing !== null) === args.liked) return null;
+    if (existing) await ctx.db.delete("commentLikes", existing._id);
+    else await ctx.db.insert("commentLikes", { userId: user._id, key });
+    const commentId = ctx.db.normalizeId("comments", key);
+    const comment = commentId === null ? null : await ctx.db.get("comments", commentId);
+    if (comment) await ctx.db.patch("comments", comment._id, { likes: Math.max(0, (comment.likes ?? 0) + (args.liked ? 1 : -1)) });
+    return null;
   },
 });
 
@@ -56,9 +117,9 @@ export const addComment = mutation({
     const game = await gameBySlug(ctx, args.slug);
     const body = args.body.trim();
     if (body.length === 0 || body.length > 280) throw new ConvexError("Comments are 1 to 280 characters");
-    await ctx.db.insert("comments", { gameSlug: game.slug, userId: user._id, body });
+    const commentId = await ctx.db.insert("comments", { gameSlug: game.slug, userId: user._id, body });
     await ctx.db.patch("games", game._id, { comments: game.comments + 1 });
-    return null;
+    return commentId;
   },
 });
 

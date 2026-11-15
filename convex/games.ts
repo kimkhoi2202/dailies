@@ -24,6 +24,7 @@ export const list = query({
     for (const row of earnings) byStudio[row.studio] = (byStudio[row.studio] ?? 0) + row.gold;
 
     return games.map((game) => {
+      const best = bests.find((row) => row.gameSlug === game.slug);
       const today = earnings.find((row) => row.gameSlug === game.slug)?.gold ?? 0;
       const studioToday = byStudio[game.studio] ?? 0;
       return {
@@ -45,7 +46,9 @@ export const list = query({
         today,
         studioToday,
         left: Math.max(0, Math.min(GAME_DAILY_LIMIT - today, STUDIO_DAILY_LIMIT - studioToday)),
-        best: bests.find((row) => row.gameSlug === game.slug)?.score ?? null,
+        best: best?.score ?? null,
+        bestUnit: best?.unit ?? null,
+        bestText: best?.text ?? null,
         vote: votes.find((row) => row.gameSlug === game.slug)?.value ?? 0,
       };
     });

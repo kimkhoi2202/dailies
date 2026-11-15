@@ -1,0 +1,163 @@
+import SwiftUI
+
+// VIDEOS, the feed. A clip fills the whole screen, with no app name and no balance on it.
+// Down the right edge: the round gold Play key, then like, dislike, comments and share.
+// Bottom left: who can play, the game's name and maker, and the clip's caption.
+
+extension MockGame {
+    /// "1 gold a min" or "0.9 gold a min". Where the full word is wanted, the caller adds "ute".
+    var rateText: String {
+        let isWhole = goldPerMinute.rounded() == goldPerMinute
+        let rate = isWhole ? "\(Int(goldPerMinute))" : String(format: "%.1f", goldPerMinute)
+        return rate + " gold a min"
+    }
+}
+
+/// One clip, full screen, with everything that sits on it. The feed and the animated demos both use it.
+struct VideoPage: View {
+    let clip: MockClip
+    var progress: CGFloat = 0.38
+    /// nil = no vote yet, true = liked, false = disliked
+    var voted: Bool? = nil
+    /// A moving phase makes the gameplay move. nil holds the game's best still.
+    var phase: Double? = nil
+    var pressed: Bool = false
+
+    private var game: MockGame { clip.game }
+
+    var body: some View {
+        ZStack {
+            // Five Up carries its own header in its art, so it is the one clip shown without the game's HUD.
+            ClipStill(game: game, phase: phase, showHUD: game.kind != .fiveUp, focusY: 0)
+            shade(from: .top, height: 130, strength: 0.42)
+            shade(from: .bottom, height: 400, strength: 0.78)
+            HStack(alignment: .bottom, spacing: 10) {
+                about
+                Spacer(minLength: 0)
+                rail
+            }
+            .padding(.leading, 16)
+            .padding(.trailing, 12)
+            // The app lifts the block a little, to keep the last button clear of the real tab bar.
+            .padding(.bottom, LiveMode.on ? 134 : 108)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            playbackLine
+        }
+        .environment(\.colorScheme, .dark)
+    }
+
+    /// Darkens one end of the clip so white text and buttons stay readable on any art.
+    private func shade(from edge: VerticalEdge, height: CGFloat, strength: Double) -> some View {
+        let dark = Color.black.opacity(strength)
+        return LinearGradient(colors: edge == .top ? [dark, .clear] : [.clear, dark], startPoint: .top, endPoint: .bottom)
+            .frame(height: height)
+            .frame(maxHeight: .infinity, alignment: edge == .top ? .top : .bottom)
+    }
+
+    /// How far the clip has played: a thin line just above the tab bar.
+    private var playbackLine: some View {
+        GeometryReader { geo in
+            Rectangle()
+                .fill(.white.opacity(0.22))
+                .overlay(alignment: .leading) {
+                    Rectangle().fill(.white).frame(width: geo.size.width * progress)
+                }
+                .frame(height: 2)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, 96)
+        }
+    }
+
+    private var about: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                DLMediaTag(text: game.players, symbol: "person.2.fill")
+                DLMediaTag(text: game.mode)
+            }
+            if game.isFullToday {
+                DLMediaTag(text: "Limit reached. More gold in \(Mock.resetIn)", symbol: "checkmark")
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                Text(game.title.uppercased())
+                    .font(DL.display(40))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                HStack(spacing: 5) {
+                    Text("by \(game.studio)")
+                        .font(DL.text(14, .semibold))
+                        .foregroundStyle(.white.opacity(0.9))
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(DL.gold)
+                }
+            }
+            .opens(.gameDetail(game.id))
+            Text("\(Text("@\(clip.player)").fontWeight(.semibold))  \(clip.caption)")
+                .font(DL.text(15))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+        }
+    }
+
+    private var rail: some View {
+        VStack(spacing: 15) {
+            VStack(spacing: 5) {
+                // Once today's gold is all collected the key goes pale. It still plays.
+                DLRoundPlayKey(size: 68, style: game.isFullToday ? .neutral : .gold)
+                    .scaleEffect(pressed ? 0.9 : 1)
+                Text("Play").font(DL.text(13, .bold)).foregroundStyle(.white)
+            }
+            .padding(.bottom, 4)
+            .opens(.gameReady(game.id))
+            .accessibilityLabel("Play \(game.title)")
+
+            let liked = voted == true
+            counted(game.likes) {
+                DLMediaButton(symbol: liked ? "hand.thumbsup.fill" : "hand.thumbsup", size: 46)
+                    .likeCelebration(liked)
+                    .likePlusOne(liked)
+            }
+            .tap { LiveStore.shared.setVote(game.id, like: true) }
+            .accessibilityLabel("Like")
+
+            counted(game.dislikes) {
+                DLMediaButton(symbol: voted == false ? "hand.thumbsdown.fill" : "hand.thumbsdown", size: 46)
+            }
+            .tap { LiveStore.shared.setVote(game.id, like: false) }
+            .accessibilityLabel("Dislike")
+
+            counted(clip.comments) { DLMediaButton(symbol: "bubble.fill", size: 46) }
+                .opens(.comments(clip.id))
+                .accessibilityLabel("Comments")
+
+            counted(clip.shares) { DLMediaButton(symbol: "arrowshape.turn.up.right.fill", size: 46) }
+                .tap { LiveNav.shared.share("Watch @\(clip.player) play \(game.title) on Dailies") }
+                .accessibilityLabel("Share")
+        }
+        .frame(width: 72)
+    }
+
+    /// A rail button with its count underneath.
+    private func counted<Icon: View>(_ count: String, @ViewBuilder button: () -> Icon) -> some View {
+        VStack(spacing: 3) {
+            button()
+            Text(count)
+                .font(DL.text(12, .semibold))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+        }
+    }
+}
+
+struct FeedScreen: View {
+    var clip: MockClip = Mock.clips[0]
+    var progress: CGFloat = 0.38
+    var voted: Bool? = nil
+
+    var body: some View {
+        DLTabs(selected: 1, tint: .white) {
+            VideoPage(clip: clip, progress: progress, voted: voted).ignoresSafeArea()
+        }
+    }
+}

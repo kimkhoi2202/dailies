@@ -41,6 +41,10 @@ export const me = query({
     if (user === null) return null;
     const earnings = await earningsFor(ctx, user._id, args.day);
     const today = dayNumber(args.day);
+    const purchases = await ctx.db
+      .query("purchases")
+      .withIndex("by_user_and_item", (q) => q.eq("userId", user._id))
+      .take(100);
     const streakAlive = user.lastGoldDay !== undefined && today - dayNumber(user.lastGoldDay) <= 1;
     return {
       _id: user._id,
@@ -53,8 +57,16 @@ export const me = query({
       streak: streakAlive ? user.streak : 0,
       playedToday: user.lastGoldDay === args.day,
       fastGold: user.fastGold,
+      changes: user.changes ?? 0,
       today: earnings.reduce((sum, row) => sum + row.gold, 0),
-      earnings: earnings.map((row) => ({ gameSlug: row.gameSlug, studio: row.studio, gold: row.gold, playMs: row.playMs })),
+      earnings: earnings.map((row) => ({
+        gameSlug: row.gameSlug,
+        studio: row.studio,
+        gold: row.gold,
+        playMs: row.playMs,
+        carry: row.carry ?? 0,
+      })),
+      owned: purchases.map((row) => row.item),
     };
   },
 });

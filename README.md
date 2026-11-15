@@ -4,28 +4,55 @@ Consumer mobile app built at [The Consumer Mobile Hackathon](https://consumermob
 
 The hackathon's required stack is Capy (writes the app), Revyl (runs it on a device and checks it), and Convex (the backend).
 
+Dailies is a native iOS app written in Swift (SwiftUI). It is a daily feed of small phone games where playing collects gold, with likes, comments, leaderboards and a gold history, all kept in Convex.
+
 ## Run it
+
+You need a Mac with Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+
+```sh
+xcodegen generate            # writes Dailies.xcodeproj from project.yml (git-ignored, regenerate after adding files)
+open Dailies.xcodeproj       # run the Dailies scheme on a simulator or a phone
+```
+
+From the command line, for a simulator:
+
+```sh
+xcodebuild -project Dailies.xcodeproj -scheme Dailies -sdk iphonesimulator -configuration Debug \
+  -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+```
+
+The backend needs Node:
 
 ```sh
 npm install
-npx convex dev    # syncs convex/ to the dev deployment; writes .env.local on first run
-npm run ios       # or: npm start, then scan the QR code with Expo Go
+npx convex dev --once        # pushes convex/ to the shared dev deployment
 ```
-
-The app is an Expo app (Expo Router, TypeScript) at the repository root with screens in `src/app/`, and the Convex backend is in `convex/`. `AGENTS.md` holds the conventions for each sponsor tool, and `hackathon.md` is the public build log.
 
 ## How the app is put together
 
-- **Screens** are Expo Router routes in `src/app/`: the Home, Videos and You tabs, the game page, the play screen, gold, leaderboards, comments, search, settings, and rooms (`room/[code]`, `join`).
-- **Games** are single plain JavaScript canvas files in `games/<slug>/game.js`. They run in a WebView on top of the small runtime in `games/sdk.js`, which also lets a bot play each game for the Videos feed. `games/README.md` is the contract for writing one, and `games/_example` is the smallest working game.
-- **`node scripts/build-games.mjs`** bundles the games into `src/games/generated.ts` (git-ignored) and writes a standalone page for each to `dist-games/`. It runs on `npm install` and `npm start`; run it by hand before any other build, and after editing a game.
-- **The backend** is in `convex/`: each phone gets its own account (`auth.ts`, `users.ts`), the server starts and finishes rounds and works out gold (`rounds.ts`), and `social.ts`, `games.ts` and `rooms.ts` hold likes, comments, leaderboards, the catalog and rooms. `npx convex run seed:run` adds the launch games.
+- **`project.yml`** describes the Xcode project: one target, `Dailies`, iOS 18, sources in `Sources/` and `Resources/`, and the Convex Swift client (`ConvexMobile`) as a Swift package.
+- **`Sources/Core`** is the app entry (`MockApp.swift`), the game catalog and sample content (`MockData.swift`) and small helpers.
+- **`Sources/DS`** is the design system: colours and type in `Theme.swift`, shared components in `Components.swift`.
+- **`Sources/Live`** is the running app: navigation (`LiveNav.swift`), the root view, play screen and launch arguments (`LiveRoot.swift`), and the store every screen reads (`LiveStore.swift`).
+- **`Sources/Convex`** connects the store to Convex: a device account kept in the Keychain (`DeviceAuth.swift`), the client with live queries and mutations (`ConvexLink.swift`) and the decoded rows (`ConvexModels.swift`).
+- **`Sources/Screens`** holds every screen: Home, Videos, You, the game page, gold, leaderboards, comments, search, settings and the studio screens.
+- **`Sources/Games`** holds the games. Each game draws itself in Swift and has two files: `<Name>Game.swift`, the playable game, and `<Name>Scene.swift`, which draws one moment of the game for covers and the Videos feed. `GameKit.swift` is the small contract between a game and the app.
+- **`convex/`** is the backend: each phone gets its own account (`auth.ts`, `users.ts`), the server starts and finishes rounds and works out gold (`rounds.ts`), and `social.ts`, `games.ts`, `ledger.ts`, `shop.ts` and `rooms.ts` hold likes, comments, leaderboards, the catalog, the gold history, spending and rooms. `npx convex run seed:run` adds the launch games.
 
-To add a game: write `games/<slug>/game.js`, add its cover and icon to `assets/games/`, add it to `src/lib/catalog.ts` and to `convex/seed.ts`, then run the seed.
+## Add a game
+
+1. Write `Sources/Games/<Name>Game.swift`: a SwiftUI view made with `init(options: GameOptions, link: GameLink)` that calls `link.finish(_:)` once when the round is over. Read `GameKit.swift` first; it is short and explains the rules (pausing, the areas the app keeps for its own controls, haptics, the scripted player used for recording).
+2. Write `Sources/Games/<Name>Scene.swift`: a view made with `init(phase: Double, showHUD: Bool)` that draws the game at one moment, 0 to 1, on a 402 x 874 stage.
+3. Add the game to `Sources/Core/MockData.swift`: a case in `GameKind`, a line in `MockGame.scene`, a `MockGame` entry and a place in `Mock.games`. Add its case to `Sources/Live/GameFactory.swift`. The compiler then points at the few other switches that need the new case.
+4. Add the game to `convex/seed.ts` with the same id, then run `npx convex dev --once` and `npx convex run seed:run`.
+5. Run `xcodegen generate` and build.
+
+Launch arguments open the app wherever you need it, which is how to test without tapping: `-play <game-id>` starts a round, `-demo 1` lets the scripted player play it, `-lose <seconds>` ends it, `-route <name>` opens a screen. `LiveLaunch` in `Sources/Live/LiveRoot.swift` lists them all.
 
 ## Worktrees
 
-The main checkout stays on `main`. Every other branch gets its own worktree in a sibling folder, so no worktree sits inside another one and Metro, TypeScript, and watchman never crawl a second copy of the app.
+The main checkout stays on `main`. Every other branch gets its own worktree in a sibling folder, so no worktree sits inside another one.
 
 ```
 ~/Documents/
