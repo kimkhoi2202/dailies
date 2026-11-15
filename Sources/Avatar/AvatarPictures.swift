@@ -117,8 +117,15 @@ final class AvatarPictures: ObservableObject {
         let ambient = SCNNode()
         ambient.light = SCNLight()
         ambient.light?.type = .ambient
-        ambient.light?.intensity = 450
+        ambient.light?.intensity = 620
         scene.rootNode.addChildNode(ambient)
+        let rim = SCNNode()
+        rim.light = SCNLight()
+        rim.light?.type = .directional
+        rim.light?.intensity = 500
+        rim.light?.color = UIColor(red: 1, green: 0.85, blue: 0.55, alpha: 1)
+        rim.eulerAngles = SCNVector3(-0.9, Float.pi * 0.8, 0)
+        scene.rootNode.addChildNode(rim)
         let key = SCNNode()
         key.light = SCNLight()
         key.light?.type = .directional

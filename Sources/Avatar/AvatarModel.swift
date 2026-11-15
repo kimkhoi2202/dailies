@@ -167,7 +167,7 @@ private enum Faces {
             return onFace(LowPoly.ellipsoid(0.09, 0.07, 0.03, segments: 10, rings: 4, top: 0.5, bottom: 1, color: M.mouth), 0, 1.26, lift: -0.005)
         }
         let arc = SCNNode()
-        for (x, tilt) in [(-0.045, Float(0.4)), (0.045, Float(-0.4))] {
+        for (x, tilt) in [(-0.045, Float(-0.4)), (0.045, Float(0.4))] {
             arc.add(LowPoly.box(0.065, 0.024, 0.03, bevel: 0.3, color: M.mouth).at(Float(x), 0, 0).turned(z: tilt))
         }
         return onFace(arc, 0, 1.25)
@@ -179,10 +179,10 @@ private enum Faces {
         }
         switch id {
         case "face.smirk":
-            face.add(eye(-0.22), eye(0.22), brow(-0.22, tilt: 0.1, color: brows), brow(0.22, tilt: -0.25, color: brows, y: 1.58))
+            face.add(eye(-0.22), eye(0.22), brow(-0.22, tilt: -0.05, color: brows, y: 1.575), brow(0.22, tilt: 0.3, color: brows, y: 1.6))
             face.add(onFace(LowPoly.box(0.1, 0.024, 0.03, bevel: 0.3, color: M.mouth), 0.04, 1.26).turned(z: 0.25))
         case "face.wink":
-            face.add(eye(-0.22), closed(0.22, up: true), brow(-0.22, tilt: 0.1, color: brows), brow(0.22, tilt: -0.1, color: brows))
+            face.add(eye(-0.22), closed(0.22, up: true), brow(-0.22, tilt: -0.06, color: brows, y: 1.575), brow(0.22, tilt: 0.06, color: brows, y: 1.575))
             face.add(smile(open: true))
         case "face.determined":
             face.add(eye(-0.22, tall: 0.08), eye(0.22, tall: 0.08))
@@ -190,7 +190,7 @@ private enum Faces {
             face.add(onFace(LowPoly.box(0.1, 0.024, 0.03, bevel: 0.3, color: M.mouth), 0, 1.26))
         case "face.sleepy":
             face.add(closed(-0.22, up: false), closed(0.22, up: false))
-            face.add(brow(-0.22, tilt: 0.15, color: brows), brow(0.22, tilt: -0.15, color: brows))
+            face.add(brow(-0.22, tilt: -0.1, color: brows), brow(0.22, tilt: 0.1, color: brows))
             face.add(onFace(LowPoly.ellipsoid(0.035, 0.04, 0.02, segments: 6, rings: 4, color: M.mouth), 0, 1.25))
         case "face.shades":
             let shades = SCNNode()
@@ -205,11 +205,11 @@ private enum Faces {
             for x: Float in [-0.22, 0.22] {
                 face.add(onFace(LowPoly.star(0.085, color: M.gold).named("eye"), x, 1.41, lift: 0.02))
             }
-            face.add(brow(-0.22, tilt: 0.1, color: brows, y: 1.58), brow(0.22, tilt: -0.1, color: brows, y: 1.58))
+            face.add(brow(-0.22, tilt: -0.06, color: brows, y: 1.585), brow(0.22, tilt: 0.06, color: brows, y: 1.585))
             face.add(smile(open: true))
         default:
-            face.add(eye(-0.22), eye(0.22), brow(-0.22, tilt: 0.08, color: brows), brow(0.22, tilt: -0.08, color: brows))
-            face.add(smile(open: false))
+            face.add(eye(-0.22), eye(0.22), brow(-0.22, tilt: -0.06, color: brows, y: 1.575), brow(0.22, tilt: 0.06, color: brows, y: 1.575))
+            face.add(smile(open: true))
         }
     }
 }
@@ -331,13 +331,13 @@ private enum Hats {
             hat.add(LowPoly.frustum(bottom: 0.66, top: 0.64, height: 0.12, segments: 12, depth: 0.93, color: M.tealDeep).at(0, 1.6, 0))
             hat.add(LowPoly.sphere(0.12, segments: 7, rings: 5, color: M.cream).at(0, 2.05, 0))
         case "hat.cap":
-            hat.add(dome(0.07, bottom: 0.38, color: M.inkSoft))
+            hat.add(dome(0.07, bottom: 0.38, color: M.teal))
             hat.add(LowPoly.ellipsoid(0.38, 0.03, 0.3, segments: 10, rings: 3, from: -0.25, to: 0.25, color: M.gold).at(0, 1.73, 0.42).turned(x: 0.12))
             hat.add(LowPoly.sphere(0.05, segments: 5, rings: 3, color: M.gold).at(0, 2.03, 0))
         case "hat.catears":
             for side: Float in [-1, 1] {
                 let ear = SCNNode().at(side * 0.33, 1.84, 0.02).turned(z: -side * 0.3)
-                ear.add(LowPoly.frustum(bottom: 0.15, top: 0, height: 0.3, segments: 3, depth: 0.55, color: M.inkSoft))
+                ear.add(LowPoly.frustum(bottom: 0.15, top: 0, height: 0.3, segments: 3, depth: 0.55, color: M.cream))
                 ear.add(LowPoly.frustum(bottom: 0.08, top: 0, height: 0.18, segments: 3, depth: 0.4, color: M.pink).at(0, 0.03, 0.05))
                 hat.add(ear)
             }
