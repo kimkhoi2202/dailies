@@ -34,7 +34,7 @@ enum LiveBoard {
     static func unit(for game: MockGame) -> String {
         switch game.kind {
         case .tippyTower: "floors"
-        case .fiveUp, .spiralDrop: "points"
+        case .fiveUp, .spiralDrop, .blockParty: "points"
         case .laneDash: "metres"
         case .inkland: "share of the land"
         case .gulpCity: "share of the city"
@@ -55,7 +55,7 @@ enum LiveBoard {
         let apart = abs(a - b)
         switch game.kind {
         case .tippyTower: return apart == 1 ? "1 floor" : "\(apart) floors"
-        case .fiveUp, .spiralDrop: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .fiveUp, .spiralDrop, .blockParty: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .laneDash: return "\(groupedNumber(apart)) m"
         case .inkland, .gulpCity: return text(apart, game)
         }
