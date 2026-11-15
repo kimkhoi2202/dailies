@@ -149,6 +149,16 @@ struct LayerView: View {
             G3ReviewResultScreen()
         case .reviewChanges:
             G3ReviewChangesScreen()
+        case .messages:
+            MessagesInboxScreen()
+        case .chat(let id):
+            MessagesChatScreen(chatID: id)
+        case .newGroup:
+            MessagesNewGroupScreen()
+        case .workplace:
+            MessagesWorkplaceScreen()
+        case .playTogether(let id):
+            MessagesPlayTogetherSheet(chatID: id)
         }
     }
 }
@@ -443,7 +453,8 @@ struct LiveResultsScreen: View {
 ///   -route <name>       open a screen: gold, history, streak, search, inbox, settings, saveGold, notify, studio,
 ///                       reviewProgress, reviewResult, reviewChanges, or one that takes a value:
 ///                       gameReady:<game id>, gameDetail:<game id>, leaderboard:<game id>, comments:<clip id>,
-///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>
+///                       fairness:<game id>, spend:<n>, shareRun:<game id>, publish:<step>,
+///                       messages, chat:<chat id>, newGroup, workplace
 ///   -demo 1             games play themselves (-lose <seconds> has the scripted player lose after that long)
 ///   -gamescale <x>      draw games on a canvas x times smaller and scale it up, to measure drawing cost
 enum LiveLaunch {
@@ -495,6 +506,10 @@ enum LiveLaunch {
         case "shareRun": return .shareRun(value)
         case "spend": return .spend(Int(value) ?? 1)
         case "publish": return .publish(Int(value) ?? 1)
+        case "messages": return .messages
+        case "chat": return .chat(value)
+        case "newGroup": return .newGroup
+        case "workplace": return .workplace
         default: return nil
         }
     }

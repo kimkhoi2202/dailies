@@ -31,6 +31,12 @@ enum Route: Hashable {
     case reviewProgress
     case reviewResult
     case reviewChanges
+    // messages
+    case messages
+    case chat(String)
+    case newGroup
+    case workplace
+    case playTogether(String)
 
     enum Style { case push, cover, sheet }
 
@@ -41,6 +47,10 @@ enum Route: Hashable {
         case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges:
             .cover
         case .comments, .fairness, .spend, .streak, .saveGold, .notify:
+            .sheet
+        case .messages, .chat, .newGroup, .workplace:
+            .push
+        case .playTogether:
             .sheet
         }
     }

@@ -9,12 +9,14 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as chat from "../chat.js";
 import type * as games from "../games.js";
 import type * as ledger from "../ledger.js";
 import type * as lib from "../lib.js";
 import type * as rooms from "../rooms.js";
 import type * as rounds from "../rounds.js";
 import type * as seed from "../seed.js";
+import type * as seedChat from "../seedChat.js";
 import type * as shop from "../shop.js";
 import type * as social from "../social.js";
 import type * as users from "../users.js";
@@ -27,12 +29,14 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  chat: typeof chat;
   games: typeof games;
   ledger: typeof ledger;
   lib: typeof lib;
   rooms: typeof rooms;
   rounds: typeof rounds;
   seed: typeof seed;
+  seedChat: typeof seedChat;
   shop: typeof shop;
   social: typeof social;
   users: typeof users;
