@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid
 }
 
 struct MockGame: Identifiable {
@@ -59,6 +59,7 @@ struct MockGame: Identifiable {
         case .blockParty: BlockPartyScene(phase: moment, showHUD: showHUD)
         case .wildEights: WildEightsScene(phase: moment, showHUD: showHUD)
         case .brickOut: BrickOutScene(phase: moment, showHUD: showHUD)
+        case .dailyGrid: DailyGridScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -226,7 +227,14 @@ enum Mock {
         plays: "214K", likes: "26.1K", dislikes: "2.2K", approval: 92,
         bestScore: "1,240 points", clipPhase: 0.5, tint: Color(red: 0.42, green: 0.30, blue: 0.72))
 
-    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut]
+    static let dailyGrid = MockGame(
+        id: "daily-grid", kind: .dailyGrid, title: "Daily Grid", tagline: "Six crowns. No touching.",
+        category: "Puzzle", players: "1 to 4 players", mode: "Casual", studio: "Paper Lantern",
+        goldPerMinute: 1.0, avgSession: "3m 00s", seedEarned: 0,
+        plays: "214K", likes: "28.6K", dislikes: "1.4K", approval: 95,
+        bestScore: "640 points", clipPhase: 0.85, tint: Color(red: 0.85, green: 0.66, blue: 0.80))
+
+    static let games = [tippyTower, fiveUp, laneDash, inkland, spiralDrop, gulpCity, slipOut, blockParty, wildEights, brickOut, dailyGrid]
 
     // MARK: Videos
 

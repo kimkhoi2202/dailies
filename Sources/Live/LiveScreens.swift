@@ -23,6 +23,7 @@ enum LiveBoard {
         "gulp-city": ["tofu": 87, "juno": 74, "noor.runs": 61, "devon.plays": 52, "kaz": 38, "wordnerd.sam": 24],
         "slip-out": ["kaz": 71, "wordnerd.sam": 64, "juno": 55, "devon.plays": 47, "noor.runs": 39, "tofu": 26],
         "wild-eights": ["kaz": 168, "juno": 141, "devon.plays": 126, "wordnerd.sam": 97, "tofu": 72, "noor.runs": 44],
+        "daily-grid": ["kaz": 812, "wordnerd.sam": 690, "devon.plays": 544, "juno": 418, "tofu": 305, "noor.runs": 160],
     ]
 
     /// Everyone on the board, best score first.
@@ -42,6 +43,7 @@ enum LiveBoard {
         case .gulpCity: "share of the city"
         case .slipOut: "arrows"
         case .brickOut: "points"
+        case .dailyGrid: "points"
         }
     }
 
@@ -51,6 +53,7 @@ enum LiveBoard {
         case .inkland: String(format: "%.1f%%", Double(score) / 10)
         case .gulpCity: "\(score)%"
         case .brickOut: groupedNumber(score)
+        case .dailyGrid: groupedNumber(score)
         default: groupedNumber(score)
         }
     }
@@ -65,6 +68,7 @@ enum LiveBoard {
         case .inkland, .gulpCity: return text(apart, game)
         case .slipOut: return apart == 1 ? "1 arrow" : "\(apart) arrows"
         case .brickOut: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .dailyGrid: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         }
     }
 
