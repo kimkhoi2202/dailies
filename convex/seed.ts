@@ -99,6 +99,22 @@ const GAMES = [
     dislikes: 94,
     scores: [1980, 1650, 2410, 760, 1180, 420],
   },
+  {
+    slug: "wild-eights",
+    title: "Wild Eights",
+    studio: "Corner Table",
+    pitch: "Match it. Shed it.",
+    how: "Play a card that matches the top of the pile by suit or number, or draw one. Eights match anything and let you pick the next suit. Empty your hand first.",
+    minPlayers: 2,
+    maxPlayers: 4,
+    mode: "competitive" as const,
+    category: "Cards",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 261,
+    dislikes: 17,
+    scores: [720, 540, 610, 180, 455, 390],
+  },
 ];
 
 const PLAYERS = [
@@ -116,6 +132,7 @@ const COMMENTS: Record<string, string[]> = {
   "spiral-drop": ["eleven floors without touching red", "the combo smash is the best feeling in this app"],
   "gulp-city": ["swallowed the whole block with two seconds left", "started with a flower, ended with a bus"],
   inkland: ["took a fifth of the map in one loop", "got cut one step from home. again"],
+  "wild-eights": ["went out with an eight on the last turn", "kaz held four hearts and I picked clubs"],
   "lane-dash": ["the near miss at the end. I stopped breathing", "ramp into three gems into a barrier. classic"],
 };
 

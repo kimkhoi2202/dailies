@@ -38,6 +38,7 @@ enum LiveBoard {
         case .laneDash: "metres"
         case .inkland: "share of the land"
         case .gulpCity: "share of the city"
+        case .wildEights: "points"
         }
     }
 
@@ -58,6 +59,7 @@ enum LiveBoard {
         case .fiveUp, .spiralDrop: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .laneDash: return "\(groupedNumber(apart)) m"
         case .inkland, .gulpCity: return text(apart, game)
+        case .wildEights: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         }
     }
 
