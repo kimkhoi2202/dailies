@@ -484,7 +484,7 @@ struct CreateCameraScreen: View {
     private var deniedCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("CAMERA IS OFF").font(DL.display(30)).foregroundStyle(DL.ink)
-            Text("Dailies needs your camera to film you playing")
+            Text("DEGEN needs your camera to film you playing")
                 .font(DL.text(16)).foregroundStyle(DL.ink2)
                 .fixedSize(horizontal: false, vertical: true)
             DLTextKey(title: "Open Settings", symbol: "gearshape.fill")

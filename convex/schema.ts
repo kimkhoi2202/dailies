@@ -17,6 +17,10 @@ export default defineSchema({
     changes: v.optional(v.number()),
     // A teammate's branch dresses each player; kept loose here so both backends accept the same rows.
     avatar: v.optional(v.any()),
+    // Another teammate's branch adds Whop and cents; kept loose here for the same reason.
+    cents: v.optional(v.number()),
+    centsAllTime: v.optional(v.number()),
+    whopUsername: v.optional(v.string()),
   }).index("by_handle", ["handle"]),
 
   games: defineTable({
