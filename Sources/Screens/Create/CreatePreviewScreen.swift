@@ -316,7 +316,7 @@ private struct CreatePreviewContent: View {
     }
 
     private func send() {
-        let line = take.scoreLine.map { "\($0) in \(game.title) on Dailies" } ?? "Watch me play \(game.title) on Dailies"
+        let line = take.scoreLine.map { "\($0) in \(game.title) on DEGEN" } ?? "Watch me play \(game.title) on DEGEN"
         if let photo = take.photo {
             CreateFiles.share([photo, line])
         } else if let url = take.videoURL {
