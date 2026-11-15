@@ -30,6 +30,10 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
+  readonly WHOP_ACCOUNT_ID: string | undefined;
+  readonly WHOP_API_KEY: string | undefined;
+  readonly WHOP_ENVIRONMENT: string | undefined;
+  readonly WHOP_WEBHOOK_SECRET: string | undefined;
 };
 
 /**
