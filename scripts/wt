@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+main="$(dirname "$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir)")"
+base="${main}-worktrees"
+
+usage() {
+  cat <<EOF
+Usage: scripts/wt <command>
+
+  new <branch> [base]   Create $base/<branch> on a new branch from [base] (default origin/main),
+                        or check out <branch> there if it already exists.
+                        Copies ignored .env files from the main checkout and installs dependencies.
+  ls                    List every worktree.
+  rm <branch>           Remove the worktree and delete its branch if it is merged.
+EOF
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  new)
+    branch="${2:?branch name required}"
+    dir="$base/${branch//\//-}"
+    git -C "$main" fetch origin --quiet || true
+    if git -C "$main" show-ref --verify --quiet "refs/heads/$branch"; then
+      git -C "$main" worktree add "$dir" "$branch"
+    else
+      git -C "$main" worktree add -b "$branch" "$dir" "${3:-origin/main}"
+    fi
+    git -C "$main" ls-files --others --ignored --exclude-standard --directory |
+      { grep -E '(^|/)\.env[^/]*$' || true; } |
+      while IFS= read -r f; do
+        mkdir -p "$dir/$(dirname "$f")"
+        cp "$main/$f" "$dir/$f"
+        echo "copied $f"
+      done
+    cd "$dir"
+    if [ -f bun.lock ] || [ -f bun.lockb ]; then bun install
+    elif [ -f pnpm-lock.yaml ]; then pnpm install
+    elif [ -f yarn.lock ]; then yarn install
+    elif [ -f package-lock.json ]; then npm install
+    fi
+    echo "$dir"
+    ;;
+  ls)
+    git -C "$main" worktree list
+    ;;
+  rm)
+    branch="${2:?branch name required}"
+    git -C "$main" worktree remove "$base/${branch//\//-}"
+    git -C "$main" branch -d "$branch" || echo "kept unmerged branch $branch (delete with: git branch -D $branch)"
+    ;;
+  *)
+    usage
+    ;;
+esac
