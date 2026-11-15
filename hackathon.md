@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-11-15T18:02:39Z
-- **Last updated:** 2026-11-15T21:02:45Z
+- **Last updated:** 2026-11-15T21:13:57Z
 
 ## Log
 
@@ -84,3 +84,13 @@ and a fraction of gold carried between rounds (`convex/ledger.ts`,
 The Expo screens and the JavaScript games were removed. Leaderboards, other
 players' comments and the catalog's display numbers still show sample data in
 the app.
+
+### 2026-11-15 - 75fb5a8
+The Swift app now shows live Convex data where it still had sample content:
+leaderboards, other players' comments and their like counts, the gold history
+and today's totals, each game's likes, plays and approval, the player's name,
+and the streak week (`Sources/Live/LiveStore.swift`, `Sources/Live/LiveScreens.swift`,
+`Sources/Core/MockData.swift`). Fixed the results screen cutting off a gold
+amount of two digits (`Sources/Screens/GameScreens.swift`). Built the app on
+Revyl, installed it on a cloud iPhone and played a round by touch; the round and
+its gold appeared in Convex under a new device account.
