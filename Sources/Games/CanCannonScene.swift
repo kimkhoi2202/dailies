@@ -587,14 +587,19 @@ struct CanCannonPainter {
                  with: down(pivotY - 30 * u, pivotY + 90 * u, [Tint(hex: 0xE4B979).color(), Tint(hex: 0xC99A5A).color()]))
         ctx.stroke(ellipse(pivotX, pivotY + 30 * u, 128 * u, 50 * u), with: .color(Tint(hex: 0xB07D42).color(0.7)), lineWidth: 3 * u)
 
+        // The housing and the wheels. The barrel stands in the hole on top.
+        let baseW = 184 * u
+        let baseH = baseW * CanCannonArt.baseAspect
+        ctx.draw(art.base, in: CGRect(x: pivotX - baseW / 2, y: pivotY + 20 * u - baseH / 2, width: baseW, height: baseH))
+
         // The barrel, turned toward the aim.
         var barrel = ctx
         barrel.translateBy(x: pivotX, y: pivotY)
         barrel.rotate(by: .radians(turn))
         let tipY = -length + recoil
-        let barrelW = 64 * u
+        let barrelW = 54 * u
         let barrelTop = tipY - 8 * u
-        barrel.draw(art.barrel, in: CGRect(x: -barrelW / 2, y: barrelTop, width: barrelW, height: 30 * u - barrelTop))
+        barrel.draw(art.barrel, in: CGRect(x: -barrelW / 2, y: barrelTop, width: barrelW, height: -12 * u - barrelTop))
         if since < 0.14 {
             let k = since / 0.14
             let r = (18 + 26 * k) * u
@@ -602,11 +607,6 @@ struct CanCannonPainter {
                 Gradient(colors: [Color.white.opacity(1 - k), Tint(hex: 0xFFD27A).color(0.8 * (1 - k)), Color.white.opacity(0)]),
                 center: pt(0, tipY - 10 * u - 10 * u * k), startRadius: 0, endRadius: r))
         }
-
-        // The housing and the wheels, over the base of the barrel.
-        let baseW = 184 * u
-        let baseH = baseW * CanCannonArt.baseAspect
-        ctx.draw(art.base, in: CGRect(x: pivotX - baseW / 2, y: pivotY + 20 * u - baseH / 2, width: baseW, height: baseH))
     }
 
     // MARK: Effects
