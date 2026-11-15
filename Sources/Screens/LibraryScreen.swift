@@ -1,12 +1,10 @@
 import SwiftUI
 
 // LIBRARY, the last tab: everything that is yours. The games you played lately, every game with your
-// best and the ones you saved, rooms to play with friends, and the clips you posted. Tapping a game
-// opens its sheet, which holds everything you can do with it.
+// best and the ones you saved, rooms to play with friends, and the clips you posted.
 
 struct LibraryScreen: View {
     @ObservedObject private var store = LiveStore.shared
-    @ObservedObject private var clips = CreateClips.shared
     @State private var query = ""
     @State private var filter = "All"
 
@@ -54,7 +52,7 @@ struct LibraryScreen: View {
                         ForEach(recent) { game in
                             let best = LiveBoard.yourBest(game)
                             ContinueCard(game: game, note: "Your best: \(best.value) \(best.detail)")
-                                .opens(.libraryGame(game.id))
+                                .opens(.gameReady(game.id))
                         }
                     }
                 }
@@ -68,9 +66,9 @@ struct LibraryScreen: View {
             friendsCard
 
             HomeSectionTitle(title: "Your clips")
-            clipGrid
+            DLEmptyState(symbol: "video.fill", title: "No clips yet", detail: "Film yourself playing with the + button.",
+                         key: "Open camera") { LiveNav.shared.open(.create(nil)) }
         }
-        .defaultScrollAnchor(MockArgs.value("-scroll") == "bottom" ? .bottom : .top)
     }
 
     private var searchField: some View {
@@ -119,14 +117,9 @@ struct LibraryScreen: View {
                 withAnimation(.snappy(duration: 0.25)) { filter = "All"; query = "" }
             }
         } else {
-            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-                ForEach(Array(stride(from: 0, to: games.count, by: 2)), id: \.self) { start in
-                    GridRow {
-                        ForEach(games[start..<min(start + 2, games.count)]) { game in
-                            LibraryGameTile(game: game, saved: store.saved.contains(game.id))
-                        }
-                        if start + 1 == games.count { Color.clear.gridCellUnsizedAxes(.vertical) }
-                    }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(games) { game in
+                    LibraryGameTile(game: game, saved: store.saved.contains(game.id))
                 }
             }
         }
@@ -146,35 +139,15 @@ struct LibraryScreen: View {
             }
             HStack(spacing: 10) {
                 DLTextKey(title: "Join a room", style: .neutral).opens(.join)
-                DLTextKey(title: "Start a room", style: .ink).opens(.startRoom)
+                DLTextKey(title: "Start a room").opens(.startRoom)
             }
         }
         .dlCard(padding: 14)
     }
-
-    @ViewBuilder private var clipGrid: some View {
-        let mine = clips.feed.filter(\.mine)
-        if mine.isEmpty {
-            DLEmptyState(symbol: "video.fill", title: "No clips yet", detail: "Film yourself playing with the + button.",
-                         key: "Open camera") { LiveNav.shared.open(.create(nil)) }
-        } else {
-            Grid(horizontalSpacing: 8, verticalSpacing: 8) {
-                ForEach(Array(stride(from: 0, to: mine.count, by: 3)), id: \.self) { start in
-                    GridRow {
-                        ForEach(mine[start..<min(start + 3, mine.count)]) { clip in
-                            LibraryClipTile(clip: clip).opens(.myClip(clip.id))
-                        }
-                        ForEach(0..<(3 - min(3, mine.count - start)), id: \.self) { _ in
-                            Color.clear.gridCellUnsizedAxes(.vertical)
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
-/// A game in the Library grid: its cover, title and your best. Everything else is in its sheet.
+/// A game in the Library grid: its cover, title, players, your best and the gold it still has today.
+/// Tapping it opens its sheet, where you play, start a room or save it.
 struct LibraryGameTile: View {
     let game: MockGame
     let saved: Bool
@@ -182,173 +155,42 @@ struct LibraryGameTile: View {
     var body: some View {
         let best = LiveBoard.yourBest(game)
         let played = best.value != "0"
-        VStack(alignment: .leading, spacing: 0) {
-            ClipStill(game: game, showHUD: false, focusY: 0.3)
-                .frame(height: 124)
-                .overlay(alignment: .topTrailing) {
-                    if saved {
-                        Image(systemName: "bookmark.fill")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(DL.onGold)
-                            .frame(width: 26, height: 26)
-                            .background(Circle().fill(DL.gold))
-                            .padding(8)
-                            .accessibilityLabel("Saved")
-                    }
-                }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(game.title.uppercased())
-                    .font(DL.display(21)).foregroundStyle(DL.ink)
-                    .lineLimit(1).minimumScaleFactor(0.7)
-                Text(played ? "Best \(best.value) \(best.detail)" : "Not played yet")
-                    .font(DL.text(12, .medium)).foregroundStyle(played ? DL.ink2 : DL.ink3)
-                    .lineLimit(1).minimumScaleFactor(0.8)
-            }
-            .padding(.horizontal, 12).padding(.vertical, 10)
-        }
-        .background(DL.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .opens(.libraryGame(game.id))
-    }
-}
-
-/// One of your clips in the Library grid, in the shape it plays in.
-struct LibraryClipTile: View {
-    let clip: ConvexClip
-
-    var body: some View {
-        Color.clear
-            .aspectRatio(9 / 16, contentMode: .fit)
-            .overlay {
-                if clip.kind == "photo", let address = clip.url, let url = URL(string: address) {
-                    AsyncImage(url: url) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        DL.sunken
-                    }
-                } else {
-                    ClipStill(game: Mock.game(clip.gameSlug), showHUD: false, focusY: 0.2)
-                }
-            }
-            .overlay(LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom))
-            .overlay(alignment: .bottomLeading) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(clip.gameTitle.uppercased()).font(DL.display(15)).lineLimit(1).minimumScaleFactor(0.7)
-                    HStack(spacing: 4) {
-                        Image(systemName: clip.kind == "photo" ? "photo.fill" : "play.fill").font(.system(size: 9, weight: .bold))
-                        Text(clip.scoreText ?? groupedNumber(Int(clip.likes))).font(DL.label(10)).lineLimit(1)
-                    }
-                }
-                .foregroundStyle(.white)
-                .padding(8)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: DL.tileRadius, style: .continuous))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Your \(clip.gameTitle) clip")
-    }
-}
-
-/// A game's sheet from the Library: its cover, your best, and every way to play it.
-struct LibraryGameSheet: View {
-    let game: MockGame
-    @ObservedObject private var store = LiveStore.shared
-    @State private var starting = false
-    @State private var problem: String?
-
-    var body: some View {
-        let best = LiveBoard.yourBest(game)
-        let played = best.value != "0"
-        let saved = store.saved.contains(game.id)
-        let multiplayer = game.playerRange.upperBound > 1
-        DLSheet(height: multiplayer ? 640 : 572) {
-            EmptyView()
-        } content: {
-            VStack(alignment: .leading, spacing: 14) {
+        ZStack(alignment: .topTrailing) {
+            VStack(alignment: .leading, spacing: 0) {
                 ClipStill(game: game, showHUD: false, focusY: 0.3)
-                    .frame(height: 176)
-                    .clipShape(RoundedRectangle(cornerRadius: DL.cardRadius, style: .continuous))
-                    .overlay(alignment: .topTrailing) {
-                        DLMediaButton(symbol: "xmark", size: 36).goesBack().padding(10).accessibilityLabel("Close")
+                    .frame(height: 118)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(game.title.uppercased())
+                        .font(DL.display(21)).foregroundStyle(DL.ink)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                    Text(game.players).font(DL.text(12, .medium)).foregroundStyle(DL.ink2).lineLimit(1)
+                    Text(played ? "Best \(best.value) \(best.detail)" : "Not played yet")
+                        .font(DL.text(12, .semibold)).foregroundStyle(played ? DL.ink : DL.ink3)
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                    HStack(spacing: 6) {
+                        DLMeter(value: Double(game.leftToday), total: Double(game.capToday), height: 4)
+                        Text("\(game.leftToday)").font(DL.label(10)).foregroundStyle(DL.goldText).monospacedDigit()
                     }
-
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(game.title.uppercased()).font(DL.display(38)).foregroundStyle(DL.ink)
-                            .lineLimit(1).minimumScaleFactor(0.6)
-                        Text("\(game.players), \(game.mode.lowercased())").font(DL.text(14)).foregroundStyle(DL.ink2)
-                    }
-                    Spacer(minLength: 12)
-                    VStack(alignment: .trailing, spacing: 0) {
-                        Text("Your best").dlLabel()
-                        Text(played ? best.value : "None yet").font(DL.display(played ? 34 : 22)).foregroundStyle(DL.ink)
-                            .monospacedDigit()
-                        if played { Text(best.detail).font(DL.text(12)).foregroundStyle(DL.ink2) }
-                    }
+                    .padding(.top, 5)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(game.leftToday) gold left today")
                 }
-
-                HStack(spacing: 8) {
-                    DLMeter(value: Double(game.leftToday), total: Double(game.capToday), height: 4)
-                    Text("\(game.leftToday) gold left today").font(DL.label(10)).foregroundStyle(DL.goldText).monospacedDigit()
-                }
-                .accessibilityElement(children: .combine)
-
-                if let problem {
-                    Text(problem).font(DL.text(14)).foregroundStyle(DL.danger)
-                }
-
-                DLPlayKey().tap { LiveNav.shared.replaceTop(.gameReady(game.id)) }
-
-                if multiplayer {
-                    HStack(spacing: 10) {
-                        DLTextKey(title: starting ? "Starting" : "Start a room", symbol: "person.2.fill", style: .ink)
-                            .tap(startRoom)
-                        DLTextKey(title: "Join with a code", style: .neutral)
-                            .tap { LiveNav.shared.replaceTop(.join) }
-                    }
-                }
-
-                HStack(spacing: 10) {
-                    DLTextKey(title: saved ? "Saved" : "Save", symbol: saved ? "bookmark.fill" : "bookmark", style: .neutral)
-                        .tap { store.toggleSave(game.id) }
-                        .accessibilityLabel(saved ? "Unsave" : "Save")
-                    DLTextKey(title: "Game page", symbol: "info.circle", style: .neutral)
-                        .tap { LiveNav.shared.replaceTop(.gameDetail(game.id)) }
-                }
+                .padding(.horizontal, 11).padding(.vertical, 10)
             }
-            .padding(.horizontal, 20)
-        }
-    }
+            .background(DL.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .opens(.libraryGame(game.id))
 
-    private func startRoom() {
-        guard !starting else { return }
-        starting = true
-        problem = nil
-        Task { @MainActor in
-            do {
-                let code = try await ConvexLink.shared.mutate("rooms:create", ["slug": game.id], as: String.self)
-                LiveNav.shared.replaceTop(.room(code))
-            } catch {
-                problem = LiveRoomRound.message(for: error)
+            if saved {
+                Image(systemName: "bookmark.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(DL.onGold)
+                    .frame(width: 26, height: 26)
+                    .background(Circle().fill(DL.gold))
+                    .padding(8)
+                    .allowsHitTesting(false)
+                    .accessibilityLabel("Saved")
             }
-            starting = false
-        }
-    }
-}
-
-/// One of your clips from the Library, full screen, played the way Videos plays it.
-struct LibraryClipScreen: View {
-    let clipID: String
-    @ObservedObject private var clips = CreateClips.shared
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            Color.black.ignoresSafeArea()
-            if let clip = clips.feed.first(where: { $0.id == clipID }) {
-                CreateClipPage(clip: clip, active: true).ignoresSafeArea()
-            }
-            DLMediaButton(symbol: "xmark").goesBack()
-                .padding(.leading, DL.margin).padding(.top, 8)
-                .accessibilityLabel("Close")
         }
     }
 }
