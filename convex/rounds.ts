@@ -10,9 +10,10 @@ import {
   gameBySlug,
   requireUser,
 } from "./lib";
+import { roomByCode } from "./rooms";
 
 export const start = mutation({
-  args: { slug: v.string(), day: v.string() },
+  args: { slug: v.string(), day: v.string(), room: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     assertCurrentDay(args.day);
@@ -24,7 +25,8 @@ export const start = mutation({
       .query("bests")
       .withIndex("by_user_and_gameSlug", (q) => q.eq("userId", user._id).eq("gameSlug", game.slug))
       .unique();
-    const seed = Math.floor(Math.random() * 1_000_000) + 1;
+    const room = args.room === undefined ? null : await roomByCode(ctx, args.room);
+    const seed = room?.gameSlug === game.slug ? room.seed : Math.floor(Math.random() * 1_000_000) + 1;
     const roundId = await ctx.db.insert("rounds", {
       userId: user._id,
       gameSlug: game.slug,

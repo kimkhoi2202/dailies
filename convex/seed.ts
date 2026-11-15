@@ -167,12 +167,12 @@ export const run = internalMutation({
         .withIndex("by_slug", (q) => q.eq("slug", entry.slug))
         .unique();
       if (existing) {
-        await ctx.db.patch("games", existing._id, { ...fields, order });
+        await ctx.db.patch("games", existing._id, { ...fields, order, plays: Math.max(existing.plays, likes * 9) });
         continue;
       }
       created += 1;
       const lines = COMMENTS[entry.slug] ?? [];
-      await ctx.db.insert("games", { ...fields, order, likes, dislikes, plays: 0, comments: lines.length });
+      await ctx.db.insert("games", { ...fields, order, likes, dislikes, plays: likes * 9, comments: lines.length });
       for (const [index, score] of scores.entries()) {
         await ctx.db.insert("bests", { userId: playerIds[index], gameSlug: entry.slug, score, day: "2026-11-15" });
       }

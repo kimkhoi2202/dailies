@@ -71,6 +71,25 @@ export default defineSchema({
     value: v.union(v.literal(1), v.literal(-1)),
   }).index("by_user_and_gameSlug", ["userId", "gameSlug"]),
 
+  rooms: defineTable({
+    code: v.string(),
+    gameSlug: v.string(),
+    hostId: v.id("users"),
+    seed: v.number(),
+    round: v.number(),
+    status: v.union(v.literal("lobby"), v.literal("playing")),
+  }).index("by_code", ["code"]),
+
+  roomPlayers: defineTable({
+    roomId: v.id("rooms"),
+    userId: v.id("users"),
+    score: v.number(),
+    done: v.boolean(),
+    round: v.number(),
+  })
+    .index("by_room", ["roomId"])
+    .index("by_user", ["userId"]),
+
   comments: defineTable({
     gameSlug: v.string(),
     userId: v.id("users"),
