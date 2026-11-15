@@ -16,13 +16,6 @@ targets:
       - path: Sources
       - path: Resources
         buildPhase: resources
-        optional: true
-        excludes:
-          - "AppIcon.icon"
-      # The app icon in Apple's layered format (Icon Composer), so iOS draws it sharply in every style.
-      - path: Resources/AppIcon.icon
-        type: file
-        buildPhase: resources
     dependencies:
       - package: ConvexMobile
         product: ConvexMobile
@@ -37,7 +30,7 @@ targets:
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.games
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         MARKETING_VERSION: "1.0.0"
-        CURRENT_PROJECT_VERSION: "2"
+        CURRENT_PROJECT_VERSION: "3"
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_VERSION: "5.0"
