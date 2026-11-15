@@ -147,7 +147,7 @@ export default defineSchema({
 
   ledger: defineTable({
     userId: v.id("users"),
-    kind: v.union(v.literal("round"), v.literal("spend")),
+    kind: v.union(v.literal("round"), v.literal("spend"), v.literal("buy")),
     title: v.string(),
     detail: v.string(),
     amount: v.number(),
@@ -155,6 +155,8 @@ export default defineSchema({
   }).index("by_user", ["userId"]),
 
   clips: defineTable({
+    cents: v.optional(v.number()),
+    views: v.optional(v.number()),
     userId: v.id("users"),
     gameSlug: v.string(),
     kind: v.union(v.literal("video"), v.literal("photo")),
