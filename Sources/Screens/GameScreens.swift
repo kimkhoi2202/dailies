@@ -166,6 +166,11 @@ struct ResultsScreen: View {
                      bestBefore: summary?.bestBefore ?? 33, isBest: isBest)
     }
 
+    private func leave() {
+        LiveNav.shared.closeAll()
+        CommunityStore.shared.rateIfDue(game.id)
+    }
+
     private func playAgain() {
         LiveNav.shared.replaceTop(.play(game.id, solo: summary?.solo ?? false))
     }
@@ -199,7 +204,7 @@ struct ResultsScreen: View {
             VStack(spacing: 0) {
                 HStack {
                     DLMediaButton(symbol: "xmark", size: 40)
-                        .tap { LiveNav.shared.closeAll() }
+                        .tap(leave)
                         .accessibilityLabel("Close")
                     Spacer()
                     DLGoldChip(balance: chipBalance)
@@ -298,7 +303,7 @@ struct ResultsScreen: View {
                     Text("LEAVE").font(DL.display(18)).tracking(0.6)
                 }
                 .frame(height: 48)
-                .tap { LiveNav.shared.closeAll() }
+                .tap(leave)
             }
         }
         .padding(.horizontal, 16)
@@ -359,11 +364,11 @@ struct ResultsBoard {
     /// Your place on the board once your row has moved, from 1.
     var rank: Int { ahead(of: score) + 1 }
 
-    /// The board's rows at one moment: up to five, around where your row ends.
+    /// The board's rows at one moment: up to six, around where your row ends.
     func rows(settled: Bool) -> (first: Int, rows: [Row]) {
         let final = ahead(of: score)
-        let low = max(0, min(final - 3, others.count - 4))
-        let window = Array(others[low..<min(others.count, low + 4)])
+        let low = max(0, min(final - 3, others.count - 5))
+        let window = Array(others[low..<min(others.count, low + 5)])
         let shown = settled ? score : (start ?? -1)
         let you = Row(id: "you", name: Mock.handle, score: shown, isYou: true)
         var all = window
@@ -403,7 +408,7 @@ private struct ResultsBoardCard: View {
         let shown = board.rows(settled: settled)
         VStack(spacing: 4) {
             HStack {
-                Text("FRIENDS IN \(board.game.title.uppercased())").dlLabel(10.5)
+                Text("LEADERBOARD").dlLabel(10.5)
                 Spacer()
                 Text(LiveBoard.unit(for: board.game).uppercased()).dlLabel(10.5)
             }
