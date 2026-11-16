@@ -31,6 +31,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = LiveHost()
         window.makeKeyAndVisible()
         self.window = window
+        if let url = connectionOptions.urlContexts.first?.url { HomeShortcut.open(url) }
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        if let url = URLContexts.first?.url { HomeShortcut.open(url) }
     }
 }
 
