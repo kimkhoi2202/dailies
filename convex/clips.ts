@@ -22,6 +22,7 @@ export const create = mutation({
     durationMs: v.number(),
     visibility: v.union(v.literal("friends"), v.literal("everyone"), v.literal("private")),
     overlay: v.optional(v.string()),
+    look: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
@@ -55,6 +56,7 @@ export const create = mutation({
       seed,
       caption: args.caption.trim().slice(0, 140),
       overlay: args.overlay?.trim().slice(0, 80) || undefined,
+      look: args.look && args.look.length <= 400 ? args.look : undefined,
       layout: args.layout,
       durationMs: Math.max(0, Math.min(Number.isFinite(args.durationMs) ? args.durationMs : 0, 3 * 60 * 60 * 1000)),
       visibility: args.visibility,
@@ -93,6 +95,7 @@ async function present(ctx: QueryCtx, clips: Doc<"clips">[], meId: string | null
         color: author?.color ?? "#7C5CFF",
         mine: meId !== null && clip.userId === meId,
         overlay: clip.overlay ?? null,
+        look: clip.look ?? null,
       };
     }),
   );

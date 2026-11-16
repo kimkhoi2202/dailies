@@ -81,12 +81,17 @@ struct ConvexClip: Decodable, Equatable, Identifiable {
     let color: String
     let mine: Bool
     let overlay: String?
+    /// The editor's filter, text style and sticker, as JSON.
+    let look: String?
 
     private enum CodingKeys: String, CodingKey {
         case id = "_id"
         case at, gameSlug, gameTitle, unit, kind, url, score, seed, caption, layout, durationMs, visibility, likes,
-             comments, handle, color, mine, overlay
+             comments, handle, color, mine, overlay, look
     }
+
+    /// What the editor set on this clip.
+    var style: CreateLook { CreateLook.decode(look) }
 
     /// The key this clip is saved under.
     var saveKey: String { id }
@@ -214,7 +219,7 @@ final class CreateClips: ObservableObject {
     }
 
     /// Uploads the take and posts it, or keeps it just for the player with visibility "private". Progress runs from 0 to 1 on the main thread. Returns the clip's id.
-    func post(_ take: CreateTake, caption: String, overlay: String = "", visibility: String,
+    func post(_ take: CreateTake, caption: String, overlay: String = "", look: CreateLook = CreateLook(), visibility: String,
               progress: @escaping (Double) -> Void) async throws -> String {
         var storageID: String?
         var kind = "video"
@@ -239,6 +244,7 @@ final class CreateClips: ObservableObject {
         ]
         if let storageID { args["storageId"] = storageID }
         if let round = take.roundID { args["roundId"] = round }
+        if let look = look.encoded { args["look"] = look }
         return try await link.mutate("clips:create", args, as: String.self)
     }
 
