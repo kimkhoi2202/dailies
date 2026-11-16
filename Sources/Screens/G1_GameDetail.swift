@@ -108,23 +108,21 @@ struct G1GoldCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             G1CardHeader(label: "Gold", link: "How gold works").opens(.fairness(game.id))
-            HStack(alignment: .center, spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
                 DLCoin(size: 30)
                 Text(game.goldRule)
                     .font(DL.text(15, .semibold))
                     .foregroundStyle(DL.ink)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(minHeight: 38)
-                    .padding(.leading, 2)
-                Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text("\(game.earnedToday) of \(game.capToday) today").font(DL.text(15, .semibold)).foregroundStyle(DL.ink)
-                    Text("More gold in \(Mock.resetIn)").font(DL.text(12, .semibold)).foregroundStyle(DL.goldText)
-                }
-                .lineLimit(1)
-                .fixedSize()
+                    .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
             }
+            HStack(alignment: .firstTextBaseline) {
+                Text("\(game.earnedToday) of \(game.capToday) today").font(DL.text(13, .semibold)).foregroundStyle(DL.ink)
+                Spacer(minLength: 8)
+                Text("More gold in \(Mock.resetIn)").font(DL.text(12, .semibold)).foregroundStyle(DL.goldText)
+            }
+            .lineLimit(1)
             DLMeter(value: Double(game.earnedToday), height: 8)
         }
         .dlCard()
