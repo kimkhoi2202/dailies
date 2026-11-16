@@ -23,6 +23,8 @@ enum GameFactory {
         case .cornerPocket: CornerPocketGame(options: options, link: link)
         case .canCannon: CanCannonGame(options: options, link: link)
         case .shortStack: ShortStackGame(options: options, link: link)
+        case .sakuraDays: SakuraDaysGame(options: options, link: link)
+        case .blindBox: BlindBoxGame(options: options, link: link)
         }
     }
 }
