@@ -391,6 +391,7 @@ struct CommunityFeedRow: View {
     // MARK: Doing
 
     private func like(only: Bool) {
+        guard LiveNav.shared.hasAccount(to: "like posts") else { return }
         let liked = memory.liked.contains(entry.id)
         if only {
             withAnimation(.spring(response: 0.25, dampingFraction: 0.55)) { heart = true }

@@ -56,6 +56,8 @@ extension SpiralDrop {
         private(set) var score = 0
         private(set) var level = 1
         private(set) var bestChain = 0
+        /// One gold each time a single fall passes another three floors, and two for each level finished.
+        private(set) var gold = 0
         private(set) var passedFriend = false
         private var passedFriendAt = 0.0
         private var idle = 0.0
@@ -289,6 +291,7 @@ extension SpiralDrop {
             if under == .hole {
                 chain += 1
                 if chain >= 2 { bestChain = max(bestChain, chain) }
+                if chain % 3 == 0 { gold += 1 }
                 breakFloor(place: chain)
                 note(.fell(chain))
             } else if chain >= 2 {
@@ -358,6 +361,7 @@ extension SpiralDrop {
             }
             lastSkin = (level - 1) % Palette.skins.count
             level += 1
+            gold += 2
             levelStart = next
             levelFloors = Self.floorCount(level: level)
             levelUpAt = time
@@ -1178,6 +1182,7 @@ extension SpiralDrop {
                     }
                 }
             }
+            link.collect(round.gold)
             if round.stage == .over, !reported {
                 reported = true
                 let result = round.result

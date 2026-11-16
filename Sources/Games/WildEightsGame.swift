@@ -75,6 +75,9 @@ final class WildEightsModel {
     private(set) var sheet = 0.0
     private(set) var sheetPressed: WildEightsSuit?
     private(set) var score = 0
+    private var cardsPlayed = 0
+    /// One gold for every three cards the player plays, and eight for going out first.
+    var gold: Int { cardsPlayed / 3 + (winner == 0 ? 8 : 0) }
     private(set) var shownScore = 0.0
     private(set) var notes: [WildEightsNote] = []
     private(set) var praise: String?
@@ -388,6 +391,7 @@ final class WildEightsModel {
         let from: WildEightsSpot = who == 0 ? .hand(index, count) : .seat(who - 1)
         flights.append(Flight(card: card, from: from, to: .pile, age: 0, length: Self.playFlight, faceUp: true, player: who, wild: wild))
         if who == 0 {
+            cardsPlayed += 1
             let add = Swift.min(card.isEight ? Self.eightPoints : Self.cardPoints, Swift.max(0, Self.playCap - score))
             if add > 0 {
                 score += add
@@ -914,6 +918,7 @@ final class WildEightsRunner: ObservableObject {
             case .lost: GameHaptics.fail()
             }
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

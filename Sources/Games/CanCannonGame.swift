@@ -339,6 +339,8 @@ final class CanCannonModel {
     private(set) var sinceScore: Double = 100
     private(set) var levelsCleared = 0
     private(set) var stars = 0
+    /// One gold for each star.
+    var gold: Int { stars }
     private(set) var levelStars = 0
     private(set) var praise = ""
     private(set) var ballPoints = 0
@@ -1293,6 +1295,7 @@ final class CanCannonRunner: ObservableObject {
         } else if !news.isEmpty {
             GameHaptics.tap()
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

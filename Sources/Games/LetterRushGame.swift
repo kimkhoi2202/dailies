@@ -569,6 +569,9 @@ final class LetterRushModel {
     private(set) var wordState = LetterRushWordState.empty
 
     private(set) var score = 0
+    /// Each word is worth its letters past the third, and two of those make one gold.
+    private(set) var gold = 0
+    private var goldLetters = 0
     private(set) var shownScore = 0.0
     private(set) var found: [Found] = []
     private var foundSet = Set<String>()
@@ -714,6 +717,8 @@ final class LetterRushModel {
         switch wordState {
         case .valid(let points):
             score += points
+            goldLetters += Swift.max(0, word.count - 3)
+            gold = goldLetters / 2
             found.append(Found(word: word, points: points))
             foundSet.insert(word)
             if pops.count >= 6 { pops.removeFirst() }
@@ -1047,6 +1052,7 @@ final class LetterRushRunner: ObservableObject {
                 if model.rivalName != nil, model.score < model.rivalScore { GameHaptics.fail() } else { GameHaptics.success() }
             }
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

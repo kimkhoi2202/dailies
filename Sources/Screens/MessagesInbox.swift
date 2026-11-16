@@ -74,6 +74,7 @@ struct MessagesInboxScreen: View {
             .padding(.horizontal, DL.margin)
         }
         .scrollIndicators(.hidden)
+        .scrollClipDisabled()
         .padding(.horizontal, -DL.margin)
     }
 

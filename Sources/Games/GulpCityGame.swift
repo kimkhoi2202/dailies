@@ -312,6 +312,9 @@ final class GulpCityRound {
         1 + holes.dropFirst().filter { $0.swallowed > holes[0].swallowed }.count
     }
 
+    /// One gold for every tenth of the city the player swallows.
+    var gold: Int { share(0) / 10 }
+
     var result: GameResult {
         let percent = share(0)
         return GameResult(score: percent, unit: "of the city", scoreText: "\(percent)%",
@@ -1163,8 +1166,10 @@ final class GulpCityDriver: ObservableObject {
         let over = round.stage == .over
         let result = over ? round.result : nil
         let now = round.now
+        let gold = round.gold
         round.lock.unlock()
         buzz(beats, at: now)
+        link.collect(gold)
         if let result {
             reported = true
             // not in the middle of a view update

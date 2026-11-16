@@ -43,4 +43,13 @@ http.route({
   }),
 });
 
+// Where signing in with Apple or Google ends. The app is waiting on a degen:// address, so the answer is passed on to it.
+http.route({
+  path: "/auth/done",
+  method: "GET",
+  handler: httpAction(async (_ctx, req) => {
+    return new Response(null, { status: 302, headers: { location: "degen://auth" + new URL(req.url).search } });
+  }),
+});
+
 export default http;

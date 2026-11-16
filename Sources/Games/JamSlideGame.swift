@@ -70,6 +70,8 @@ final class JamSlideModel {
     private(set) var scoreAge = 10.0
     private(set) var movesUsed = 0
     private(set) var levelsCleared = 0
+    /// Three gold for a board cleared, five when no move was wasted.
+    private(set) var gold = 0
     private(set) var blocksOut = 0
     private(set) var boosters = [1, 1, 1]
     private(set) var armed = -1
@@ -536,6 +538,7 @@ final class JamSlideModel {
         chestPaid = 0
         chestGain = 50 * level.number + 50
         levelsCleared += 1
+        gold += movesUsed <= level.blocks.count ? 5 : 3
         let gift = Self.clearTimes[Swift.min(levelsCleared, Self.clearTimes.count) - 1]
         timeLeft += gift
         let spare = level.moveBudget - movesUsed
@@ -928,6 +931,7 @@ final class JamSlideRunner: ObservableObject {
         case .bump, .tap, .spark: GameHaptics.tap()
         case .none: break
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

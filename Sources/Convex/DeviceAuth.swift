@@ -35,11 +35,19 @@ private struct DeviceSecrets: Codable {
     var username: String
     var password: String
     var refreshToken: String?
+    /// How the person signed in: "password", "apple" or "google". nil is the silent account the phone made for itself.
+    var kind: String?
 
     static func make() -> DeviceSecrets {
         let id = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         return DeviceSecrets(username: "device" + id, password: UUID().uuidString + UUID().uuidString, refreshToken: nil)
     }
+}
+
+/// How this phone is signed in, for screens to read: "password", "apple", "google", or nil for the silent guest account.
+enum DeviceAccount {
+    fileprivate static let kindKey = "dailies.device.kind"
+    static var kind: String? { UserDefaults.standard.string(forKey: kindKey) }
 }
 
 /// Keychain first. A build that cannot use the Keychain, like an unsigned simulator build, falls back to app storage.
@@ -69,6 +77,7 @@ private enum SecretBox {
 
     static func save(_ secrets: DeviceSecrets) {
         guard let data = try? JSONEncoder().encode(secrets) else { return }
+        UserDefaults.standard.set(secrets.kind, forKey: DeviceAccount.kindKey)
         var status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if status == errSecItemNotFound {
             var add = query
@@ -91,6 +100,7 @@ private enum SecretBox {
     static func clear() {
         SecItemDelete(query as CFDictionary)
         UserDefaults.standard.removeObject(forKey: fallbackKey)
+        UserDefaults.standard.removeObject(forKey: DeviceAccount.kindKey)
     }
 }
 
@@ -102,6 +112,8 @@ actor DeviceAuth {
     private var inFlight: Task<DeviceTokens, Error>?
     private var push: (@Sendable (String?) -> Void)?
     private var keeper: Task<Void, Never>?
+    /// An account the person has just signed in to, not yet this phone's account.
+    private var waiting: (DeviceSecrets, DeviceTokens)?
 
     /// How long before an access token runs out a new one is fetched.
     private static let margin: TimeInterval = 20
@@ -143,13 +155,67 @@ actor DeviceAuth {
         SecretBox.save(secrets)
     }
 
+    /// Gives this phone's silent account the person's own username and password. The account and its
+    /// session carry on, so nothing kept for it is lost.
+    func claim(username: String, password: String) async throws {
+        let mine = try await validTokens(onToken: nil)
+        let answer = try await Self.call("users:claim", ["username": username, "password": password], as: mine.accessToken)
+        if let problem = answer as? String { throw DeviceAuthError.refused(problem) }
+        secrets.username = username
+        secrets.password = password
+        secrets.kind = "password"
+        SecretBox.save(secrets)
+    }
+
+    /// Records that this phone's account now also opens with Apple or Google.
+    func mark(kind: String) {
+        secrets.kind = kind
+        SecretBox.save(secrets)
+    }
+
+    /// Checks the username and password of an existing account with the server.
+    /// Nothing changes on the phone until `switchOver`.
+    func prepare(username: String, password: String) async throws {
+        let login = ["username": username, "password": password]
+        let answer = try await Self.call("auth:signInWithUsernamePassword", login) as? [String: Any] ?? [:]
+        guard let fresh = Self.tokens(in: answer) else {
+            throw DeviceAuthError.refused((answer["userError"] as? [String: Any])?["error"] as? String ?? "UNKNOWN")
+        }
+        waiting = (DeviceSecrets(username: username, password: password, refreshToken: fresh.refreshToken, kind: "password"), fresh)
+    }
+
+    /// Takes a session that Apple or Google sign-in ended with. Nothing changes on the phone until `switchOver`.
+    func prepare(tokens fresh: DeviceTokens, kind: String) {
+        waiting = (DeviceSecrets(username: "", password: "", refreshToken: fresh.refreshToken, kind: kind), fresh)
+    }
+
+    /// Makes the prepared account this phone's account. The old session is signed out first.
+    func switchOver() async {
+        guard let (next, fresh) = waiting else { return }
+        waiting = nil
+        _ = try? await inFlight?.value
+        secrets = next
+        tokens = fresh
+        SecretBox.save(next)
+        keepFresh()
+    }
+
     private func renew() async throws -> DeviceTokens {
         if let inFlight { return try await inFlight.value }
         let secrets = self.secrets
         let task = Task { try await Self.session(for: secrets) }
         inFlight = task
         defer { inFlight = nil }
-        let fresh = try await task.value
+        let fresh: DeviceTokens
+        do {
+            fresh = try await task.value
+        } catch DeviceAuthError.refused(let why) where why == "SESSION_ENDED" {
+            // An Apple or Google session that ran out cannot be renewed quietly. The phone carries on as a guest.
+            SecretBox.clear()
+            self.secrets = .make()
+            SecretBox.save(self.secrets)
+            fresh = try await Self.session(for: self.secrets)
+        }
         tokens = fresh
         self.secrets.refreshToken = fresh.refreshToken
         SecretBox.save(self.secrets)
@@ -191,17 +257,20 @@ actor DeviceAuth {
            answer["kind"] as? String == "rotated", let tokens = tokens(in: answer) {
             return tokens
         }
+        // Only an account with a username and password can sign in again by itself.
+        guard !secrets.username.isEmpty else { throw DeviceAuthError.refused("SESSION_ENDED") }
         let login = ["username": secrets.username, "password": secrets.password]
         let signIn = try await call("auth:signInWithUsernamePassword", login) as? [String: Any] ?? [:]
         if let tokens = tokens(in: signIn) { return tokens }
         let problem = (signIn["userError"] as? [String: Any])?["error"] as? String ?? "UNKNOWN"
-        guard problem == "USER_NOT_FOUND" else { throw DeviceAuthError.refused(problem) }
+        // Only the phone's own silent account is made on the spot.
+        guard problem == "USER_NOT_FOUND", secrets.kind == nil else { throw DeviceAuthError.refused(problem) }
         let signUp = try await call("auth:signUpWithUsernamePassword", login) as? [String: Any] ?? [:]
         if let tokens = tokens(in: signUp) { return tokens }
         throw DeviceAuthError.refused((signUp["userError"] as? [String: Any])?["error"] as? String ?? "UNKNOWN")
     }
 
-    private static func tokens(in answer: [String: Any]) -> DeviceTokens? {
+    static func tokens(in answer: [String: Any]) -> DeviceTokens? {
         guard let bundle = answer["tokens"] as? [String: Any],
               let access = bundle["accessToken"] as? String,
               let refresh = bundle["refreshToken"] as? String,
@@ -210,12 +279,14 @@ actor DeviceAuth {
     }
 
     /// Runs one of the backend's sign-in functions over plain HTTPS, so signing in never waits on the live connection.
-    private static func call(_ path: String, _ args: [String: Any]) async throws -> Any {
+    /// With `token`, the call is made as the account that access token belongs to.
+    static func call(_ path: String, _ args: [String: Any], as token: String? = nil) async throws -> Any {
         guard let url = URL(string: ConvexConfig.deploymentURL + "/api/mutation") else { throw DeviceAuthError.server("Bad address") }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token { request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
         request.httpBody = try JSONSerialization.data(withJSONObject: ["path": path, "args": args, "format": "json"])
         let (data, _) = try await URLSession.shared.data(for: request)
         guard let answer = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {

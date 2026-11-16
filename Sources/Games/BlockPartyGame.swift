@@ -40,6 +40,9 @@ final class BlockPartyModel {
     private(set) var scoreAge = 9.0
     private(set) var placed = 0
     private(set) var linesCleared = 0
+    /// One gold for every three lines cleared. A line in a combo counts as many times as the combo.
+    private(set) var gold = 0
+    private var goldLines = 0
     private(set) var bestCombo = 0
     private var streak = 0
     private var sinceClear = 0
@@ -260,6 +263,8 @@ final class BlockPartyModel {
             bestCombo = Swift.max(bestCombo, combo)
             points += lines * 100 * combo
             linesCleared += lines
+            goldLines += lines * combo
+            gold = goldLines / 3
             praise = lines >= 3 || combo >= 4 ? "Perfect" : (lines == 2 || combo >= 2 ? "Great" : "Nice")
             praiseAge = 0
             note = combo >= 2 ? "Combo x\(combo)" : nil
@@ -612,6 +617,7 @@ final class BlockPartyRunner: ObservableObject {
         case .tap: GameHaptics.tap()
         case .none: break
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

@@ -431,6 +431,7 @@ struct LiveCommentsScreen: View {
     }
 
     private func send() {
+        guard LiveNav.shared.hasAccount(to: "comment") else { return }
         guard !draft.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         store.addComment(draft, clipID: clip.id)
         draft = ""

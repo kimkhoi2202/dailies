@@ -149,6 +149,8 @@ final class DailyGridModel {
 
     private(set) var gridNumber = 1
     private(set) var solvedCount = 0
+    /// Three gold for a board solved, five when it took under 25 seconds.
+    private(set) var gold = 0
     private(set) var score = 0
     private(set) var lives = DailyGridModel.tries
     private(set) var timeLeft = DailyGridModel.roundLength
@@ -415,6 +417,7 @@ final class DailyGridModel {
         let points = DailyGridModel.basePoints + Swift.max(0, DailyGridModel.speedPoints - Int(gridTime))
         score += points
         solvedCount += 1
+        gold += gridTime < 25 ? 5 : 3
         fastest = Swift.min(fastest ?? gridTime, gridTime)
         praise = gridTime < 25 ? "Perfect" : (gridTime < 50 ? "Great" : "Nice")
         praiseAge = 0
@@ -685,6 +688,7 @@ final class DailyGridRunner: ObservableObject {
         case .mark: GameHaptics.tap()
         case .none: break
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

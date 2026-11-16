@@ -53,6 +53,51 @@ final class ConvexLink {
         }
     }
 
+    /// Turns the guest account on this phone into one with a username and password, keeping everything it has.
+    func claim(username: String, password: String) async throws {
+        try await provider.auth.claim(username: username, password: password)
+    }
+
+    /// Moves this phone to another account. `prepare` signs in to it and throws if that fails, in which
+    /// case nothing changes. Otherwise the old session ends and the phone reconnects as the new account.
+    func switchAccount(_ prepare: @escaping (DeviceAuth) async throws -> Void) async throws {
+        try await prepare(provider.auth)
+        let previous = signInTask
+        signInTask = nil
+        signedInSubject.send(false)
+        previous?.cancel()
+        await previous?.value
+        await client.logout()
+        await provider.auth.switchOver()
+        start()
+    }
+
+    /// Takes the person through Apple or Google ("apple" or "google") and ties that to the account on this
+    /// phone, so either way in opens it. false when they close the sign-in sheet.
+    /// When the Apple or Google account already opens another account here, `other` gets that account's
+    /// session to switch to; without `other` it is refused.
+    func connect(_ name: String, other: ((DeviceTokens) async throws -> Void)? = nil) async throws -> Bool {
+        let mine = try await provider.auth.validTokens(onToken: nil)
+        guard var proof = try await WebSignIn.shared.proof(for: name) else { return false }
+        proof["provider"] = name
+        let answer = try await DeviceAuth.call("users:connect", proof, as: mine.accessToken) as? [String: Any] ?? [:]
+        switch answer["status"] as? String {
+        case "connected":
+            if DeviceAccount.kind == nil { await provider.auth.mark(kind: name) }
+            return true
+        case "other":
+            guard let theirs = DeviceAuth.tokens(in: answer) else { throw DeviceAuthError.refused("INVALID_CODE") }
+            guard let other else {
+                _ = try? await DeviceAuth.call("auth:signOut", ["refreshToken": theirs.refreshToken])
+                throw DeviceAuthError.refused("ALREADY_CONNECTED")
+            }
+            try await other(theirs)
+            return true
+        default:
+            throw DeviceAuthError.refused("INVALID_CODE")
+        }
+    }
+
     /// Waits until the phone is signed in.
     func ready() async {
         if signedInSubject.value { return }
