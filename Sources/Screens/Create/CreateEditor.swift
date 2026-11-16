@@ -157,7 +157,7 @@ enum CreateRender {
     static func finish(_ take: CreateTake, cut: CreateCut, look: CreateLook) async throws -> (CreateTake, CreateLook) {
         var take = take, look = look
         if let photo = take.photo {
-            take.photo = photo(photo, crop: cut.crop)
+            take.photo = CreateRender.photo(photo, crop: cut.crop)
             return (take, look)
         }
         guard let url = take.videoURL, !take.cameraOnly, !(cut.plain && look.filter == .none) else { return (take, look) }
