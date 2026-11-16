@@ -189,27 +189,39 @@ struct ConvexRoom: Decodable, Equatable {
     let players: [Player]
 }
 
-/// One row of `creations:mine`: a game being made in the studio, or made.
+/// The design sheet of a game made in the studio. Every part is empty until the studio settles it.
+struct ConvexDesign: Decodable, Equatable {
+    var title: String?
+    var pitch: String?
+    var genre: String?
+    var setting: String?
+    var player: String?
+    var goal: String?
+    var controls: String?
+    var rules: [String]?
+    var scoring: String?
+    var progression: String?
+    var look: String?
+    var sound: String?
+    var tint: String?
+}
+
+/// One row of `creations:mine`: a game being designed in the studio, or designed.
 struct ConvexCreation: Decodable, Equatable, Identifiable {
     let id: String
-    /// talking, building, ready or failed.
+    /// talking, ready or failed.
     let status: String
     let wish: String
     let thinking: Bool
-    let title: String?
-    let pitch: String?
-    let how: String?
-    let category: String?
-    let kind: String?
-    let tint: String?
-    let unit: String?
-    let gameSlug: String?
+    let design: ConvexDesign?
+    /// 0 to 1, how much of the sheet is settled.
+    let progress: Double
     let error: String?
     let at: Double
 
     private enum CodingKeys: String, CodingKey {
         case id = "_id"
-        case status, wish, thinking, title, pitch, how, category, kind, tint, unit, gameSlug, error, at
+        case status, wish, thinking, design, progress, error, at
     }
 }
 
@@ -234,27 +246,21 @@ struct ConvexCreationMessage: Decodable, Equatable, Identifiable {
     }
 }
 
-/// `creations:get`: the creation and its whole conversation.
+/// `creations:get`: the design and its whole conversation.
 struct ConvexCreationDetail: Decodable, Equatable {
     let id: String
     let status: String
     let wish: String
     let thinking: Bool
-    let title: String?
-    let pitch: String?
-    let how: String?
-    let category: String?
-    let kind: String?
-    let tint: String?
-    let unit: String?
-    let gameSlug: String?
+    let design: ConvexDesign?
+    let progress: Double
     let error: String?
     let at: Double
     let messages: [ConvexCreationMessage]
 
     private enum CodingKeys: String, CodingKey {
         case id = "_id"
-        case status, wish, thinking, title, pitch, how, category, kind, tint, unit, gameSlug, error, at, messages
+        case status, wish, thinking, design, progress, error, at, messages
     }
 }
 

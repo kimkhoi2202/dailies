@@ -245,3 +245,16 @@ creator $1.00 for 20 viewers, and Whop refused the transfer out because the
 sandbox key lacks the transfer scope, which the app records and shows without
 taking the creator's money. Convex features: HTTP actions, actions, mutations,
 queries, indexes, environment variables.
+### 2026-11-15 - 3dcd597
+Reworked the studio into a design conversation. The studio no longer assembles
+a playable game on a built-in engine; it designs one with the maker. Each reply
+asks one question with tappable answers, or offers three ideas, and fills in a
+little more of a design sheet kept on the creation: title, pitch, genre,
+setting, who you play, the goal, controls, rules, scoring, progression, look,
+sound and colour, with a progress figure. The maker finishes the sheet when they
+are happy and the studio writes it out in full (`convex/ai.ts`,
+`convex/creations.ts`, `convex/schema.ts`). In the app the talk shows the sheet
+filling up, the sheet screen shows every settled part on the game's colour, and
+a finished sheet can be shared as text (`Sources/Screens/G4_Create.swift`,
+`Sources/Screens/G3_Studio.swift`). Run from the CLI: "A game about my cat"
+became The Quiet Paws, a tap-to-path sneaking puzzle, in six exchanges.

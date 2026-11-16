@@ -5,7 +5,6 @@ import { GAME_DAILY_LIMIT, STUDIO_DAILY_LIMIT, currentUser, earningsFor } from "
 export const list = query({
   args: { day: v.string() },
   handler: async (ctx, args) => {
-    // Games made in the studio stay with their maker until they are published.
     const games = (await ctx.db.query("games").take(200))
       .filter((game) => game.creatorId === undefined)
       .sort((a, b) => a.order - b.order);
