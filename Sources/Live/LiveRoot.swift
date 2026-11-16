@@ -3,7 +3,7 @@ import UIKit
 import UIKit.UIGestureRecognizerSubclass
 import Combine
 
-// The app itself: the tabs (Home, Videos, Messages, Library) under our own tab bar, with every other
+// The app itself: the tabs (Reels, Community, Messages, Library) under our own tab bar, with every other
 // screen stacked on top as a layer.
 
 struct LiveRoot: View {
@@ -15,11 +15,11 @@ struct LiveRoot: View {
         ZStack {
             // The system bar stays hidden. LiveTabBar draws the bar, with the Create key in its middle.
             TabView(selection: $nav.tab) {
-                Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().underTabBar() }
                 Tab("Reels", systemImage: "play.rectangle.on.rectangle.fill", value: 1) { LiveVideos().toolbar(.hidden, for: .tabBar) }
+                Tab("Community", systemImage: "person.2.fill", value: 0) { CommunityScreen().underTabBar() }
                 Tab("You", systemImage: "person.fill", value: 2) { G2YouScreen().underTabBar() }
                 Tab("Messages", systemImage: "bubble.left.and.bubble.right.fill", value: 3) { MessagesInboxScreen(showsBack: false).underTabBar() }
-                Tab("Library", systemImage: "square.stack.fill", value: 4) { LibraryScreen().underTabBar() }
+                Tab("Library", systemImage: "books.vertical.fill", value: 4) { LibraryScreen().underTabBar() }
             }
             // An inset on the TabView never reaches the pages inside its tabs, so the bar floats over
             // them and each page keeps its own room for it (underTabBar).
