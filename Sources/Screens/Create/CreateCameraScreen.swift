@@ -182,6 +182,78 @@ private struct CreateGlass: ViewModifier {
     }
 }
 
+/// What shows while a recording runs: a small gold stop key, whose ring is the time running, and the clock when
+/// there is no limit for the ring to show. It is drawn in `CreateOverWindow`, so it is on the screen and never
+/// in the clip.
+private struct CreateRecordingControls: View {
+    private static let ring: CGFloat = 92
+    private static let scale: CGFloat = 0.7
+    private static let inset: CGFloat = 14
+
+    /// The safe part of the screen.
+    let area: CGRect
+    let start: Date
+    /// nil records until the player stops, and the ring goes round once a minute.
+    let limit: Double?
+    let stop: () -> Void
+
+    /// Where the stop key sits on the screen.
+    static func stopRect(in area: CGRect) -> CGRect {
+        let side = ring * scale
+        return CGRect(x: area.midX - side / 2, y: area.maxY - inset - side, width: side, height: side)
+    }
+
+    var body: some View {
+        VStack {
+            if limit == nil {
+                TimelineView(.periodic(from: start, by: 0.5)) { timeline in
+                    let seconds = max(0, Int(timeline.date.timeIntervalSince(start)))
+                    HStack(spacing: 6) {
+                        Circle().fill(DL.danger).frame(width: 7, height: 7)
+                        Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
+                            .font(DL.label(11)).monospacedDigit().foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 9).frame(height: 22)
+                    .modifier(CreateGlass())
+                }
+                .padding(.top, 6)
+            }
+            Spacer()
+            stopKey.scaleEffect(Self.scale, anchor: .bottom).padding(.bottom, Self.inset)
+        }
+        .frame(width: area.width, height: area.height)
+        .position(x: area.midX, y: area.midY)
+        .ignoresSafeArea()
+        .environment(\.colorScheme, .dark)
+    }
+
+    private var stopKey: some View {
+        ZStack {
+            Circle().strokeBorder(.white.opacity(0.35), lineWidth: 5)
+            TimelineView(.animation) { timeline in
+                Circle().inset(by: 2.5)
+                    .trim(from: 0, to: max(0.001, fraction(timeline.date)))
+                    .stroke(DL.gold, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(DL.gold)
+                .frame(width: 34, height: 34)
+        }
+        .frame(width: Self.ring, height: Self.ring)
+        .contentShape(Circle())
+        .onTapGesture(perform: stop)
+        .accessibilityLabel("Stop")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private func fraction(_ now: Date) -> Double {
+        let elapsed = now.timeIntervalSince(start)
+        guard let limit else { return elapsed.truncatingRemainder(dividingBy: 60) / 60 }
+        return min(1, elapsed / limit)
+    }
+}
+
 struct CreateCameraScreen: View {
     let startGameID: String?
 
@@ -232,6 +304,8 @@ struct CreateCameraScreen: View {
     @State private var snapping = false
     @State private var shutter = false
     @State private var cardRect: CGRect = .zero
+    /// The safe part of the screen, where the controls sit.
+    @State private var chromeRect: CGRect = .zero
     @State private var picked: PhotosPickerItem?
     @State private var historyWatch: AnyCancellable?
 
@@ -255,7 +329,8 @@ struct CreateCameraScreen: View {
 
     private var isRecording: Bool { phase == .recording || phase == .finishing }
     private var layout: CreateLayout { shape.layout }
-    /// Before a recording every control shows. From the countdown on only the game, the face and the stop button do.
+    /// Before a recording every control shows. From the countdown on only the game and the face do: the stop key
+    /// and the clock sit in a window of their own, which the recording leaves out.
     private var chromeShown: Bool { phase == .idle && !snapping }
 
     var body: some View {
@@ -277,8 +352,12 @@ struct CreateCameraScreen: View {
                         .allowsHitTesting(false).transition(.opacity)
                 }
             }
-            .onAppear { cardRect = full }
+            .onAppear {
+                cardRect = full
+                chromeRect = geo.frame(in: .global)
+            }
             .onChange(of: full) { _, rect in cardRect = rect }
+            .onChange(of: geo.frame(in: .global)) { _, rect in chromeRect = rect }
         }
         .simultaneousGesture(facePinch, including: phase == .idle ? .all : .subviews)
         .background(Color.black.ignoresSafeArea())
@@ -290,6 +369,15 @@ struct CreateCameraScreen: View {
         .onChange(of: scenePhase) { _, now in
             if now != .active && phase == .recording { Task { await end(result: nil) } }
         }
+        .onChange(of: phase) { _, now in
+            if now == .recording {
+                CreateOverWindow.show(CreateRecordingControls(area: chromeRect, start: recordStart, limit: length.seconds,
+                                                              stop: recordTapped),
+                                      touch: CreateRecordingControls.stopRect(in: chromeRect))
+            } else if now != .finishing {
+                CreateOverWindow.hide()
+            }
+        }
     }
 
     // MARK: Over the picture
@@ -297,7 +385,6 @@ struct CreateCameraScreen: View {
     private func chrome(_ size: CGSize) -> some View {
         ZStack {
             if chromeShown { idleChrome(size) }
-            if phase == .recording || phase == .finishing { recordingChrome }
             if case .countdown(let beat) = phase {
                 Text("\(beat)")
                     .font(DL.display(180))
@@ -740,33 +827,16 @@ struct CreateCameraScreen: View {
         .accessibilityAddTraits(.isButton)
     }
 
-    /// The gold record key in its ring. Recording turns it into a gold stop square with the time running round it.
+    /// The gold record key in its ring.
     private var recordButton: some View {
-        let on = phase == .recording || phase == .finishing
-        let fraction: (Date) -> Double = { now in
-            let elapsed = now.timeIntervalSince(recordStart)
-            guard let limit = length.seconds else { return elapsed.truncatingRemainder(dividingBy: 60) / 60 }
-            return min(1, elapsed / limit)
-        }
-        return ZStack {
-            Circle().strokeBorder(.white.opacity(on ? 0.35 : 1), lineWidth: 5)
-            if on {
-                TimelineView(.animation) { timeline in
-                    Circle().inset(by: 2.5)
-                        .trim(from: 0, to: max(0.001, fraction(timeline.date)))
-                        .stroke(DL.gold, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                }
-            }
-            RoundedRectangle(cornerRadius: on ? 9 : 38, style: .continuous)
-                .fill(DL.gold)
-                .frame(width: on ? 34 : 76, height: on ? 34 : 76)
+        ZStack {
+            Circle().strokeBorder(.white, lineWidth: 5)
+            Circle().fill(DL.gold).frame(width: 76, height: 76)
         }
         .frame(width: 92, height: 92)
-        .animation(.spring(duration: 0.4, bounce: 0.3), value: on)
         .contentShape(Circle())
         .onTapGesture(perform: recordTapped)
-        .accessibilityLabel(on ? "Stop" : (length == .photo ? "Take a photo" : "Record"))
+        .accessibilityLabel(length == .photo ? "Take a photo" : "Record")
         .accessibilityAddTraits(.isButton)
     }
 
@@ -783,30 +853,6 @@ struct CreateCameraScreen: View {
         }
         .dlCard(padding: 20, fill: DL.raised)
         .padding(.horizontal, 28)
-    }
-
-    // MARK: While recording
-
-    /// The recording is the whole screen, so what shows here is in the clip: only a small stop key, whose ring
-    /// is the time running, and the clock when there is no limit for the ring to show.
-    private var recordingChrome: some View {
-        VStack {
-            if length.seconds == nil {
-                TimelineView(.periodic(from: recordStart, by: 0.5)) { timeline in
-                    let seconds = max(0, Int(timeline.date.timeIntervalSince(recordStart)))
-                    HStack(spacing: 6) {
-                        Circle().fill(DL.danger).frame(width: 7, height: 7)
-                        Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
-                            .font(DL.label(11)).monospacedDigit().foregroundStyle(.white)
-                    }
-                    .padding(.horizontal, 9).frame(height: 22)
-                    .modifier(CreateGlass())
-                }
-                .padding(.top, 6)
-            }
-            Spacer()
-            recordButton.scaleEffect(0.7, anchor: .bottom).padding(.bottom, 14)
-        }
     }
 
     // MARK: Actions
@@ -829,6 +875,7 @@ struct CreateCameraScreen: View {
     private func disappear() {
         historyWatch?.cancel()
         camera.stop()
+        CreateOverWindow.hide()
         if phase == .recording { CreateScreenRecorder.discard() }
     }
 

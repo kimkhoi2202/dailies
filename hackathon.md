@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** gpt-6-luna (OpenAI Responses API, from a Convex action)
 - **Started:** 2026-11-15T18:02:39Z
-- **Last updated:** 2026-11-16T01:05:28Z
+- **Last updated:** 2026-11-16T01:31:04Z
 
 ## Log
 
@@ -303,3 +303,18 @@ Friends and Explore switch slides one pill across
 (`Sources/Screens/CommunityScreen.swift`), and the toast leaves faster. Built
 for an iPhone simulator on a Mac and five sheets and the Community tab looked
 at there; not run on a phone. No Convex change.
+
+### 2026-11-16 - fb8826d
+Recordings no longer hold the camera's own controls. The gold stop key and the
+clock now sit in a window above the app's own, which the screen recorder leaves
+out, and touches outside the stop key fall through to the game
+(`Sources/Screens/Create/CreateCapture.swift`,
+`Sources/Screens/Create/CreateCameraScreen.swift`). A script takes the same
+controls out of clips already posted: it finds the stop square and the clock's
+red dot in a few frames, fills those spots in from the picture around them with
+ffmpeg, uploads the cleaned file and points the clip at it through internal
+Convex functions (`scripts/clean-clips.mjs`, `convex/clipRepair.ts`). Run
+against the dev deployment, it cleaned the four stored videos. Checked in an
+iPhone simulator, where the stop key ends the recording and taps reach the game;
+a simulator cannot record its screen, so the recording itself is not checked yet.
+Convex features: internal queries, internal mutations, file storage, pagination.
