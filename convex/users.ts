@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { components } from "./_generated/api";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { currentUser, dayNumber, earningsFor, requireUser } from "./lib";
 
@@ -68,6 +69,39 @@ export const me = query({
       })),
       owned: purchases.map((row) => row.item),
     };
+  },
+});
+
+// Gives the silent account a phone made for itself the person's own username and password. The account,
+// its gold and its scores stay as they are. Answers null, or the reason it could not be done.
+export const claim = mutation({
+  args: { username: v.string(), password: v.string() },
+  returns: v.union(v.null(), v.string()),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    if (!/^[A-Za-z0-9._]{3,20}$/.test(args.username)) return "USERNAME_INVALID";
+    const owner = await ctx.runQuery(components.authUsername.public.getUserIdByUsername, { username: args.username });
+    if (owner !== null && owner !== user._id) return "USERNAME_TAKEN";
+    const handle = args.username.toLowerCase();
+    const taken = await ctx.db
+      .query("users")
+      .withIndex("by_handle", (q) => q.eq("handle", handle))
+      .unique();
+    if (taken !== null && taken._id !== user._id) return "USERNAME_TAKEN";
+    const password = await ctx.runMutation(components.authPassword.public._internal_dangerous_setPassword, {
+      userId: user._id,
+      password: args.password,
+      minimumLength: 10,
+    });
+    if (!password.success) return password.userError.error;
+    const username = await ctx.runMutation(components.authUsername.public.setUsername, {
+      userId: user._id,
+      username: args.username,
+    });
+    // Throwing takes the new password back out with everything else.
+    if (!username.success) throw new ConvexError(username.userError.error);
+    await ctx.db.patch("users", user._id, { name: args.username, handle });
+    return null;
   },
 });
 

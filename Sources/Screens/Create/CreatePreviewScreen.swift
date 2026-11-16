@@ -334,6 +334,7 @@ private struct CreatePreviewContent: View {
     }
 
     private func post(privately: Bool) {
+        guard LiveNav.shared.hasAccount(to: "post") else { return }
         typing = false
         posting = true
         keeping = privately

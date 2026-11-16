@@ -155,12 +155,23 @@ actor DeviceAuth {
         SecretBox.save(secrets)
     }
 
-    /// Checks a username and password with the server, making the account when `create` is set.
+    /// Gives this phone's silent account the person's own username and password. The account and its
+    /// session carry on, so nothing kept for it is lost.
+    func claim(username: String, password: String) async throws {
+        let mine = try await validTokens(onToken: nil)
+        let answer = try await Self.call("users:claim", ["username": username, "password": password], as: mine.accessToken)
+        if let problem = answer as? String { throw DeviceAuthError.refused(problem) }
+        secrets.username = username
+        secrets.password = password
+        secrets.kind = "password"
+        SecretBox.save(secrets)
+    }
+
+    /// Checks the username and password of an existing account with the server.
     /// Nothing changes on the phone until `switchOver`.
-    func prepare(username: String, password: String, create: Bool) async throws {
+    func prepare(username: String, password: String) async throws {
         let login = ["username": username, "password": password]
-        let path = create ? "auth:signUpWithUsernamePassword" : "auth:signInWithUsernamePassword"
-        let answer = try await Self.call(path, login) as? [String: Any] ?? [:]
+        let answer = try await Self.call("auth:signInWithUsernamePassword", login) as? [String: Any] ?? [:]
         guard let fresh = Self.tokens(in: answer) else {
             throw DeviceAuthError.refused((answer["userError"] as? [String: Any])?["error"] as? String ?? "UNKNOWN")
         }

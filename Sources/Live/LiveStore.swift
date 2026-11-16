@@ -552,6 +552,7 @@ final class LiveStore: ObservableObject {
 
     /// Tapping the same vote again takes it back.
     func setVote(_ gameID: String, like: Bool) {
+        guard LiveNav.shared.hasAccount(to: "like games") else { return }
         var v = s
         let next: Bool? = v.votes[gameID] == like ? nil : like
         v.votes[gameID] = next

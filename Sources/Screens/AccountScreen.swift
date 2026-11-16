@@ -2,7 +2,7 @@ import SwiftUI
 import Combine
 
 // ACCOUNT: create an account or log in, with a username and password, with Apple or with Google.
-// Closing the screen keeps the silent guest account the phone made for itself.
+// It opens when a guest does something that needs an account, and from Settings. Closing it keeps the guest account.
 
 /// The ways to sign in that the backend has switched on besides a username and password.
 final class AccountMethods: ObservableObject {
@@ -28,8 +28,8 @@ final class AccountMethods: ObservableObject {
 }
 
 struct AccountScreen: View {
-    /// Set once this screen has been shown, so it only opens by itself on the first launch.
-    static let seenKey = "dailies.account.seen"
+    /// What the account is for, when a guest was sent here by something that needs one.
+    var reason: String? = nil
 
     @State private var creating = true
     @State private var username = ""
@@ -46,7 +46,7 @@ struct AccountScreen: View {
                 DLIconButton(symbol: "xmark").goesBack().accessibilityLabel("Close")
             }
             DLHeader(title: creating ? "Create account" : "Log in").padding(.top, 18)
-            Text(creating ? "Pick a username and a password. Your gold follows you to any phone." : "Your gold is where you left it.")
+            Text(creating ? (reason ?? "Pick a username and a password.") + " Your gold and scores stay with it." : "Your gold is where you left it.")
                 .font(DL.text(15)).foregroundStyle(DL.ink2)
                 .padding(.bottom, 6)
             field("Username", text: $username, secret: false)
@@ -79,15 +79,12 @@ struct AccountScreen: View {
                     DLTextKey(title: "Continue with Google", symbol: "g.circle.fill", style: .neutral).tap { web("google") }
                 }
             }
-            Text("Play as a guest")
+            Text("Not now")
                 .font(DL.text(15, .medium)).foregroundStyle(DL.ink2)
                 .frame(maxWidth: .infinity).frame(height: 40)
                 .goesBack()
         }
-        .onAppear {
-            UserDefaults.standard.set(true, forKey: Self.seenKey)
-            methods.listen()
-        }
+        .onAppear { methods.listen() }
     }
 
     private func field(_ title: String, text: Binding<String>, secret: Bool) -> some View {
@@ -119,9 +116,12 @@ struct AccountScreen: View {
             return
         }
         run {
-            try await LiveStore.shared.switchAccount { try await $0.prepare(username: name, password: secret, create: create) }
-            // A new account starts with a made-up name. Give it the one the person picked.
-            if create { try? await ConvexLink.shared.mutate("users:update", ["name": name]) }
+            if create {
+                // The guest account on this phone becomes the new account, so what it has is kept.
+                try await ConvexLink.shared.claim(username: name, password: secret)
+            } else {
+                try await LiveStore.shared.switchAccount { try await $0.prepare(username: name, password: secret) }
+            }
         }
     }
 
@@ -155,6 +155,7 @@ struct AccountScreen: View {
     private static func message(for code: String) -> String {
         switch code {
         case "USERNAME_TAKEN": return "That username is taken."
+        case "USERNAME_INVALID": return "A username is 3 to 20 letters, numbers, dots or underscores."
         case "USER_NOT_FOUND": return "No account has that username."
         case "INVALID_CREDENTIALS": return "That password is not right."
         case "PASSWORD_TOO_SHORT": return "A password is 10 characters or more."

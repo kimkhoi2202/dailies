@@ -177,13 +177,12 @@ struct G2SettingsScreen: View {
                 }
                 Spacer()
                 if kind == nil {
-                    Text("Log in").font(DL.text(14, .semibold)).foregroundStyle(DL.ink).opens(.account)
+                    Text("Log in").font(DL.text(14, .semibold)).foregroundStyle(DL.ink).opens(.account(nil))
                 } else {
                     Text("Log out").font(DL.text(14, .semibold)).foregroundStyle(DL.ink).tap {
                         guard LiveMode.on else { return }
                         live.reset()
                         LiveNav.shared.say("Logged out")
-                        LiveNav.shared.open(.account)
                     }
                 }
             }
