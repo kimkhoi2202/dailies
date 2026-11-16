@@ -12,9 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** gpt-6-luna (OpenAI Responses API, from a Convex action)
 - **Started:** 2026-11-15T18:02:39Z
-- **Last updated:** 2026-11-15T21:13:57Z
-
-- **Last updated:** 2026-11-15T22:57:48Z
+- **Last updated:** 2026-11-16T01:00:36Z
 
 ## Log
 
@@ -258,3 +256,23 @@ filling up, the sheet screen shows every settled part on the game's colour, and
 a finished sheet can be shared as text (`Sources/Screens/G4_Create.swift`,
 `Sources/Screens/G3_Studio.swift`). Run from the CLI: "A game about my cat"
 became The Quiet Paws, a tap-to-path sneaking puzzle, in six exchanges.
+
+### 2026-11-16 - 55a336e
+Changed how gold is collected, on the `skill-gold` branch. Gold used to be a rate
+for each minute played. Now every game gives gold for what the player does in
+it: Tippy Tower for each three perfect drops in a row, Five Up for solving with
+tries to spare, Lane Dash for gems, Deep End more for rarer answers, and a rule
+of the same size for each of the other 15 games. A game keeps its round's gold
+and hands it to the app as it goes (`Sources/Games/GameKit.swift`, each
+`Sources/Games/<Name>Game.swift`, the rules in words in
+`Sources/Core/MockData.swift`). The server takes the game's figure and holds it
+to the daily limits and to what the length of the round allows
+(`convex/rounds.ts`, `convex/lib.ts`). The streak now counts a day once one game
+is played to its end, with or without gold. New: time with the app open is
+counted by the server from a beat the app sends every half minute, and gives
+gold once a day at 15 and 30 minutes and at 1, 2, 3, 4, 5 and 6 hours, shown as
+a ring on the balance and a card on the gold screen (`convex/time.ts`, a new
+`appTime` table in `convex/schema.ts`, `Sources/Live/AppTime.swift`). Built on
+Revyl and run on a cloud iPhone against the dev deployment: 4 gems in Lane Dash
+gave 1 gold and started a streak of 1, and passing the 15 minute mark added 5
+gold. Convex features: mutations, queries, schema, indexes.
