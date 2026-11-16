@@ -4,9 +4,27 @@ import Combine
 // ACCOUNT: create an account or log in, with a username and password, with Apple or with Google.
 // Closing the screen keeps the silent guest account the phone made for itself.
 
-private struct AccountMethods: Decodable {
-    let apple: Bool
-    let google: Bool
+/// The ways to sign in that the backend has switched on besides a username and password.
+final class AccountMethods: ObservableObject {
+    static let shared = AccountMethods()
+
+    @Published private(set) var apple = false
+    @Published private(set) var google = false
+    private var watch: AnyCancellable?
+
+    private struct Row: Decodable {
+        let apple: Bool
+        let google: Bool
+    }
+
+    /// Starts listening the first time a screen asks.
+    func listen() {
+        guard LiveMode.on, watch == nil else { return }
+        watch = ConvexLink.shared.watch("auth:methods", as: Row.self) { [weak self] row in
+            self?.apple = row.apple
+            self?.google = row.google
+        }
+    }
 }
 
 struct AccountScreen: View {
@@ -18,8 +36,7 @@ struct AccountScreen: View {
     @State private var password = ""
     @State private var problem: String?
     @State private var busy = false
-    @State private var methods = AccountMethods(apple: false, google: false)
-    @State private var methodsWatch: AnyCancellable?
+    @ObservedObject private var methods = AccountMethods.shared
 
     var body: some View {
         DLPage(spacing: 12) {
@@ -69,8 +86,7 @@ struct AccountScreen: View {
         }
         .onAppear {
             UserDefaults.standard.set(true, forKey: Self.seenKey)
-            guard LiveMode.on, methodsWatch == nil else { return }
-            methodsWatch = ConvexLink.shared.watch("auth:methods", as: AccountMethods.self) { methods = $0 }
+            methods.listen()
         }
     }
 

@@ -262,12 +262,14 @@ actor DeviceAuth {
     }
 
     /// Runs one of the backend's sign-in functions over plain HTTPS, so signing in never waits on the live connection.
-    static func call(_ path: String, _ args: [String: Any]) async throws -> Any {
+    /// With `token`, the call is made as the account that access token belongs to.
+    static func call(_ path: String, _ args: [String: Any], as token: String? = nil) async throws -> Any {
         guard let url = URL(string: ConvexConfig.deploymentURL + "/api/mutation") else { throw DeviceAuthError.server("Bad address") }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token { request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
         request.httpBody = try JSONSerialization.data(withJSONObject: ["path": path, "args": args, "format": "json"])
         let (data, _) = try await URLSession.shared.data(for: request)
         guard let answer = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {

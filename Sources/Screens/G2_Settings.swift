@@ -73,6 +73,7 @@ struct G2AppearanceTile: View {
 
 struct G2SettingsScreen: View {
     @ObservedObject private var live = LiveStore.shared
+    @ObservedObject private var methods = AccountMethods.shared
 
     var body: some View {
         DLTabs(selected: 2) {
@@ -187,6 +188,29 @@ struct G2SettingsScreen: View {
                 }
             }
             .frame(height: 52)
+            // An account with a username can also be opened with Apple or Google once it is connected.
+            if kind == "password", methods.apple {
+                G2Hairline()
+                link("Connect Apple").contentShape(Rectangle()).tap { connect("apple") }
+            }
+            if kind == "password", methods.google {
+                G2Hairline()
+                link("Connect Google").contentShape(Rectangle()).tap { connect("google") }
+            }
+        }
+        .onAppear { methods.listen() }
+    }
+
+    private func connect(_ provider: String) {
+        let name = provider == "apple" ? "Apple" : "Google"
+        Task { @MainActor in
+            do {
+                if try await ConvexLink.shared.connect(provider) { LiveNav.shared.say("\(name) is connected") }
+            } catch DeviceAuthError.refused(let code) where code == "ALREADY_CONNECTED" {
+                LiveNav.shared.say("That \(name) account opens another DEGEN account")
+            } catch {
+                LiveNav.shared.say("Could not connect \(name). Try again.")
+            }
         }
     }
 

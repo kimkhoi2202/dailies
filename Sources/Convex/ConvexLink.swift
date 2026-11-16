@@ -67,6 +67,18 @@ final class ConvexLink {
         start()
     }
 
+    /// Ties an Apple or Google account to the account signed in on this phone, so either way in opens it.
+    /// false when the person closes the sign-in sheet.
+    func connect(_ name: String) async throws -> Bool {
+        let mine = try await provider.auth.validTokens(onToken: nil)
+        guard var proof = try await WebSignIn.shared.proof(for: name) else { return false }
+        proof["provider"] = name
+        let answer = try await DeviceAuth.call("users:connect", proof, as: mine.accessToken) as? String
+        // "taken" means that Apple or Google account already opens another account here.
+        guard answer == "connected" else { throw DeviceAuthError.refused(answer == "taken" ? "ALREADY_CONNECTED" : "INVALID_CODE") }
+        return true
+    }
+
     /// Waits until the phone is signed in.
     func ready() async {
         if signedInSubject.value { return }

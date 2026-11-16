@@ -13,11 +13,12 @@ final class WebSignIn: NSObject, ASWebAuthenticationPresentationContextProviding
         UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.keyWindow }.first ?? ASPresentationAnchor()
     }
 
-    /// A session for the account the person picks with `provider` ("apple" or "google"), or nil when they close the sheet.
-    func tokens(for provider: String) async throws -> DeviceTokens? {
-        let name = provider == "apple" ? "Apple" : "Google"
+    /// Takes the person through `provider` ("apple" or "google") and returns what the backend needs to finish:
+    /// the state the sign-in began with and the code it ended with. nil when they close the sheet.
+    func proof(for provider: String) async throws -> [String: String]? {
         let site = ConvexConfig.deploymentURL.replacingOccurrences(of: ".convex.cloud", with: ".convex.site")
-        let start = try await DeviceAuth.call("auth:startSignInWith" + name, ["redirectTo": site + "/auth/done"]) as? [String: Any] ?? [:]
+        let path = provider == "apple" ? "auth:startSignInWithApple" : "auth:startSignInWithGoogle"
+        let start = try await DeviceAuth.call(path, ["redirectTo": site + "/auth/done"]) as? [String: Any] ?? [:]
         guard let page = (start["redirect"] as? String).flatMap({ URL(string: $0) }), let state = start["state"] as? String else {
             throw DeviceAuthError.server("No sign-in page")
         }
@@ -39,11 +40,17 @@ final class WebSignIn: NSObject, ASWebAuthenticationPresentationContextProviding
         guard let answer else { return nil }
         let items = URLComponents(url: answer, resolvingAgainstBaseURL: false)?.queryItems ?? []
         guard let code = items.first(where: { $0.name == "convexAuthCode" })?.value else {
-            let problem = items.first(where: { $0.name == "convexAuthError" })?.value
-            if problem == "access_denied" { return nil }
+            if items.first(where: { $0.name == "convexAuthError" })?.value == "access_denied" { return nil }
             throw DeviceAuthError.refused("INVALID_CODE")
         }
-        let done = try await DeviceAuth.call("auth:completeSignInWith" + name, ["state": state, "code": code]) as? [String: Any] ?? [:]
+        return ["state": state, "code": code]
+    }
+
+    /// A session for the account the person picks with `provider`, or nil when they close the sheet.
+    func tokens(for provider: String) async throws -> DeviceTokens? {
+        guard let proof = try await proof(for: provider) else { return nil }
+        let path = provider == "apple" ? "auth:completeSignInWithApple" : "auth:completeSignInWithGoogle"
+        let done = try await DeviceAuth.call(path, proof) as? [String: Any] ?? [:]
         guard let tokens = DeviceAuth.tokens(in: done) else { throw DeviceAuthError.refused("INVALID_CODE") }
         return tokens
     }
