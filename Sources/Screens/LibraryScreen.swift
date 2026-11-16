@@ -280,9 +280,6 @@ struct LibraryGameSheet: View {
                 ClipStill(game: game, showHUD: false, focusY: 0.3)
                     .frame(height: 176)
                     .clipShape(RoundedRectangle(cornerRadius: DL.cardRadius, style: .continuous))
-                    .overlay(alignment: .topTrailing) {
-                        DLMediaButton(symbol: "xmark", size: 36).goesBack().padding(10).accessibilityLabel("Close")
-                    }
 
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 2) {

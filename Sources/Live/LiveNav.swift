@@ -229,11 +229,15 @@ struct DLPressStyle: ButtonStyle {
         @State private var keyInside = false
 
         var body: some View {
+            let shrinks = down && !keyInside
+            // About 4.5 points off the width whatever the size, so a wide card does not lurch.
             label
                 .environment(\.dlPressed, down)
                 .onPreferenceChange(DLHasKey.self) { keyInside = $0 }
-                .scaleEffect(down && !keyInside ? 0.96 : 1)
-                .animation(.easeOut(duration: 0.15), value: down)
+                .visualEffect { content, proxy in
+                    content.scaleEffect(shrinks ? max(0.95, 1 - 4.5 / max(proxy.size.width, 1)) : 1)
+                }
+                .animation(.easeOut(duration: down ? 0.15 : 0.3), value: down)
         }
     }
 }

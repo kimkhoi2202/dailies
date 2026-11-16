@@ -540,7 +540,7 @@ extension EnvironmentValues {
 
 /// A sheet over the screen below. A sheet route is shown as an iOS sheet: it follows a swipe down
 /// from anywhere on it, and closes on a tap outside. Shown any other way, it draws its own sheet
-/// that closes the same ways.
+/// that closes the same ways. The handle on top is the only sign of that: a sheet has no close button.
 struct DLSheet<Background: View, Content: View>: View {
     var height: CGFloat
     /// Kept for callers. The sheet covers whatever is already on screen.
@@ -569,7 +569,7 @@ struct DLSheet<Background: View, Content: View>: View {
 
     private var drawn: some View {
         ZStack(alignment: .bottom) {
-            Color.black.opacity(0.45).ignoresSafeArea()
+            Color.black.opacity(0.45 * (1 - min(1, pull / height))).ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { LiveNav.shared.back() }
             VStack(spacing: 0) {
@@ -589,13 +589,13 @@ struct DLSheet<Background: View, Content: View>: View {
                     if drag.translation.height > 110 || drag.predictedEndTranslation.height > 260 {
                         LiveNav.shared.back()
                     } else {
-                        withAnimation(.snappy(duration: 0.25)) { pull = 0 }
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { pull = 0 }
                     }
                 })
         }
         .ignoresSafeArea(.container)
         .onAppear {
-            withAnimation(.snappy(duration: 0.32)) { raised = true }
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { raised = true }
         }
     }
 }

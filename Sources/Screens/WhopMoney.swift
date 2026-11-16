@@ -214,8 +214,8 @@ struct WhopBuyGoldSheet: View {
                 HStack {
                     Text("Get gold").dlLabel(10.5)
                     Spacer()
-                    DLIconButton(symbol: "xmark", size: 36).goesBack().accessibilityLabel("Close")
                 }
+                .frame(height: 36)
                 HStack(alignment: .center, spacing: 10) {
                     DLCoin(size: 30)
                     Text(groupedNumber(live.s.balance)).font(DL.display(52)).foregroundStyle(DL.ink).monospacedDigit()
@@ -414,8 +414,8 @@ struct WhopSendSheet: View {
                 HStack {
                     Text("Send to Whop").dlLabel(10.5)
                     Spacer()
-                    DLIconButton(symbol: "xmark", size: 36).goesBack().accessibilityLabel("Close")
                 }
+                .frame(height: 36)
                 Text(WhopStore.dollars(cents))
                     .font(DL.display(64))
                     .foregroundStyle(DL.ink)
@@ -584,8 +584,8 @@ struct WhopProgramSheet: View {
                 HStack {
                     Text("Creator program").dlLabel(10.5)
                     Spacer()
-                    DLIconButton(symbol: "xmark", size: 36).goesBack().accessibilityLabel("Close")
                 }
+                .frame(height: 36)
                 HStack(spacing: 12) {
                     DLThumb(game: game, size: 52)
                     VStack(alignment: .leading, spacing: 0) {

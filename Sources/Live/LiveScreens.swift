@@ -385,7 +385,6 @@ struct LiveCommentsScreen: View {
                     Text("Comments").font(DL.text(17, .semibold)).foregroundStyle(DL.ink)
                     Text(posted.map { "\($0.count)" } ?? clip.comments).font(DL.text(17)).foregroundStyle(DL.ink2)
                     Spacer()
-                    DLIconButton(symbol: "xmark", size: 32).goesBack().accessibilityLabel("Close")
                 }
                 .padding(.horizontal, 20)
 

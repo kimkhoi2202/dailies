@@ -224,7 +224,6 @@ struct MessagesPlayTogetherSheet: View {
                 HStack {
                     Text("PLAY TOGETHER").font(DL.display(34)).foregroundStyle(DL.ink)
                     Spacer()
-                    DLIconButton(symbol: "xmark", size: 36).goesBack().accessibilityLabel("Close")
                 }
                 Text("Pick a game. Everyone in the chat gets the invite.").font(DL.text(14)).foregroundStyle(DL.ink2)
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
