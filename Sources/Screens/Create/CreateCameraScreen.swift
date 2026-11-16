@@ -36,6 +36,15 @@ struct CreateGameIcon: View {
 enum CreateLength: String, CaseIterable {
     case long = "60s", short = "15s", unlimited = "UNLIMITED", photo = "PHOTO"
 
+    /// The rail's picture for it. A timed length also wears its seconds as a badge.
+    var symbol: String {
+        switch self {
+        case .long, .short: "hourglass"
+        case .unlimited: "infinity"
+        case .photo: "camera.fill"
+        }
+    }
+
     /// nil records until the player stops.
     var seconds: Double? {
         switch self {
@@ -46,7 +55,7 @@ enum CreateLength: String, CaseIterable {
     }
 }
 
-/// How the player sits on the game. Tapping yourself moves to the next one.
+/// How the player sits on the game, picked from Layout on the rail.
 enum CreateShape: CaseIterable {
     case circle, square, tall, wide, greenScreen
 
@@ -78,11 +87,6 @@ enum CreateShape: CaseIterable {
         case .wide: "rectangle.tophalf.filled"
         case .greenScreen: "person.fill"
         }
-    }
-
-    var next: CreateShape {
-        let all = Self.allCases
-        return all[(all.firstIndex(of: self)! + 1) % all.count]
     }
 }
 
@@ -124,7 +128,6 @@ private struct CreateFaceView<Camera: View>: View {
     let size: CGSize
     let movable: Bool
     var square = false
-    var onTap: () -> Void = {}
     @ViewBuilder let camera: () -> Camera
 
     var body: some View {
@@ -139,7 +142,6 @@ private struct CreateFaceView<Camera: View>: View {
             }
             .contentShape(shape)
             .gesture(move)
-            .simultaneousGesture(TapGesture().onEnded { onTap() })
             .offset(face.drag)
             .position(x: rect.midX, y: rect.midY)
             // While recording every touch goes to the game.
@@ -420,16 +422,13 @@ struct CreateCameraScreen: View {
                 VStack(spacing: 0) {
                     cameraView(cutout: false)
                         .frame(width: w, height: h * topBand).clipped()
-                        .contentShape(Rectangle())
-                        .onTapGesture { if phase == .idle { nextShape() } }
                         .overlay(alignment: .bottom) { if phase == .idle { bandHandle(height: h) } }
                         .zIndex(1)
                     gameView.frame(width: w, height: h * (1 - topBand)).clipped()
                 }
             } else {
                 gameView.frame(width: w, height: h)
-                CreateFaceView(face: face, layout: layout, size: size, movable: phase == .idle, square: shape == .square,
-                               onTap: nextShape) {
+                CreateFaceView(face: face, layout: layout, size: size, movable: phase == .idle, square: shape == .square) {
                     cameraView(cutout: layout == .cutout)
                 }
             }
@@ -602,7 +601,7 @@ struct CreateCameraScreen: View {
         // A short phone gets smaller buttons, so the rail ends above the record key.
         let side: CGFloat = size.height < 700 ? 38 : 44
         let room = size.width - 90
-        return VStack(spacing: size.height < 700 ? 6 : 10) {
+        return VStack(spacing: size.height < 700 ? 8 : 12) {
             toolItem(.game, "Game") {
                 if let game = selected {
                     CreateGameIcon(game: game, size: side)
@@ -617,8 +616,8 @@ struct CreateCameraScreen: View {
             } panel: {
                 layoutPanel(width: min(300, room))
             }
-            toolItem(.length, "Length", label: length.rawValue) {
-                DLMediaButton(symbol: "hourglass", size: side)
+            toolItem(.length, "Length", badge: length.seconds.map { "\(Int($0))s" }) {
+                DLMediaButton(symbol: length.symbol, size: side)
             } panel: {
                 choices(CreateLength.allCases, picked: length, title: { $0.rawValue }) { length = $0 }
             }
@@ -627,14 +626,14 @@ struct CreateCameraScreen: View {
             } panel: {
                 choices([0, 3, 10], picked: timer, title: { $0 == 0 ? "Off" : "\($0)s" }, pick: setTimer)
             }
-            railItem("Flip") { DLMediaButton(symbol: "arrow.triangle.2.circlepath.camera", size: side) }
+            railItem { DLMediaButton(symbol: "arrow.triangle.2.circlepath.camera", size: side) }
                 .tap(flipCamera).accessibilityLabel("Flip camera")
-            railItem("Rotate") { DLMediaButton(symbol: "rotate.right", size: side) }
+            railItem { DLMediaButton(symbol: "rotate.right", size: side) }
                 .tap(rotateCamera).accessibilityLabel("Rotate camera")
-            railItem("Flash") { DLMediaButton(symbol: flash ? "bolt.fill" : "bolt.slash.fill", size: side) }
+            railItem { DLMediaButton(symbol: flash ? "bolt.fill" : "bolt.slash.fill", size: side) }
                 .tap(toggleFlash).accessibilityLabel("Flash")
             PhotosPicker(selection: $picked, matching: .videos) {
-                railItem("Upload") { DLMediaButton(symbol: "square.and.arrow.up", size: side) }
+                railItem { DLMediaButton(symbol: "square.and.arrow.up", size: side) }
             }
             .accessibilityLabel("Upload a video and tag it with the game")
             toolItem(.more, "More") {
@@ -651,34 +650,26 @@ struct CreateCameraScreen: View {
         }
     }
 
-    /// One round button on the rail with a short label under it.
-    private func railItem<Icon: View>(_ label: String, badge: String? = nil, lit: Bool = false,
-                                      @ViewBuilder icon: () -> Icon) -> some View {
-        VStack(spacing: 3) {
-            icon()
-                .overlay { if lit { Circle().strokeBorder(DL.gold, lineWidth: 2.5) } }
-                .overlay(alignment: .bottomTrailing) {
-                    if let badge {
-                        Text(badge).font(DL.label(9)).foregroundStyle(DL.onGold)
-                            .padding(.horizontal, 4).padding(.vertical, 1)
-                            .background(DL.gold, in: Capsule())
-                            .offset(x: 6, y: 2)
-                    }
+    /// One round button on the rail, ringed in gold while its panel is open.
+    private func railItem<Icon: View>(badge: String? = nil, lit: Bool = false, @ViewBuilder icon: () -> Icon) -> some View {
+        icon()
+            .overlay { if lit { Circle().strokeBorder(DL.gold, lineWidth: 2.5) } }
+            .overlay(alignment: .bottomTrailing) {
+                if let badge {
+                    Text(badge).font(DL.label(9)).foregroundStyle(DL.onGold)
+                        .padding(.horizontal, 4).padding(.vertical, 1)
+                        .background(DL.gold, in: Capsule())
+                        .offset(x: 6, y: 2)
                 }
-            Text(label)
-                .font(DL.label(9)).foregroundStyle(lit ? DL.gold : .white).textCase(.uppercase)
-                .lineLimit(1).minimumScaleFactor(0.7)
-                .shadow(color: .black.opacity(0.9), radius: 1.5)
-                .shadow(color: .black.opacity(0.6), radius: 4)
-        }
-        .frame(width: 58)
+            }
+            .frame(width: 58)
     }
 
     /// A rail button that opens a panel to its left. Tapping it again closes the panel.
-    private func toolItem<Icon: View, Panel: View>(_ tool: Tool, _ name: String, label: String? = nil, badge: String? = nil,
+    private func toolItem<Icon: View, Panel: View>(_ tool: Tool, _ name: String, badge: String? = nil,
                                                    @ViewBuilder icon: () -> Icon,
                                                    @ViewBuilder panel: () -> Panel) -> some View {
-        railItem(label ?? name, badge: badge, lit: open == tool, icon: icon)
+        railItem(badge: badge, lit: open == tool, icon: icon)
             .tap { toggle(tool) }
             .accessibilityLabel(name)
             .overlay(alignment: .topTrailing) {
@@ -776,24 +767,20 @@ struct CreateCameraScreen: View {
                 modeSwitch(symbol: cameraOn ? "video.fill" : "video.slash.fill", title: "Camera", on: cameraOn,
                            action: toggleCamera)
             }
+            // The first and last shapes line up with the outer edges of the two switches above.
             HStack(spacing: 0) {
-                ForEach(CreateShape.allCases, id: \.self) { option in
+                ForEach(Array(CreateShape.allCases.enumerated()), id: \.element) { index, option in
                     let on = both && option == shape
-                    VStack(spacing: 5) {
-                        Image(systemName: option.symbol)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(on ? DL.onGold : .white)
-                            .frame(width: 42, height: 42)
-                            .background(on ? DL.gold : Color.white.opacity(0.14), in: Circle())
-                        Text(option.title)
-                            .font(DL.label(8)).foregroundStyle(on ? DL.gold : .white).textCase(.uppercase)
-                            .lineLimit(1).minimumScaleFactor(0.7)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture { pickShape(option) }
-                    .accessibilityLabel(option.title)
-                    .accessibilityAddTraits(.isButton)
+                    if index > 0 { Spacer(minLength: 0) }
+                    Image(systemName: option.symbol)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(on ? DL.onGold : .white)
+                        .frame(width: 42, height: 42)
+                        .background(on ? DL.gold : Color.white.opacity(0.14), in: Circle())
+                        .contentShape(Circle())
+                        .onTapGesture { pickShape(option) }
+                        .accessibilityLabel(option.title)
+                        .accessibilityAddTraits(.isButton)
                 }
             }
             .opacity(both ? 1 : 0.45)
@@ -809,7 +796,7 @@ struct CreateCameraScreen: View {
     private func modeSwitch(symbol: String, title: String, on: Bool, action: @escaping () -> Void) -> some View {
         HStack(spacing: 7) {
             Image(systemName: symbol).font(.system(size: 13, weight: .semibold))
-            Text(title).font(DL.label(12)).textCase(.uppercase)
+            Text(title).font(DL.label(12)).textCase(.uppercase).lineLimit(1).minimumScaleFactor(0.8)
             Capsule()
                 .fill(on ? DL.onGold.opacity(0.85) : .white.opacity(0.3))
                 .frame(width: 30, height: 18)
@@ -818,7 +805,8 @@ struct CreateCameraScreen: View {
                 }
         }
         .foregroundStyle(on ? DL.onGold : .white)
-        .padding(.leading, 12).padding(.trailing, 8)
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity)
         .frame(height: 36)
         .background(Capsule().fill(on ? DL.gold : .white.opacity(0.14)))
         .contentShape(Capsule())
@@ -961,7 +949,6 @@ struct CreateCameraScreen: View {
             if !cameraOn { gameOn = true }
         }
         syncCamera()
-        if cameraOn && gameOn { say("Tap yourself to change the shape") }
     }
 
     /// Runs the camera only while it is on, and cuts the player out only for the green screen.
@@ -983,17 +970,6 @@ struct CreateCameraScreen: View {
         face.pinch = 1
         shape = picked
         camera.cutout = layout == .cutout
-        say(shape.title)
-    }
-
-    /// Tapping yourself moves to the next shape: circle, square, tall, cam on top, green screen.
-    private func nextShape() {
-        guard phase == .idle else { return }
-        UISelectionFeedbackGenerator().selectionChanged()
-        face.drag = .zero
-        face.pinch = 1
-        shape = shape.next
-        camera.cutout = gameOn && cameraOn && layout == .cutout
         say(shape.title)
     }
 

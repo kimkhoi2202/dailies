@@ -29,11 +29,45 @@ struct CreatePlayerView: UIViewRepresentable {
     }
 }
 
+/// Where a looping video is in its length, and the way to move through it. The page that shows the video
+/// keeps one, so the line at its foot can follow the video and take it to any moment.
+final class CreateVideoClock {
+    fileprivate weak var player: AVPlayer?
+    /// Where a finger on the line is holding the video, until the video gets there.
+    private var held: Double?
+
+    @MainActor private var length: Double? {
+        guard let seconds = player?.currentItem?.duration.seconds, seconds.isFinite, seconds > 0 else { return nil }
+        return seconds
+    }
+
+    /// How far the video has played: 0 at its start, 1 at its end.
+    @MainActor var at: Double {
+        if let held { return held }
+        guard let player, let length else { return 0 }
+        return min(1, max(0, player.currentTime().seconds / length))
+    }
+
+    /// Moves the video to a place in its length. While the finger drags, the nearest frame that is quick to
+    /// show will do. `done` is the finger lifting, which lands on the exact moment.
+    @MainActor func seek(_ to: Double, done: Bool) {
+        guard let player, let length else { return }
+        held = to
+        let slack = done ? CMTime.zero : CMTime(seconds: 0.15, preferredTimescale: 600)
+        player.seek(to: CMTime(seconds: to * length, preferredTimescale: 600), toleranceBefore: slack, toleranceAfter: slack) { [weak self] _ in
+            guard done else { return }
+            Task { @MainActor in self?.held = nil }
+        }
+    }
+}
+
 /// A video that loops. It plays only while `active`.
 struct CreateLoopingVideo: View {
     let url: URL
     var active = true
     var muted = false
+    /// Set by a page whose line follows the video.
+    var clock: CreateVideoClock? = nil
     @State private var player = AVQueuePlayer()
     @State private var looper: AVPlayerLooper?
 
@@ -41,6 +75,7 @@ struct CreateLoopingVideo: View {
         CreatePlayerView(player: player)
             .onAppear {
                 if looper == nil { looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url)) }
+                clock?.player = player
                 player.isMuted = muted
                 if active { player.play() }
             }
@@ -230,23 +265,21 @@ private struct CreatePreviewContent: View {
 
     /// The handle on top of the sheet. Swipe it down to see the whole clip.
     private var grabber: some View {
-        VStack(spacing: 4) {
-            Capsule().fill(DL.ink3).frame(width: 40, height: 5)
-            Text("Swipe down to move the text").dlLabel(9, color: DL.ink3)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, -6)
-        .contentShape(Rectangle())
-        .gesture(DragGesture(minimumDistance: 10).onEnded { value in
-            if value.translation.height > 30 {
+        Capsule().fill(DL.ink3).frame(width: 40, height: 5)
+            .frame(maxWidth: .infinity)
+            .frame(height: 20)
+            .padding(.top, -6)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 10).onEnded { value in
+                if value.translation.height > 30 {
+                    typing = false
+                    sheetDown = true
+                }
+            })
+            .onTapGesture {
                 typing = false
                 sheetDown = true
             }
-        })
-        .onTapGesture {
-            typing = false
-            sheetDown = true
-        }
     }
 
     private var sheet: some View {
@@ -295,8 +328,6 @@ private struct CreatePreviewContent: View {
                     .tap { if !posting { post(privately: false) } }
             }
             .opacity(posting ? 0.7 : 1)
-            Text("Save keeps it in your clips, just for you.").dlLabel(10, color: DL.ink3)
-                .frame(maxWidth: .infinity)
 
             HStack(spacing: 8) {
                 action("Save to Photos", symbol: "square.and.arrow.down", run: save)
@@ -433,18 +464,24 @@ struct CreateClipPage: View {
     @State private var editing = false
     @State private var confirmDelete = false
     @State private var draft = ""
+    @State private var clock = CreateVideoClock()
 
     var body: some View {
         let game = Mock.game(clip.gameSlug)
+        let isVideo = clip.url != nil && clip.kind != "photo"
         // Comments belong to the game, so the comment button opens the game's catalog clip.
         let shown = MockClip(id: Mock.clips.first { $0.game.id == game.id }?.id ?? Mock.clips[0].id, game: game,
                              player: clip.handle, caption: clip.caption, length: "",
                              comments: groupedNumber(Int(clip.comments)), shares: groupedNumber(Int(clip.likes)))
-        VideoPage(clip: shown, progress: 0, voted: store.vote(for: game.id),
-                  media: AnyView(media(game).createFilter(clip.style.filter).overlay {
-                      CreateClipDecor(text: clip.overlay ?? "", look: clip.style, sticker: clip.scoreText ?? clip.gameTitle)
-                  }), tag: clip.scoreText,
-                  saveKey: clip.saveKey, onMore: clip.mine ? { menu = true } : nil)
+        // A video on screen redraws its page as it plays, so the line at its foot follows it.
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !(active && isVideo))) { _ in
+            VideoPage(clip: shown, progress: CGFloat(clock.at), voted: store.vote(for: game.id),
+                      media: AnyView(media(game).createFilter(clip.style.filter).overlay {
+                          CreateClipDecor(text: clip.overlay ?? "", look: clip.style, sticker: clip.scoreText ?? clip.gameTitle)
+                      }), tag: clip.scoreText,
+                      saveKey: clip.saveKey, onMore: clip.mine ? { menu = true } : nil,
+                      onSeek: isVideo ? { to, done in clock.seek(to, done: done) } : nil)
+        }
             // Two seconds on screen is a view. A view of someone else's clip pays its creator when the game has a program.
             .task(id: active) {
                 guard active, !clip.mine else { return }
@@ -517,7 +554,7 @@ struct CreateClipPage: View {
                     Color.black
                 }
             } else {
-                CreateLoopingVideo(url: url, active: active).clipFilled(url)
+                CreateLoopingVideo(url: url, active: active, clock: clock).clipFilled(url)
             }
         } else {
             CreateReplayStage(game: game, layout: layout, moving: active) { CreateCameraPlaceholder() }

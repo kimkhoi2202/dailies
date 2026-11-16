@@ -30,6 +30,9 @@ struct VideoPage: View {
     var saveKey: String? = nil
     /// For the poster's own clip: opens its menu to edit or delete it.
     var onMore: (() -> Void)? = nil
+    /// Takes the clip to a place in its length, 0 to 1, as a finger drags the line, with true as the finger lifts.
+    /// nil leaves the line as a picture of the time played.
+    var onSeek: ((Double, Bool) -> Void)? = nil
 
     private var game: MockGame { clip.game }
 
@@ -53,7 +56,7 @@ struct VideoPage: View {
             // The app lifts the block a little, to keep the last button clear of the real tab bar.
             .padding(.bottom, LiveMode.on ? 118 : 108)
             .frame(maxHeight: .infinity, alignment: .bottom)
-            playbackLine
+            ClipTimeline(progress: progress, onSeek: onSeek)
         }
         .environment(\.colorScheme, .dark)
     }
@@ -64,20 +67,6 @@ struct VideoPage: View {
         return LinearGradient(colors: edge == .top ? [dark, .clear] : [.clear, dark], startPoint: .top, endPoint: .bottom)
             .frame(height: height)
             .frame(maxHeight: .infinity, alignment: edge == .top ? .top : .bottom)
-    }
-
-    /// How far the clip has played: a thin line just above the tab bar.
-    private var playbackLine: some View {
-        GeometryReader { geo in
-            Rectangle()
-                .fill(.white.opacity(0.22))
-                .overlay(alignment: .leading) {
-                    Rectangle().fill(.white).frame(width: geo.size.width * progress)
-                }
-                .frame(height: 2)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 104)
-        }
     }
 
     private var about: some View {
@@ -167,6 +156,55 @@ struct VideoPage: View {
                 .font(DL.text(12, .semibold))
                 .monospacedDigit()
                 .foregroundStyle(.white)
+        }
+    }
+}
+
+/// How far the clip has played: a thin line just above the tab bar. Drag a finger along it to go to any moment
+/// of the clip. Under the finger the line thickens and grows a round handle.
+private struct ClipTimeline: View {
+    let progress: CGFloat
+    let onSeek: ((Double, Bool) -> Void)?
+    /// Where the finger is along the line while it drags. It clears itself when the drag ends or is taken away.
+    @GestureState private var held: CGFloat? = nil
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let shown = min(1, max(0, held ?? progress))
+            Rectangle()
+                .fill(.white.opacity(held == nil ? 0.22 : 0.4))
+                .overlay(alignment: .leading) {
+                    Rectangle().fill(.white).frame(width: width * shown)
+                }
+                .frame(height: held == nil ? 2 : 6)
+                .overlay(alignment: .leading) {
+                    if held != nil {
+                        Circle().fill(.white).frame(width: 16, height: 16)
+                            .shadow(color: .black.opacity(0.4), radius: 3)
+                            .offset(x: width * shown - 8)
+                    }
+                }
+                // The strip a finger can land on is much taller than the line.
+                .padding(.bottom, 10)
+                .frame(width: width, height: 34, alignment: .bottom)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 4).updating($held) { value, held, _ in
+                        held = min(1, max(0, value.location.x / max(1, width)))
+                    }
+                )
+                .allowsHitTesting(onSeek != nil)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, 94)
+                .animation(.snappy(duration: 0.2), value: held != nil)
+        }
+        .onChange(of: held) { was, now in
+            if let now {
+                onSeek?(Double(now), false)
+            } else if let was {
+                onSeek?(Double(was), true)
+            }
         }
     }
 }

@@ -269,12 +269,20 @@ struct DLMediaButton: View {
     var symbol: String
     var size: CGFloat = 42
 
+    /// Symbols whose drawing sits off the middle of its own box, and how far to move it back, in font sizes.
+    private static let nudges: [String: CGSize] = [
+        "rotate.right": CGSize(width: 0.12, height: 0),
+        "square.and.arrow.up": CGSize(width: 0, height: -0.06),
+    ]
+
     var body: some View {
+        let nudge = Self.nudges[symbol] ?? .zero
         Image(systemName: symbol)
             .font(.system(size: size * 0.44, weight: .semibold))
             .foregroundStyle(.white)
             .contentTransition(.symbolEffect(.replace))
             .animation(.spring(duration: 0.35, bounce: 0), value: symbol)
+            .offset(x: nudge.width * size * 0.44, y: nudge.height * size * 0.44)
             .frame(width: size, height: size)
             .background(MediaGlass(shape: Circle()))
     }
