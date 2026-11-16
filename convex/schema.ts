@@ -335,4 +335,8 @@ export default defineSchema({
     whopTransferId: v.optional(v.string()),
     error: v.optional(v.string()),
   }).index("by_user", ["userId"]),
+
+  // The player an Apple or Google account is being tied to. A row only lives inside the mutation that
+  // writes it (users:connect), so the table is empty between calls.
+  connecting: defineTable({ userId: v.id("users") }),
 });
