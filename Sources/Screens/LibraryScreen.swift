@@ -236,7 +236,10 @@ struct LibraryClipTile: View {
             }
             .overlay(LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom))
             .overlay(alignment: .topTrailing) {
-                if clip.visibility == "friends" {
+                if clip.visibility == "private" {
+                    Image(systemName: "lock.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                        .padding(7).background(Circle().fill(.black.opacity(0.6))).padding(6)
+                } else if clip.visibility == "friends" {
                     Image(systemName: "person.2.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
                         .padding(6).background(Circle().fill(.black.opacity(0.5))).padding(6)
                 }
