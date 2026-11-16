@@ -291,3 +291,15 @@ a ring on the balance and a card on the gold screen (`convex/time.ts`, a new
 Revyl and run on a cloud iPhone against the dev deployment: 4 gems in Lane Dash
 gave 1 gold and started a streak of 1, and passing the 15 minute mark added 5
 gold. Convex features: mutations, queries, schema, indexes.
+### 2026-11-16 - cecd259
+Motion and sheets taken from a tour of the HeroUI Native app on a real iPhone,
+on the `sheet-polish` branch. A sheet now closes by its handle, a swipe down or
+a tap outside, the way HeroUI's does: the close button is gone from all twelve
+sheets, which showed it next to the handle (`Sources/DS/Components.swift` and
+each sheet's screen). A drawn sheet rises on a spring with a small settle and
+its dim fades as it is pulled down. A pressed card or row shrinks by about 4.5
+points whatever its width instead of 4% (`Sources/Live/LiveNav.swift`). The
+Friends and Explore switch slides one pill across
+(`Sources/Screens/CommunityScreen.swift`), and the toast leaves faster. Built
+for an iPhone simulator on a Mac and five sheets and the Community tab looked
+at there; not run on a phone. No Convex change.
