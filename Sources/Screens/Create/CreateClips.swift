@@ -139,6 +139,8 @@ final class CreateClips: ObservableObject {
     @Published private(set) var feed: [ConvexClip] = []
     /// The player's own clips, newest first.
     @Published private(set) var mine: [ConvexClip] = []
+    /// Set when a clip was just saved privately, so the profile opens on Clips.
+    @Published var showClips = false
     /// What the player saved, newest first.
     @Published private(set) var saved: [ClipItem] = []
     /// Every saved key, changed at once on a tap and then by the server.
@@ -198,11 +200,12 @@ final class CreateClips: ObservableObject {
         }
     }
 
-    func update(_ clip: ConvexClip, caption: String, everyone: Bool) async throws {
+    /// visibility is "everyone", "friends" or "private".
+    func update(_ clip: ConvexClip, caption: String, visibility: String) async throws {
         try await link.mutate("clips:update", [
             "clipId": clip.id,
             "caption": String(caption.trimmingCharacters(in: .whitespacesAndNewlines).prefix(140)),
-            "visibility": everyone ? "everyone" : "friends",
+            "visibility": visibility,
         ])
     }
 
@@ -210,8 +213,8 @@ final class CreateClips: ObservableObject {
         try await link.mutate("clips:remove", ["clipId": clip.id])
     }
 
-    /// Uploads the take and posts it. `progress` runs from 0 to 1 on the main thread. Returns the clip's id.
-    func post(_ take: CreateTake, caption: String, overlay: String = "", everyone: Bool,
+    /// Uploads the take and posts it, or keeps it just for the player with visibility "private". Progress runs from 0 to 1 on the main thread. Returns the clip's id.
+    func post(_ take: CreateTake, caption: String, overlay: String = "", visibility: String,
               progress: @escaping (Double) -> Void) async throws -> String {
         var storageID: String?
         var kind = "video"
@@ -232,7 +235,7 @@ final class CreateClips: ObservableObject {
             "overlay": String(overlay.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80)),
             "layout": take.layout.rawValue,
             "durationMs": (take.seconds * 1000).rounded(),
-            "visibility": everyone ? "everyone" : "friends",
+            "visibility": visibility,
         ]
         if let storageID { args["storageId"] = storageID }
         if let round = take.roundID { args["roundId"] = round }

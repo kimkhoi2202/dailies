@@ -115,31 +115,15 @@ struct VideoPage: View {
 
     private var rail: some View {
         VStack(spacing: 15) {
-            // Play the game, or film yourself playing it. Record sits to the left of Play.
-            HStack(alignment: .top, spacing: 12) {
-                VStack(spacing: 5) {
-                    ZStack {
-                        Circle().strokeBorder(.white, lineWidth: 4)
-                        Circle().fill(DL.gold).padding(10)
-                    }
-                    .frame(width: 52, height: 52)
-                    .padding(.top, 8)
-                    Text("Record").font(DL.text(13, .bold)).foregroundStyle(.white)
-                }
-                .opens(.create(game.id))
-                .accessibilityLabel("Record yourself playing \(game.title)")
-                VStack(spacing: 5) {
-                    // Once today's gold is all collected the key goes pale. It still plays.
-                    DLRoundPlayKey(size: 68, style: game.isFullToday ? .neutral : .gold)
-                        .scaleEffect(pressed ? 0.9 : 1)
-                    Text("Play").font(DL.text(13, .bold)).foregroundStyle(.white)
-                }
-                .opens(.gameReady(game.id))
-                .accessibilityLabel("Play \(game.title)")
+            VStack(spacing: 5) {
+                // Once today's gold is all collected the key goes pale. It still plays.
+                DLRoundPlayKey(size: 68, style: game.isFullToday ? .neutral : .gold)
+                    .scaleEffect(pressed ? 0.9 : 1)
+                Text("Play").font(DL.text(13, .bold)).foregroundStyle(.white)
             }
-            .fixedSize()
-            .frame(width: 72, alignment: .trailing)
             .padding(.bottom, 4)
+            .opens(.gameReady(game.id))
+            .accessibilityLabel("Play \(game.title)")
 
             let liked = voted == true
             counted(game.likes) {

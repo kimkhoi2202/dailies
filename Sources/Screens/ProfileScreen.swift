@@ -94,6 +94,10 @@ struct ProfileScreen: View {
         }
         .background(DL.body.ignoresSafeArea())
         .onAppear {
+            if isMe, clips.showClips {
+                clips.showClips = false
+                tab = 1
+            }
             guard !isMe, clipsWatch == nil else { return }
             clipsWatch = clips.watchUser(handle) { rows in userClips = rows }
         }

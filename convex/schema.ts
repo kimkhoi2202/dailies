@@ -2,6 +2,23 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { communityTables } from "./communitySchema";
 
+/// The design sheet of a game made in the studio. Every part is optional until the studio settles it.
+export const designValidator = v.object({
+  title: v.optional(v.string()),
+  pitch: v.optional(v.string()),
+  genre: v.optional(v.string()),
+  setting: v.optional(v.string()),
+  player: v.optional(v.string()),
+  goal: v.optional(v.string()),
+  controls: v.optional(v.string()),
+  rules: v.optional(v.array(v.string())),
+  scoring: v.optional(v.string()),
+  progression: v.optional(v.string()),
+  look: v.optional(v.string()),
+  sound: v.optional(v.string()),
+  tint: v.optional(v.string()),
+});
+
 export default defineSchema({
   users: defineTable({
     name: v.string(),
@@ -52,27 +69,24 @@ export default defineSchema({
     plays: v.number(),
     comments: v.number(),
     order: v.number(),
-    // Set on a game a player made in the studio. It plays on one of the built-in engines, named in kind.
+    // Left over from an earlier studio that assembled games on built-in engines; no row sets it now.
     creatorId: v.optional(v.id("users")),
     kind: v.optional(v.string()),
     tint: v.optional(v.string()),
   }).index("by_slug", ["slug"]),
 
-  // A game being made in the studio: the conversation that shapes it, then the game it became.
+  // A game designed in the studio: the conversation that shapes it and the design sheet it grows into.
+  // Nothing is built from the sheet; it is the plan for a game.
   creations: defineTable({
     userId: v.id("users"),
-    status: v.union(v.literal("talking"), v.literal("building"), v.literal("ready"), v.literal("failed")),
+    status: v.union(v.literal("talking"), v.literal("ready"), v.literal("failed")),
     wish: v.string(),
     // true while the studio is working on its next reply.
     thinking: v.boolean(),
-    title: v.optional(v.string()),
-    pitch: v.optional(v.string()),
-    how: v.optional(v.string()),
-    category: v.optional(v.string()),
-    kind: v.optional(v.string()),
-    tint: v.optional(v.string()),
-    unit: v.optional(v.string()),
-    gameSlug: v.optional(v.string()),
+    // The sheet so far. The studio fills it in a little more with every reply.
+    design: v.optional(designValidator),
+    // How far along the sheet is, 0 to 1, as the studio judges it.
+    progress: v.optional(v.number()),
     error: v.optional(v.string()),
   }).index("by_user", ["userId"]),
 
@@ -179,7 +193,8 @@ export default defineSchema({
     caption: v.string(),
     layout: v.union(v.literal("cutout"), v.literal("bubble"), v.literal("window"), v.literal("top")),
     durationMs: v.number(),
-    visibility: v.union(v.literal("friends"), v.literal("everyone")),
+    // "private" is a clip the player saved for themselves: only they see it, on their own profile.
+    visibility: v.union(v.literal("friends"), v.literal("everyone"), v.literal("private")),
     likes: v.number(),
     comments: v.number(),
     // First views by other players, and what a creator program paid for them, in cents.

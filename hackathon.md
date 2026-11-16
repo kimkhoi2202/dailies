@@ -144,12 +144,13 @@ four moods, a mood got three ideas, and picking one built a game on the Spiral
 Drop engine within ten seconds.
 
 ### 2026-11-15 - avatar-room
-Added the player's avatar, a Profile room and a Shop. The avatar is a small
-low-poly chibi built in SceneKit from faceted shapes: 10 body colours, faces,
-hair, hats, outfits and held gadgets, all mixed on one figure that idles,
-blinks, turns 360 degrees and pops when it puts something on. Small spots such as
-the Home top bar and shop cards show a picture rendered from the same model
-(`Sources/Avatar/`). The Profile shows the avatar in a decorated room with a
+Added the player's avatar, a Profile room and a Shop. The avatar is a
+Bitmoji-style character: 14 generated full-body pictures with matching head
+pictures for small spots such as the Home top bar
+(`Resources/Avatars.xcassets`, `Sources/Avatar/BitmojiAvatar.swift`). A player
+switches character with one tap in the Closet, and the hats and gadgets they buy
+are drawn on the character. The room wall colour can be picked from seven
+colours. The Profile shows the avatar in a decorated room with a
 trophy shelf and the room decor the player has placed
 (`Sources/Screens/ProfileScreen.swift`, `Sources/Screens/RoomArt.swift`). The
 Shop sells items, room decor and bundles for gold, and the Closet equips them
@@ -160,8 +161,9 @@ placing decor check ownership (`convex/avatar.ts`). The look and placed decor ar
 fields on users, and ownership is a new `inventory` table
 (`convex/schema.ts`). Seeded players get their own looks and rooms
 (`convex/seed.ts`). A convex-test run covered buying, refusing short balances
-and repeat buys, and equipping only owned items. An earlier voxel version and an
-image-model turnaround were tried first and replaced after owner feedback.
+and repeat buys, and equipping only owned items. An earlier voxel version, an
+image-model turnaround and a low-poly SceneKit chibi were tried first and
+replaced after owner feedback.
 
 
 
@@ -243,3 +245,16 @@ creator $1.00 for 20 viewers, and Whop refused the transfer out because the
 sandbox key lacks the transfer scope, which the app records and shows without
 taking the creator's money. Convex features: HTTP actions, actions, mutations,
 queries, indexes, environment variables.
+### 2026-11-15 - 3dcd597
+Reworked the studio into a design conversation. The studio no longer assembles
+a playable game on a built-in engine; it designs one with the maker. Each reply
+asks one question with tappable answers, or offers three ideas, and fills in a
+little more of a design sheet kept on the creation: title, pitch, genre,
+setting, who you play, the goal, controls, rules, scoring, progression, look,
+sound and colour, with a progress figure. The maker finishes the sheet when they
+are happy and the studio writes it out in full (`convex/ai.ts`,
+`convex/creations.ts`, `convex/schema.ts`). In the app the talk shows the sheet
+filling up, the sheet screen shows every settled part on the game's colour, and
+a finished sheet can be shared as text (`Sources/Screens/G4_Create.swift`,
+`Sources/Screens/G3_Studio.swift`). Run from the CLI: "A game about my cat"
+became The Quiet Paws, a tap-to-path sneaking puzzle, in six exchanges.

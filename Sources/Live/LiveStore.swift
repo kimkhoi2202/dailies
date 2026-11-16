@@ -617,21 +617,9 @@ final class LiveStore: ObservableObject {
         write { try await self.link.mutate("creations:remove", ["creationId": creationID]) }
     }
 
-    /// A game made in the studio, as the app plays it: the engine the studio chose, with the studio's words on it.
-    func madeGame(_ slug: String) -> MockGame? {
-        guard let made = creations.first(where: { $0.gameSlug == slug }) ?? creationDetails.values.first(where: { $0.gameSlug == slug }).map(Self.summary),
-              let kind = GameKind(rawValue: made.kind ?? "") else { return nil }
-        return MockGame(id: slug, kind: kind, title: made.title ?? "New game", tagline: made.pitch ?? "",
-                        category: made.category ?? "Arcade", players: "1 player", mode: "Casual", studio: me?.handle ?? Mock.handle,
-                        goldPerMinute: 1, avgSession: "2m 00s", seedEarned: 0, plays: "0", likes: "0", dislikes: "0", approval: 0,
-                        bestScore: "", clipPhase: 0.5, tint: Color(hex: made.tint ?? "F5B301"))
-    }
-
-    /// The creation row a detail stands for, so both can be read the same way.
-    static func summary(_ detail: ConvexCreationDetail) -> ConvexCreation {
-        ConvexCreation(id: detail.id, status: detail.status, wish: detail.wish, thinking: detail.thinking, title: detail.title,
-                       pitch: detail.pitch, how: detail.how, category: detail.category, kind: detail.kind, tint: detail.tint,
-                       unit: detail.unit, gameSlug: detail.gameSlug, error: detail.error, at: detail.at)
+    /// The maker is happy with the sheet: the studio writes it out in full.
+    func finishCreation(_ creationID: String) async throws {
+        try await link.mutate("creations:finish", ["creationId": creationID])
     }
 
     // MARK: Text helpers
@@ -663,6 +651,6 @@ final class LiveStore: ObservableObject {
 }
 
 extension Mock {
-    static func game(_ id: String) -> MockGame { games.first { $0.id == id } ?? LiveStore.shared.madeGame(id) ?? tippyTower }
+    static func game(_ id: String) -> MockGame { games.first { $0.id == id } ?? tippyTower }
     static func clip(_ id: String) -> MockClip { clips.first { $0.id == id } ?? clips[0] }
 }

@@ -117,9 +117,9 @@ final class WhopStore: ObservableObject {
 
     func program(for gameID: String) -> WhopProgram? { programs.first { $0.gameSlug == gameID } }
 
-    /// "$4.20". Parts of a cent are left off.
+    /// "$4.20" or "$1,250.00". Parts of a cent are left off.
     static func dollars(_ cents: Double) -> String {
-        String(format: "$%.2f", cents.rounded(.down) / 100)
+        (cents.rounded(.down) / 100).formatted(.currency(code: "USD").locale(Locale(identifier: "en_US")))
     }
 
     /// "$10 per 1,000 views"
@@ -272,16 +272,20 @@ struct WhopEarningsScreen: View {
         let minimum = whop.catalog?.sendMinimum ?? 100
         DLPage {
             DLNavBar(title: "Creator earnings")
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(WhopStore.dollars(cents))
-                    .font(DL.display(104))
+                    .font(DL.display(96))
                     .foregroundStyle(DL.ink)
-                    .monospacedDigit()
+                    .tracking(2)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
-                    .frame(height: 96)
-                Text("\(WhopStore.dollars(whop.creator?.centsAllTime ?? 0)) from your clips so far").dlLabel(12)
+                    .frame(height: 96, alignment: .leading)
+                Text("\(WhopStore.dollars(whop.creator?.centsAllTime ?? 0)) from your clips so far")
+                    .font(DL.text(15))
+                    .foregroundStyle(DL.ink2)
+                    .lineLimit(1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             if cents >= minimum {
                 DLTextKey(title: "Send to Whop", symbol: "arrow.up.right").opens(.sendEarnings)
             } else {
@@ -351,7 +355,7 @@ struct WhopEarningsScreen: View {
                 if index > 0 { DLDivider(inset: 0) }
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(WhopStore.dollars(row.cents)).font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
+                        Text(WhopStore.dollars(row.cents)).font(DL.text(16, .semibold)).foregroundStyle(DL.ink).lineLimit(1)
                         Text("to @\(row.whopUsername)").font(DL.text(13)).foregroundStyle(DL.ink2)
                     }
                     Spacer(minLength: 8)
@@ -384,7 +388,11 @@ struct WhopClipRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
-            Text(WhopStore.dollars(clip.cents)).font(DL.display(26)).foregroundStyle(DL.ink).monospacedDigit()
+            Text(WhopStore.dollars(clip.cents))
+                .font(DL.display(26))
+                .foregroundStyle(DL.ink)
+                .lineLimit(1)
+                .fixedSize()
         }
         .padding(.vertical, 9)
     }
@@ -411,8 +419,9 @@ struct WhopSendSheet: View {
                 Text(WhopStore.dollars(cents))
                     .font(DL.display(64))
                     .foregroundStyle(DL.ink)
-                    .monospacedDigit()
-                    .frame(height: 58)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .frame(height: 64, alignment: .leading)
                 HStack(spacing: 6) {
                     Text("@").font(DL.text(17, .semibold)).foregroundStyle(DL.ink2)
                     TextField("Your Whop username", text: $username)
@@ -467,13 +476,14 @@ struct WhopProfileClips: View {
         let clips = whop.creator?.clips ?? []
         VStack(spacing: 10) {
             HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("Creator earnings").dlLabel(10.5)
                     Text(WhopStore.dollars(whop.creator?.cents ?? 0))
                         .font(DL.display(44))
                         .foregroundStyle(DL.ink)
-                        .monospacedDigit()
-                        .frame(height: 44)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .frame(height: 40, alignment: .leading)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(DL.ink2)
@@ -542,8 +552,8 @@ struct WhopStudioPrograms: View {
                     }
                     Spacer(minLength: 8)
                     if let program {
-                        VStack(alignment: .trailing, spacing: -3) {
-                            Text(WhopStore.dollars(program.left)).font(DL.display(26)).foregroundStyle(DL.ink).monospacedDigit()
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(WhopStore.dollars(program.left)).font(DL.display(26)).foregroundStyle(DL.ink).lineLimit(1).fixedSize()
                             Text("left").dlLabel(10)
                         }
                     } else {

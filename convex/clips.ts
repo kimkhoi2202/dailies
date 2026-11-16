@@ -20,7 +20,7 @@ export const create = mutation({
     caption: v.string(),
     layout: v.union(v.literal("cutout"), v.literal("bubble"), v.literal("window"), v.literal("top")),
     durationMs: v.number(),
-    visibility: v.union(v.literal("friends"), v.literal("everyone")),
+    visibility: v.union(v.literal("friends"), v.literal("everyone"), v.literal("private")),
     overlay: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -98,7 +98,7 @@ async function present(ctx: QueryCtx, clips: Doc<"clips">[], meId: string | null
   );
 }
 
-/** Newest clips: everyone's public clips, and the player's own whoever they were shared with. */
+/** Newest clips: everyone's public clips, and the player's own whoever they were shared with. Private clips stay on the profile. */
 export const feed = query({
   args: {},
   handler: async (ctx) => {
@@ -117,7 +117,7 @@ export const feed = query({
             .order("desc")
             .take(40);
     const byId = new Map<string, Doc<"clips">>();
-    for (const clip of [...open, ...mine]) byId.set(clip._id, clip);
+    for (const clip of [...open, ...mine]) if (clip.visibility !== "private") byId.set(clip._id, clip);
     const clips = [...byId.values()].sort((a, b) => b._creationTime - a._creationTime).slice(0, 40);
     return await present(ctx, clips, me?._id ?? null);
   },
@@ -220,7 +220,7 @@ export const update = mutation({
   args: {
     clipId: v.id("clips"),
     caption: v.string(),
-    visibility: v.union(v.literal("friends"), v.literal("everyone")),
+    visibility: v.union(v.literal("friends"), v.literal("everyone"), v.literal("private")),
   },
   handler: async (ctx, args) => {
     const me = await requireUser(ctx);

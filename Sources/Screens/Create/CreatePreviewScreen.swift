@@ -120,6 +120,7 @@ private struct CreatePreviewContent: View {
     @State private var caption = ""
     @State private var everyone = true
     @State private var posting = false
+    @State private var keeping = false
     @State private var progress = 0.0
     @State private var burst = false
     /// Big text on the video.
@@ -247,9 +248,16 @@ private struct CreatePreviewContent: View {
                     .animation(.easeOut(duration: 0.2), value: progress)
             }
 
-            DLTextKey(title: posting ? "Posting" : "Post", symbol: "arrow.up")
-                .tap { if !posting { post() } }
-                .opacity(posting ? 0.7 : 1)
+            HStack(spacing: 8) {
+                DLTextKey(title: keeping ? "Saving" : "Save", symbol: "lock.fill", style: .neutral)
+                    .tap { if !posting { post(privately: true) } }
+                    .frame(maxWidth: 150)
+                DLTextKey(title: posting && !keeping ? "Posting" : "Post", symbol: "arrow.up")
+                    .tap { if !posting { post(privately: false) } }
+            }
+            .opacity(posting ? 0.7 : 1)
+            Text("Save keeps it in your clips, just for you.").dlLabel(10, color: DL.ink3)
+                .frame(maxWidth: .infinity)
 
             HStack(spacing: 8) {
                 action("Save to Photos", symbol: "square.and.arrow.down", run: save)
@@ -286,15 +294,24 @@ private struct CreatePreviewContent: View {
         .tap(run)
     }
 
-    private func post() {
+    private func post(privately: Bool) {
         typing = false
         posting = true
+        keeping = privately
         progress = 0.02
-        let take = take, caption = caption, overlay = overlay, everyone = everyone
+        let take = take, caption = caption, overlay = overlay
+        let visibility = privately ? "private" : (everyone ? "everyone" : "friends")
         Task { @MainActor in
             do {
-                _ = try await CreateClips.shared.post(take, caption: caption, overlay: overlay, everyone: everyone) { progress = $0 }
+                _ = try await CreateClips.shared.post(take, caption: caption, overlay: overlay, visibility: visibility) { progress = $0 }
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
+                if privately {
+                    LiveNav.shared.say("Saved to your clips")
+                    CreateClips.shared.showClips = true
+                    LiveNav.shared.closeAll()
+                    LiveNav.shared.open(.profile("me"))
+                    return
+                }
                 burst = true
                 LiveNav.shared.say("Posted")
                 try? await Task.sleep(for: .seconds(1.1))
@@ -303,7 +320,8 @@ private struct CreatePreviewContent: View {
             } catch {
                 CreateScreenRecorder.log.error("Posting a clip failed: \(String(describing: error), privacy: .public)")
                 posting = false
-                LiveNav.shared.say("Could not post. Try again")
+                keeping = false
+                LiveNav.shared.say(privately ? "Could not save. Try again" : "Could not post. Try again")
             }
         }
     }
@@ -418,17 +436,21 @@ struct CreateClipPage: View {
                     draft = clip.caption
                     editing = true
                 }
-                if clip.visibility == "everyone" {
-                    Button("Show to friends only") { change(caption: clip.caption, everyone: false) }
-                } else {
-                    Button("Show to everyone") { change(caption: clip.caption, everyone: true) }
+                if clip.visibility != "everyone" {
+                    Button("Show to everyone") { change(caption: clip.caption, visibility: "everyone") }
+                }
+                if clip.visibility != "friends" {
+                    Button("Show to friends only") { change(caption: clip.caption, visibility: "friends") }
+                }
+                if clip.visibility != "private" {
+                    Button("Keep it just for me") { change(caption: clip.caption, visibility: "private") }
                 }
                 Button("Delete clip", role: .destructive) { confirmDelete = true }
                 Button("Cancel", role: .cancel) {}
             }
             .alert("Edit caption", isPresented: $editing) {
                 TextField("Say something about this run", text: $draft)
-                Button("Save") { change(caption: draft, everyone: clip.visibility == "everyone") }
+                Button("Save") { change(caption: draft, visibility: clip.visibility) }
                 Button("Cancel", role: .cancel) {}
             }
             .alert("Delete this clip?", isPresented: $confirmDelete) {
@@ -439,13 +461,13 @@ struct CreateClipPage: View {
             }
     }
 
-    private func change(caption: String, everyone: Bool) {
+    private func change(caption: String, visibility: String) {
         let clip = clip
-        let wasEveryone = clip.visibility == "everyone"
         Task { @MainActor in
             do {
-                try await CreateClips.shared.update(clip, caption: caption, everyone: everyone)
-                LiveNav.shared.say(everyone == wasEveryone ? "Caption saved" : (everyone ? "Everyone can see it" : "Friends only"))
+                try await CreateClips.shared.update(clip, caption: caption, visibility: visibility)
+                let said = ["everyone": "Everyone can see it", "friends": "Friends only", "private": "Just for you"]
+                LiveNav.shared.say(visibility == clip.visibility ? "Caption saved" : said[visibility] ?? "Saved")
             } catch {
                 LiveNav.shared.say("Could not save. Try again")
             }

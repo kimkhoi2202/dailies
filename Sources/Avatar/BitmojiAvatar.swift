@@ -47,12 +47,14 @@ struct BitmojiFigure: View {
                 if let gadget = AvatarCatalog.item(look.gadget) {
                     ItemArt(item: gadget, shirt: shirt)
                         .frame(width: w * 0.42, height: w * 0.42)
-                        .offset(x: -w * 0.44, y: h * 0.42)
+                        .scaleEffect(1.6)
+                        .offset(x: -w * 0.5, y: h * 0.42)
                 }
                 if let hat = AvatarCatalog.item(look.hat) {
                     ItemArt(item: hat, shirt: shirt)
-                        .frame(width: w * 0.74, height: w * 0.62)
-                        .offset(y: -h * 0.045)
+                        .frame(width: w * 1.2, height: w * 0.8)
+                        .scaleEffect(2)
+                        .offset(y: -h * 0.06)
                 }
             }
             .frame(width: proxy.size.width, height: h, alignment: .top)

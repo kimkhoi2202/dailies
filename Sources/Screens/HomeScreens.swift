@@ -266,7 +266,7 @@ struct GameReadyScreen: View {
             .padding(.top, 58)
             .frame(maxHeight: .infinity, alignment: .top)
         }
-        .frame(height: 404)
+        .frame(height: 360)
         .clipShape(DL.screenShape)
     }
 
@@ -342,7 +342,17 @@ struct GameReadyScreen: View {
         .dlCard(padding: 12, radius: 22)
     }
 
-    @ViewBuilder private var playKeys: some View {
+    /// The ways to play, then a second bar under them that opens the camera to film yourself playing.
+    private var playKeys: some View {
+        VStack(spacing: 10) {
+            playModes
+            DLTextKey(title: "Record and play", symbol: "record.circle", style: .neutral)
+                .tap { LiveNav.shared.replaceTop(.create(game.id)) }
+                .accessibilityLabel("Record yourself playing \(game.title)")
+        }
+    }
+
+    @ViewBuilder private var playModes: some View {
         if game.playsBothWays {
             // Works alone and with others: playing alone on the left, with friends on the right.
             HStack(spacing: 10) {
