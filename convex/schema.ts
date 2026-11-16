@@ -179,7 +179,8 @@ export default defineSchema({
     caption: v.string(),
     layout: v.union(v.literal("cutout"), v.literal("bubble"), v.literal("window"), v.literal("top")),
     durationMs: v.number(),
-    visibility: v.union(v.literal("friends"), v.literal("everyone")),
+    // "private" is a clip the player saved for themselves: only they see it, on their own profile.
+    visibility: v.union(v.literal("friends"), v.literal("everyone"), v.literal("private")),
     likes: v.number(),
     comments: v.number(),
     // First views by other players, and what a creator program paid for them, in cents.
