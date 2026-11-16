@@ -335,3 +335,12 @@ Built for an iPhone on a Mac and installed on a phone over USB. In an iPhone
 simulator every rail symbol measured within a third of a point of its circle's
 middle and the line moved with a posted video; dragging the line was not tried
 by hand there. No Convex change.
+### 2026-11-16 - c7c5419
+A posted video in Videos now starts below the status bar, so the clock and the
+island no longer sit on its picture
+(`Sources/Screens/Create/CreatePreviewScreen.swift`). Seven demo videos went
+into the dev deployment as clips from seven seeded players, through file storage
+and the upload function already in `convex/clipRepair.ts`. Built on Revyl and
+looked at on a cloud iPhone 16: three of the clips each began under the status
+bar with the top of their picture in view; the other four were not opened there.
+No Convex code change.
