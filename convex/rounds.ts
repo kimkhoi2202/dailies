@@ -76,8 +76,9 @@ export const finish = mutation({
     const today = row?.gold ?? 0;
     const studioToday = earnings.filter((entry) => entry.studio === game.studio).reduce((sum, entry) => sum + entry.gold, 0);
     const left = Math.max(0, Math.min(GAME_DAILY_LIMIT - today, STUDIO_DAILY_LIMIT - studioToday));
-    // A build from before gold came from the game sends none: it gets a gold for each minute played.
-    const collected = args.gold === undefined ? playMs / 60000 : Number.isFinite(args.gold) ? args.gold : 0;
+    // A build from before gold came from the game sends none: it still gets gold by the minute, at its old rate.
+    const byTheMinute = (playMs / 60000) * game.goldPerMinute * (user.fastGold ? 10 : 1);
+    const collected = args.gold === undefined ? byTheMinute : Number.isFinite(args.gold) ? args.gold : 0;
     // The phone says what the round collected. It cannot be more than the time since the round
     // opened allows, or more than the day has left.
     const possible = ROUND_HEAD_START + Math.floor((now - round.startedAt) / 2000);

@@ -33,7 +33,7 @@ struct TodayScreen: View {
 
     /// Today's gold against the daily goal.
     private var goalCard: some View {
-        let earned = Mock.earnedToday
+        let earned = Mock.earnedToday + time.goldToday
         // The screenshot's story has the goal long passed. The app shows the real state.
         let short = LiveMode.on && earned < Mock.dailyGoal
         return VStack(alignment: .leading, spacing: 10) {

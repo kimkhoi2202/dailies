@@ -30,7 +30,7 @@ export default defineSchema({
     streak: v.number(),
     // The last day that counted toward the streak: a day counts once the player finishes one game.
     lastGoldDay: v.optional(v.string()),
-    // Left over from gold by the minute; nothing reads it now.
+    // From gold by the minute. Only builds from before gold came from the game still use it.
     fastGold: v.boolean(),
     seeded: v.boolean(),
     // Counts every change to this player's gold, so a phone can tell when its own change has landed.
