@@ -308,6 +308,22 @@ const GAMES = [
     dislikes: 21,
     scores: [1840, 2460, 920, 1310, 640, 1120],
   },
+  {
+    slug: "sakura-days",
+    title: "Sakura Days",
+    studio: "Paper Lantern",
+    pitch: "Pick your words. Find your ending.",
+    how: "A short anime story. Pick old Kyoto or a modern campus, read along, and choose what to say. Kind choices fill the hearts. Each story has three endings, and your hearts plus your ending make the score.",
+    minPlayers: 1,
+    maxPlayers: 1,
+    mode: "casual" as const,
+    category: "Story",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 198,
+    dislikes: 11,
+    scores: [460, 580, 300, 400, 640, 520],
+  },
 ];
 
 const PLAYERS = [
@@ -358,6 +374,7 @@ const COMMENTS: Record<string, string[]> = {
   "corner-pocket": ["called the 8 off two rails and it dropped", "scratched on the break and still ran the table after"],
   "can-cannon": ["one ball, whole pyramid. still not over it", "the giraffe level took me four tries"],
   "short-stack": ["all in on the last hand with a pair of sevens. it held", "folded four hands, then took the whole table on the fifth"],
+  "sakura-days": ["went to get noodles and missed the whole fireworks show", "ren naming his wooden sword after me is the best thing in this app"],
 };
 
 export const run = internalMutation({
