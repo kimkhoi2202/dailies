@@ -516,7 +516,7 @@ struct CreateClipPage: View {
                     Color.black
                 }
             } else {
-                CreateLoopingVideo(url: url, active: active)
+                CreateLoopingVideo(url: url, active: active).clipFilled(url)
             }
         } else {
             CreateReplayStage(game: game, layout: layout, moving: active) { CreateCameraPlaceholder() }
