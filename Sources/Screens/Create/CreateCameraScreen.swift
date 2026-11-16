@@ -484,16 +484,19 @@ struct CreateCameraScreen: View {
                         .animation(.easeOut(duration: 0.25), value: nameShown)
                         .allowsHitTesting(false)
                 }
-                if selected != nil && gameOn {
-                    Text(length == .photo ? "Tap for a photo" : "Record to start")
-                        .font(DL.label(11)).foregroundStyle(.white).textCase(.uppercase)
-                        .padding(.horizontal, 12).frame(height: 26)
-                        .modifier(CreateGlass())
-                        .allowsHitTesting(false)
-                }
                 recordButton.frame(height: 100)
             }
             .padding(.bottom, 14)
+            if selected != nil && gameOn {
+                // At the top, level with Close, because games write their own first line low on the screen.
+                Text(length == .photo ? "Tap for a photo" : "Record to start")
+                    .font(DL.label(11)).foregroundStyle(.white).textCase(.uppercase)
+                    .padding(.horizontal, 12).frame(height: 26)
+                    .modifier(CreateGlass())
+                    .allowsHitTesting(false)
+                    .padding(.top, 13)
+                    .frame(maxHeight: .infinity, alignment: .top)
+            }
             HStack(alignment: .top) {
                 DLMediaButton(symbol: "xmark", size: 40)
                     .tap { LiveNav.shared.back() }
