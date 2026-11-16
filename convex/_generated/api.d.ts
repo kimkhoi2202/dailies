@@ -30,6 +30,7 @@ import type * as seedChat from "../seedChat.js";
 import type * as seedCommunity from "../seedCommunity.js";
 import type * as shop from "../shop.js";
 import type * as social from "../social.js";
+import type * as time from "../time.js";
 import type * as users from "../users.js";
 import type * as whop from "../whop.js";
 
@@ -62,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   seedCommunity: typeof seedCommunity;
   shop: typeof shop;
   social: typeof social;
+  time: typeof time;
   users: typeof users;
   whop: typeof whop;
 }>;

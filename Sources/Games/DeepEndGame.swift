@@ -329,6 +329,9 @@ final class DeepEndModel {
     private var lastCam = 0.0
     private var bubbleClock = 0.0
     private var rarest: DeepEndAnswer?
+    /// Gold for an answer at each depth, shallowest first: the rarer the answer, the more it gives.
+    static let goldByTier = [1, 1, 2, 3, 4, 5]
+    private(set) var gold = 0
 
     init(options: GameOptions) {
         var rng = DeepEndRandom(seed: options.seed, salt: 0x2545F4914F6CDD1D)
@@ -476,6 +479,7 @@ final class DeepEndModel {
         pic.messageTime = 0
         if let answer {
             if answer.tier > (rarest?.tier ?? 0) { rarest = answer }
+            gold += Self.goldByTier[answer.tier - 1]
             feedback.append(.answered(answer.tier))
         } else {
             feedback.append(.timeout)
@@ -816,6 +820,7 @@ final class DeepEndRunner: ObservableObject {
             }
         }
         model.clearFeedback()
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

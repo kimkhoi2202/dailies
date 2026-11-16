@@ -5,6 +5,7 @@ import SwiftUI
 
 struct TodayScreen: View {
     @ObservedObject private var live = LiveStore.shared
+    @ObservedObject private var time = AppTime.shared
 
     var body: some View {
         DLTabs(selected: 0) {
@@ -16,13 +17,14 @@ struct TodayScreen: View {
                         Text(groupedNumber(Mock.balance)).font(DL.display(118)).foregroundStyle(DL.ink)
                     }
                     .frame(height: 104)
-                    Text("+\(Mock.earnedToday) gold today").dlLabel(12)
+                    Text("+\(Mock.earnedToday + time.goldToday) gold today").dlLabel(12)
                 }
                 if LiveMode.on { DLTextKey(title: "Get gold", symbol: "plus").opens(.buyGold) }
                 HStack(spacing: 12) {
                     goalCard
                     streakCard
                 }
+                if LiveMode.on { AppTimeCard() }
                 sourcesCard
                 savingCard
             }
@@ -31,7 +33,7 @@ struct TodayScreen: View {
 
     /// Today's gold against the daily goal.
     private var goalCard: some View {
-        let earned = Mock.earnedToday
+        let earned = Mock.earnedToday + time.goldToday
         // The screenshot's story has the goal long passed. The app shows the real state.
         let short = LiveMode.on && earned < Mock.dailyGoal
         return VStack(alignment: .leading, spacing: 10) {
@@ -152,7 +154,7 @@ struct FairnessSheetScreen: View {
     var game: MockGame = Mock.tippyTower
 
     var body: some View {
-        DLSheet(height: 528) {
+        DLSheet(height: 548) {
             FeedScreen()
         } content: {
             VStack(alignment: .leading, spacing: 16) {
@@ -165,9 +167,10 @@ struct FairnessSheetScreen: View {
                     Image(systemName: "checkmark.seal.fill").font(.system(size: 22)).foregroundStyle(DL.goldText)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("\(game.title) is reviewed").font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
-                        Text("It gives \(game.rateText)ute. The same for everyone.")
+                        Text("\(game.goldRule) The same for everyone.")
                             .font(DL.text(14))
                             .foregroundStyle(DL.ink2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .dlCard(padding: 14, fill: DL.goldWash, radius: 20)

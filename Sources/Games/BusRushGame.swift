@@ -80,6 +80,9 @@ final class BusRushModel {
     /// Riders on board over the whole round.
     var score: Int { ridersBefore + front }
 
+    /// One gold for every 15 riders seated, and two for each lot cleared.
+    var gold: Int { score / 15 + 2 * levelsCleared }
+
     var secondsLeft: Double { Swift.max(0, Self.roundLength - time) }
 
     var clockUrgent: Bool { stage != .ready && secondsLeft <= Self.urgentFrom }
@@ -577,6 +580,7 @@ final class BusRushRunner: ObservableObject {
         case .launch: GameHaptics.tap()
         case .none: break
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

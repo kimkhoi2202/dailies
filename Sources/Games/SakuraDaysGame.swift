@@ -542,6 +542,17 @@ final class SakuraDaysModel {
         }
     }
 
+    /// One gold for every two hearts, and more for a better ending.
+    var gold: Int {
+        let hearts = affection.reduce(0, +) / 2
+        switch ending?.kind {
+        case .good: return hearts + 8
+        case .sweet: return hearts + 4
+        case .comic: return hearts + 2
+        case nil: return hearts
+        }
+    }
+
     var result: GameResult {
         let title = ending?.title ?? "Sakura Days"
         return GameResult(score: score, unit: "points", detail: "Reached the \(title) ending in \(story.title).")
@@ -693,6 +704,7 @@ final class SakuraDaysRunner: ObservableObject {
             }
         }
         model.clearFeedback()
+        link.collect(model.gold)
         if model.stage == .done, !reported {
             reported = true
             let result = model.result

@@ -444,6 +444,9 @@ final class InklandModel {
         return 1 + blobs.dropFirst().filter { $0.cells > mine }.count
     }
 
+    /// One gold for every 4% of the land the player holds. The app keeps the most it reached.
+    var gold: Int { shareTenths(of: 0) / 40 }
+
     func result() -> GameResult {
         let score = shareTenths(of: 0)
         let biggest = tenths(ofCells: blobs[0].biggestLoop)
@@ -1803,6 +1806,7 @@ final class InklandRun: ObservableObject {
             model.step(dt: dt)
         }
         for event in model.drainEvents() { feel(event) }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result()

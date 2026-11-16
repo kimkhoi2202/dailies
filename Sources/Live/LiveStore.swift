@@ -52,15 +52,12 @@ final class LiveStore: ObservableObject {
 
     static let perGameCap = 100
     static let perStudioCap = 300
-    /// "Faster gold" multiplies the rate by this, so a short demo round still shows gold arriving.
-    static let fastFactor = 10.0
 
     struct Saved: Codable, Equatable {
         var balance = 0
         var day = ""
         var earned: [String: Int] = [:]
         var secondsToday: [String: Double] = [:]
-        var carry: [String: Double] = [:]
         var votes: [String: Bool] = [:]
         var best: [String: Int] = [:]
         var txns: [LiveTxn] = []
@@ -69,7 +66,6 @@ final class LiveStore: ObservableObject {
         var likedComments: [String] = []
         /// 0 = follow the phone, 1 = light, 2 = dark
         var appearance = 0
-        var fastGold = true
         var haptics = true
         var rounds = 0
         var streak = 0
@@ -252,14 +248,12 @@ final class LiveStore: ObservableObject {
             v.balance = Int(me.gold.rounded())
             v.streak = Int(me.streak)
             v.rounds = Int(me.rounds)
-            v.fastGold = me.fastGold
             v.owned = me.owned ?? []
             if me.playedToday { v.lastPlayDay = v.day } else if v.lastPlayDay == v.day { v.lastPlayDay = "" }
-            v.earned = [:]; v.secondsToday = [:]; v.carry = [:]
+            v.earned = [:]; v.secondsToday = [:]
             for row in me.earnings {
                 if row.gold > 0 { v.earned[row.gameSlug] = Int(row.gold.rounded()) }
                 v.secondsToday[row.gameSlug] = row.playMs / 1000
-                if let carry = row.carry, carry > 0 { v.carry[row.gameSlug] = carry }
             }
         }
 
@@ -316,10 +310,6 @@ final class LiveStore: ObservableObject {
         if let data = try? JSONEncoder().encode(s) { UserDefaults.standard.set(data, forKey: Self.cacheKey) }
         guard !applying else { return }
         // A screen changed `s` directly: pass on the parts the server keeps.
-        if s.fastGold != old.fastGold {
-            let fast = s.fastGold
-            write { try await self.link.mutate("users:update", ["fastGold": fast]) }
-        }
         if s.likedComments != old.likedComments {
             let now = Set(s.likedComments), before = Set(old.likedComments)
             for key in now.symmetricDifference(before) {
@@ -359,7 +349,6 @@ final class LiveStore: ObservableObject {
         v.day = today
         v.earned = [:]
         v.secondsToday = [:]
-        v.carry = [:]
         lastMe = nil
         setQuietly(v)
         // The live queries are asked per day, so ask again for the new one.
@@ -396,20 +385,12 @@ final class LiveStore: ObservableObject {
         max(0, min(Self.perGameCap - earnedToday(game.id), Self.perStudioCap - studioEarned(game.studio)))
     }
 
-    /// Gold per second of play.
-    func rate(for game: MockGame) -> Double {
-        let perMinute = catalog.first { $0.slug == game.id }?.goldPerMinute ?? game.goldPerMinute
-        return perMinute * (s.fastGold ? Self.fastFactor : 1) / 60
-    }
-
-    /// Gold a round has collected so far, and progress (0 to 1) toward the next one.
-    func pending(for game: MockGame, seconds: Double) -> (gold: Int, toNext: Double) {
+    /// The gold a round has collected so far, held to what the game can still give today, and how
+    /// much of the game's day (0 to 1) is used with it.
+    func pending(for game: MockGame, seconds: Double, gold: Int) -> (gold: Int, dayShare: Double) {
         noteRound(game.id, seconds: seconds)
-        let room = room(for: game)
-        let raw = (s.carry[game.id] ?? 0) + seconds * rate(for: game)
-        let whole = Int(raw.rounded(.down))
-        if whole >= room { return (room, room == 0 ? 0 : 1) }
-        return (whole, raw - Double(whole))
+        let kept = min(gold, room(for: game))
+        return (kept, Double(earnedToday(game.id) + kept) / Double(Self.perGameCap))
     }
 
     /// Tells the server a round is starting, so it can time it. Safe to call more than once for one round.
@@ -435,17 +416,16 @@ final class LiveStore: ObservableObject {
         Task { try await self.link.mutate("rounds:start", ["slug": gameID, "day": day], as: ConvexRoundStart.self) }
     }
 
-    /// Ends a round: adds its gold to the balance and records it.
+    /// Ends a round: adds the gold the game gave to the balance and records it. `completed` is true
+    /// when the game ran to its end, which is what counts a day toward the streak.
     /// The numbers shown at once are worked out here the way the server does it; the server's answer then replaces them.
     @discardableResult
-    func finishRound(game: MockGame, seconds: Double, result: GameResult, solo: Bool) -> RoundSummary {
+    func finishRound(game: MockGame, seconds: Double, gold collected: Int, result: GameResult, solo: Bool,
+                     completed: Bool) -> RoundSummary {
         rollDayIfNeeded()
         var v = s
         let room = room(for: game)
-        let raw = (v.carry[game.id] ?? 0) + seconds * rate(for: game)
-        let whole = Int(raw.rounded(.down))
-        let gold = min(whole, room)
-        v.carry[game.id] = gold < whole ? 0 : raw - Double(whole)
+        let gold = min(max(0, collected), room)
         let before = v.balance
         v.balance += gold
         v.earned[game.id, default: 0] += gold
@@ -459,11 +439,11 @@ final class LiveStore: ObservableObject {
         }
         v.rounds += 1
         let nowFull = room - gold <= 0
+        if completed && v.lastPlayDay != v.day {
+            v.streak += 1
+            v.lastPlayDay = v.day
+        }
         if gold > 0 {
-            if v.lastPlayDay != v.day {
-                v.streak += 1
-                v.lastPlayDay = v.day
-            }
             let detail = nowFull ? "Daily limit reached" : "\(Self.playedText(seconds)) played"
             v.txns.insert(LiveTxn(title: game.title, detail: detail, amount: gold, date: Date(), gameID: game.id), at: 0)
             if v.txns.count > 60 { v.txns.removeLast(v.txns.count - 60) }
@@ -473,12 +453,12 @@ final class LiveStore: ObservableObject {
                                    balanceBefore: before, earnedTodayAfter: earnedToday(game.id), isBest: isBest, bestBefore: bestBefore,
                                    hitLimit: nowFull && gold > 0, wasFull: room == 0, solo: solo)
         lastRound = summary
-        settle(summary)
+        settle(summary, completed: completed)
         return summary
     }
 
     /// Sends a finished round to the server and takes the server's word for what it was worth.
-    private func settle(_ summary: RoundSummary) {
+    private func settle(_ summary: RoundSummary, completed: Bool) {
         guard live else { return }
         let gameID = summary.gameID, day = s.day
         let opened = openRound?.gameID == gameID ? openRound?.start : nil
@@ -492,6 +472,8 @@ final class LiveStore: ObservableObject {
                     "roundId": started?.roundId ?? "",
                     "score": Double(summary.result.score),
                     "activeMs": (summary.seconds * 1000).rounded(),
+                    "gold": Double(summary.gold),
+                    "completed": completed,
                 ]
                 if !summary.result.unit.isEmpty { args["unit"] = summary.result.unit }
                 if summary.result.score > 0 { args["scoreText"] = summary.result.scoreText ?? groupedNumber(summary.result.score) }

@@ -50,6 +50,7 @@ struct LiveRoot: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { store.rollDayIfNeeded() }
         }
+        .onAppear { AppTime.shared.start() }
         .sheet(item: Binding(get: { nav.layers.last.flatMap { $0.route.style == .sheet ? $0 : nil } },
                              set: { shown in
                                  // Swiped away: drop the sheet's layer, unless something already took it off.
@@ -366,16 +367,17 @@ struct LivePlayScreen: View {
     }
 
     private func begin() {
-        // Gold counts from the first touch, and a game playing itself for a recording never gets one.
+        // Play time counts from the first touch, and a game playing itself for a recording never gets one.
         let clock = self.clock
         TouchWatcher.install { clock.start() }
         if GameDemo.autopilot { clock.start() }
         CommunityStore.shared.startPresence(game.id)
         if let film { Task { await film.begin() } }
-        link.onFinish = { result in
+        link.onFinish = { [weak link = self.link] result in
             TouchWatcher.remove()
             LiveRoomRound.report(result.score)
-            let summary = LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: result, solo: solo)
+            let summary = LiveStore.shared.finishRound(game: game, seconds: clock.seconds, gold: link?.gold ?? 0, result: result,
+                                                       solo: solo, completed: true)
             if summary.gold > 0 { UINotificationFeedbackGenerator().notificationOccurred(.success) }
             CommunityStore.shared.roundEnded(summary)
             guard let film else { return LiveNav.shared.replaceTop(.results) }
@@ -402,12 +404,13 @@ struct LivePlayScreen: View {
         link.paused = false
     }
 
-    /// Leaving early still keeps the gold from the time played. The round has no score.
+    /// Leaving early still keeps the gold the round has given. The round has no score and does not count for the streak.
     private func leave() {
         film?.discard()
         LiveRoomRound.report(0)
         if clock.seconds > 0 {
-            LiveStore.shared.finishRound(game: game, seconds: clock.seconds, result: GameResult(score: 0, unit: ""), solo: solo)
+            LiveStore.shared.finishRound(game: game, seconds: clock.seconds, gold: link.gold,
+                                         result: GameResult(score: 0, unit: ""), solo: solo, completed: false)
         }
         LiveNav.shared.back()
     }
@@ -476,7 +479,8 @@ final class PlayClock: ObservableObject {
     }
 }
 
-/// The gold counter on a running game. It drives the clock, so nothing else redraws five times a second.
+/// The gold counter on a running game. It drives the clock, so nothing else redraws five times a second,
+/// and each tick of the clock is when it reads the gold the game has given.
 struct PlayGoldHUD: View {
     @ObservedObject var clock: PlayClock
     @ObservedObject var link: GameLink
@@ -485,8 +489,8 @@ struct PlayGoldHUD: View {
     private let ticks = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        let pending = store.pending(for: game, seconds: clock.seconds)
-        SessionGoldHUD(collected: pending.gold, toNext: pending.toNext)
+        let pending = store.pending(for: game, seconds: clock.seconds, gold: link.gold)
+        SessionGoldHUD(collected: pending.gold, dayShare: pending.dayShare)
             .onReceive(ticks) { now in
                 clock.tick(now, counting: !link.paused && !link.isFinished)
             }
