@@ -164,6 +164,15 @@ final class LiveStore: ObservableObject {
         if live { link.startOver() }
     }
 
+    /// Moves this phone to another account once `prepare` has signed in to it, and drops what was kept for the old one.
+    @MainActor
+    func switchAccount(_ prepare: @escaping (DeviceAuth) async throws -> Void) async throws {
+        try await link.switchAccount(prepare)
+        forgetServer()
+        setQuietly(Self.fresh())
+        lastRound = nil
+    }
+
     // MARK: Server
 
     private func signedInChanged(_ on: Bool) {

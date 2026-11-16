@@ -53,6 +53,20 @@ final class ConvexLink {
         }
     }
 
+    /// Moves this phone to another account. `prepare` signs in to it and throws if that fails, in which
+    /// case nothing changes. Otherwise the old session ends and the phone reconnects as the new account.
+    func switchAccount(_ prepare: @escaping (DeviceAuth) async throws -> Void) async throws {
+        try await prepare(provider.auth)
+        let previous = signInTask
+        signInTask = nil
+        signedInSubject.send(false)
+        previous?.cancel()
+        await previous?.value
+        await client.logout()
+        await provider.auth.switchOver()
+        start()
+    }
+
     /// Waits until the phone is signed in.
     func ready() async {
         if signedInSubject.value { return }

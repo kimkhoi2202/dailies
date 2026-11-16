@@ -23,6 +23,8 @@ enum Route: Hashable {
     case search
     case inbox
     case settings
+    /// Create an account or log in.
+    case account
     case saveGold
     case notify
     // people who make games
@@ -80,7 +82,7 @@ enum Route: Hashable {
         case .rate:
             .sheet
         case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges,
-             .create, .createPreview, .makeGame:
+             .create, .createPreview, .makeGame, .account:
             .cover
         case .comments, .fairness, .spend, .streak, .saveGold, .notify, .join, .startRoom:
             .sheet

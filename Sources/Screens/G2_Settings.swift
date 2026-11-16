@@ -157,21 +157,34 @@ struct G2SettingsScreen: View {
         }
     }
 
+    /// Who is signed in on this phone and how, with the way in or out.
     private var accountCard: some View {
-        card {
+        let kind = LiveMode.on ? DeviceAccount.kind : "apple"
+        let how = ["password": "Signed in with a password", "apple": "Signed in with Apple", "google": "Signed in with Google"]
+        return card {
             HStack(spacing: 12) {
-                Image(systemName: "apple.logo")
+                Image(systemName: kind == "apple" ? "apple.logo" : "person.fill")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(DL.onInk)
                     .offset(y: -1)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(DL.ink))
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(Mock.displayName).font(DL.text(16, .medium)).foregroundStyle(DL.ink)
-                    Text("Signed in with Apple").font(DL.text(13)).foregroundStyle(DL.ink2)
+                    Text(LiveMode.on ? "@" + (live.me?.handle ?? "player") : Mock.displayName)
+                        .font(DL.text(16, .medium)).foregroundStyle(DL.ink).lineLimit(1)
+                    Text(kind.flatMap { how[$0] } ?? "Guest on this phone").font(DL.text(13)).foregroundStyle(DL.ink2)
                 }
                 Spacer()
-                Text("Sign out").font(DL.text(14, .semibold)).foregroundStyle(DL.ink).notYet("Signing out")
+                if kind == nil {
+                    Text("Log in").font(DL.text(14, .semibold)).foregroundStyle(DL.ink).opens(.account)
+                } else {
+                    Text("Log out").font(DL.text(14, .semibold)).foregroundStyle(DL.ink).tap {
+                        guard LiveMode.on else { return }
+                        live.reset()
+                        LiveNav.shared.say("Logged out")
+                        LiveNav.shared.open(.account)
+                    }
+                }
             }
             .frame(height: 52)
         }

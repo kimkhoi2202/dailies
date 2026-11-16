@@ -145,6 +145,8 @@ struct LayerView: View {
             G2InboxScreen()
         case .settings:
             G2SettingsScreen()
+        case .account:
+            AccountScreen()
         case .saveGold:
             G2SaveGoldSheetScreen()
         case .notify:
@@ -584,6 +586,11 @@ enum LiveLaunch {
             nav.layers = [Layer(route: .play(gameID, solo: MockArgs.value("-solo") != nil))]
         } else if let route = MockArgs.value("-route").flatMap(route(named:)) {
             nav.layers = [Layer(route: route)]
+        } else if MockArgs.value("-tab") == nil, !GameDemo.autopilot, DeviceAccount.kind == nil,
+                  !ProcessInfo.processInfo.arguments.contains("-screen"),
+                  !UserDefaults.standard.bool(forKey: AccountScreen.seenKey) {
+            // The first launch offers an account before anything else. Closing it keeps the silent guest account.
+            nav.layers = [Layer(route: .account)]
         }
     }
 
@@ -599,6 +606,7 @@ enum LiveLaunch {
         case "search": return .search
         case "inbox": return .inbox
         case "settings": return .settings
+        case "account": return .account
         case "saveGold": return .saveGold
         case "notify": return .notify
         case "studio": return .studio
