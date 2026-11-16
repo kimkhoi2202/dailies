@@ -339,4 +339,11 @@ export default defineSchema({
   // The player an Apple or Google account is being tied to. A row only lives inside the mutation that
   // writes it (users:connect), so the table is empty between calls.
   connecting: defineTable({ userId: v.id("users") }),
+
+  // A game a player put on their Home Screen, with the icon the app drew for it (shortcuts.ts).
+  shortcuts: defineTable({
+    userId: v.id("users"),
+    gameSlug: v.string(),
+    icon: v.id("_storage"),
+  }).index("by_user_and_gameSlug", ["userId", "gameSlug"]),
 });

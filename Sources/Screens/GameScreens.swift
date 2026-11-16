@@ -98,6 +98,7 @@ private struct RoundOverLayout<Headline: View, Rows: View>: View {
                         DLMediaButton(symbol: "xmark", size: 40)
                             .tap { LiveNav.shared.closeAll() }
                             .accessibilityLabel("Close")
+                        if LiveMode.on { HomeShortcutButton(game: game) }
                         Spacer()
                         DLGoldChip(balance: chipBalance)
                     }
@@ -225,6 +226,7 @@ struct ResultsScreen: View {
                     DLMediaButton(symbol: "xmark", size: 40)
                         .tap(leave)
                         .accessibilityLabel("Close")
+                    if LiveMode.on { HomeShortcutButton(game: game) }
                     Spacer()
                     DLGoldChip(balance: chipBalance)
                 }

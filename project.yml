@@ -23,6 +23,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kimkhoi2202.dailies
         GENERATE_INFOPLIST_FILE: YES
+        # Xcode adds the generated keys to this file, which only holds the degen:// address
+        # a Home Screen icon opens a game with.
+        INFOPLIST_FILE: Info.plist
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
