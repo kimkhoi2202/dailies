@@ -325,7 +325,7 @@ enum SakuraDaysStories {
 
 // MARK: - Model
 
-enum SakuraDaysStage {
+enum SakuraDaysStep {
     case pick, story, card, done
 }
 
@@ -337,7 +337,7 @@ final class SakuraDaysModel {
     static let typeSpeed = 46.0
     static let pressTime = 0.4
 
-    private(set) var stage = SakuraDaysStage.pick
+    private(set) var stage = SakuraDaysStep.pick
     private(set) var storyIndex = 0
     private(set) var affection: [Int] = [0, 0]
     private(set) var time = 0.0
