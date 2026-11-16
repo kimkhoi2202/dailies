@@ -308,6 +308,22 @@ const GAMES = [
     dislikes: 21,
     scores: [1840, 2460, 920, 1310, 640, 1120],
   },
+  {
+    slug: "blind-box",
+    title: "Blind Box",
+    studio: "Sparkle Fraud",
+    pitch: "Pick a box. Prepare yourself.",
+    how: "Tap one box on the shelf. Sit through what happens next. Whatever was inside is worth a few points, give or take.",
+    minPlayers: 1,
+    maxPlayers: 1,
+    mode: "casual" as const,
+    category: "Party",
+    unit: "points",
+    goldPerMinute: 1,
+    likes: 412,
+    dislikes: 63,
+    scores: [4, 7, 2, 10, 6, 0],
+  },
 ];
 
 const PLAYERS = [
@@ -358,6 +374,7 @@ const COMMENTS: Record<string, string[]> = {
   "corner-pocket": ["called the 8 off two rails and it dropped", "scratched on the break and still ran the table after"],
   "can-cannon": ["one ball, whole pyramid. still not over it", "the giraffe level took me four tries"],
   "short-stack": ["all in on the last hand with a pair of sevens. it held", "folded four hands, then took the whole table on the fifth"],
+  "blind-box": ["fifteen seconds of rainbow aura for one sock", "the rival gasped and I got a pebble"],
 };
 
 export const run = internalMutation({
