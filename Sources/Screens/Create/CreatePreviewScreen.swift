@@ -4,7 +4,8 @@ import AVFoundation
 import Photos
 
 // The preview after a recording: the take loops full screen, with the round's score on top and a
-// sheet to caption it and post it to Videos.
+// sheet to edit it, caption it and post it to Videos. Swipe the sheet down to see the whole clip and drag
+// the text and the sticker into place.
 
 /// Plays a video edge to edge.
 struct CreatePlayerView: UIViewRepresentable {
@@ -125,6 +126,8 @@ private struct CreatePreviewContent: View {
     @State private var burst = false
     /// Big text on the video.
     @State private var overlay = ""
+    @State private var look = CreateLook()
+    @State private var sheetDown = false
     @FocusState private var typing: Bool
 
     private var game: MockGame { Mock.game(take.gameID) }
@@ -132,9 +135,12 @@ private struct CreatePreviewContent: View {
     var body: some View {
         ZStack {
             media
+                .createFilter(look.filter)
                 .ignoresSafeArea()
                 .onTapGesture { typing = false }
-            CreateOverlayText(text: overlay).allowsHitTesting(false)
+            CreateClipDecor(text: overlay, look: look, sticker: take.scoreLine ?? game.title,
+                            onMoveText: { x, y in look.textX = x; look.textY = y },
+                            onMoveSticker: { x, y in look.stickerX = x; look.stickerY = y })
             LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .top, endPoint: .bottom)
                 .frame(height: 200)
                 .frame(maxHeight: .infinity, alignment: .top)
@@ -143,8 +149,13 @@ private struct CreatePreviewContent: View {
             VStack(spacing: 0) {
                 header
                 Spacer()
-                sheet
+                if sheetDown {
+                    sheetTab.transition(.move(edge: .bottom).combined(with: .opacity))
+                } else {
+                    sheet.transition(.move(edge: .bottom))
+                }
             }
+            .animation(.snappy(duration: 0.3), value: sheetDown)
             if burst { CreateGoldBurst().allowsHitTesting(false) }
         }
         .background(Color.black.ignoresSafeArea())
@@ -196,18 +207,52 @@ private struct CreatePreviewContent: View {
         .environment(\.colorScheme, .dark)
     }
 
+    /// The sheet pulled down: a tab to bring it back, and Post.
+    private var sheetTab: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.up").font(.system(size: 13, weight: .bold))
+                Text("Edit").font(DL.text(15, .semibold))
+            }
+            .foregroundStyle(DL.ink)
+            .padding(.horizontal, 18).frame(height: 48)
+            .background(DL.surface, in: Capsule())
+            .tap { sheetDown = false }
+            DLTextKey(title: posting ? "Posting" : "Post", symbol: "arrow.up")
+                .tap { if !posting { post(privately: false) } }
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 10)
+        .gesture(DragGesture(minimumDistance: 10).onEnded { value in
+            if value.translation.height < -30 { sheetDown = false }
+        })
+    }
+
+    /// The handle on top of the sheet. Swipe it down to see the whole clip.
+    private var grabber: some View {
+        VStack(spacing: 4) {
+            Capsule().fill(DL.ink3).frame(width: 40, height: 5)
+            Text("Swipe down to move the text").dlLabel(9, color: DL.ink3)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, -6)
+        .contentShape(Rectangle())
+        .gesture(DragGesture(minimumDistance: 10).onEnded { value in
+            if value.translation.height > 30 {
+                typing = false
+                sheetDown = true
+            }
+        })
+        .onTapGesture {
+            typing = false
+            sheetDown = true
+        }
+    }
+
     private var sheet: some View {
         VStack(alignment: .leading, spacing: 14) {
-            TextField("Text on the video", text: $overlay)
-                .font(DL.text(16, .semibold))
-                .foregroundStyle(DL.ink)
-                .focused($typing)
-                .submitLabel(.done)
-                .onChange(of: overlay) { _, text in
-                    if text.count > 80 { overlay = String(text.prefix(80)) }
-                }
-                .padding(12)
-                .background(DL.body, in: RoundedRectangle(cornerRadius: DL.tileRadius, style: .continuous))
+            grabber
+            CreateEditTools(game: game, look: $look, overlay: $overlay, typing: $typing)
 
             VStack(alignment: .trailing, spacing: 4) {
                 TextField("Say something about this run", text: $caption, axis: .vertical)
@@ -222,12 +267,6 @@ private struct CreatePreviewContent: View {
                     .padding(12)
                     .background(DL.body, in: RoundedRectangle(cornerRadius: DL.tileRadius, style: .continuous))
                 Text("\(caption.count)/140").dlLabel(10, color: DL.ink3)
-            }
-
-            HStack(spacing: 8) {
-                DLTag(text: game.title, symbol: "gamecontroller.fill", filled: true)
-                if let line = take.scoreLine { DLTag(text: line, symbol: "trophy.fill") }
-                Spacer()
             }
 
             HStack(spacing: 8) {
@@ -299,11 +338,11 @@ private struct CreatePreviewContent: View {
         posting = true
         keeping = privately
         progress = 0.02
-        let take = take, caption = caption, overlay = overlay
+        let take = take, caption = caption, overlay = overlay, look = look
         let visibility = privately ? "private" : (everyone ? "everyone" : "friends")
         Task { @MainActor in
             do {
-                _ = try await CreateClips.shared.post(take, caption: caption, overlay: overlay, visibility: visibility) { progress = $0 }
+                _ = try await CreateClips.shared.post(take, caption: caption, overlay: overlay, look: look, visibility: visibility) { progress = $0 }
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 if privately {
                     LiveNav.shared.say("Saved to your clips")
@@ -384,28 +423,6 @@ struct CreateGoldBurst: View {
 
 // MARK: Videos
 
-/// Big text across a clip, the way reels caption themselves on screen: white, heavy, outlined in black.
-struct CreateOverlayText: View {
-    let text: String
-
-    var body: some View {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            Text(trimmed)
-                .font(.system(size: 30, weight: .heavy))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.white)
-                .shadow(color: .black, radius: 0, x: 1.5, y: 1.5)
-                .shadow(color: .black, radius: 0, x: -1.5, y: -1.5)
-                .shadow(color: .black, radius: 0, x: 1.5, y: -1.5)
-                .shadow(color: .black, radius: 0, x: -1.5, y: 1.5)
-                .padding(.horizontal, 28)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .offset(y: -90)
-        }
-    }
-}
-
 /// A clip a player posted, in Videos. The same page as a catalog clip, with the recording instead of the replay.
 struct CreateClipPage: View {
     let clip: ConvexClip
@@ -423,7 +440,9 @@ struct CreateClipPage: View {
                              player: clip.handle, caption: clip.caption, length: "",
                              comments: groupedNumber(Int(clip.comments)), shares: groupedNumber(Int(clip.likes)))
         VideoPage(clip: shown, progress: 0, voted: store.vote(for: game.id),
-                  media: AnyView(media(game).overlay { CreateOverlayText(text: clip.overlay ?? "") }), tag: clip.scoreText,
+                  media: AnyView(media(game).createFilter(clip.style.filter).overlay {
+                      CreateClipDecor(text: clip.overlay ?? "", look: clip.style, sticker: clip.scoreText ?? clip.gameTitle)
+                  }), tag: clip.scoreText,
                   saveKey: clip.saveKey, onMore: clip.mine ? { menu = true } : nil)
             // Two seconds on screen is a view. A view of someone else's clip pays its creator when the game has a program.
             .task(id: active) {

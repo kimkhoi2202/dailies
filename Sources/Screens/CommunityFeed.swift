@@ -304,6 +304,10 @@ struct CommunityFeedRow: View {
                     AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Color.black }
                 } else {
                     CreateLoopingVideo(url: url, active: onScreen, muted: true)
+                        .createFilter(clip.style.filter)
+                        .overlay {
+                            CreateClipDecor(text: clip.overlay ?? "", look: clip.style, sticker: clip.scoreText ?? clip.gameTitle)
+                        }
                 }
             } else {
                 CreateReplayStage(game: game, layout: CreateLayout(rawValue: clip.layout) ?? .cutout, moving: onScreen) {
