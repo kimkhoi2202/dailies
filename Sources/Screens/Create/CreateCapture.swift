@@ -434,6 +434,45 @@ enum CreateScreenRecorder {
     }
 }
 
+/// A window above the app's own, for the controls that show during a screen recording. The recorder films
+/// the app's main window only, so what is drawn here is on the screen and never in the clip.
+@MainActor enum CreateOverWindow {
+    private final class Window: UIWindow {
+        var touch = CGRect.zero
+
+        override var canBecomeKey: Bool { false }
+
+        /// Touches land here only inside `touch`. Everywhere else they fall through to the game underneath.
+        override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+            touch.contains(point) ? super.hitTest(point, with: event) : nil
+        }
+    }
+
+    private static var window: Window?
+
+    /// Puts `content` over the whole screen. `touch` is the part of the screen it takes touches on.
+    static func show<Content: View>(_ content: Content, touch: CGRect) {
+        hide()
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let scene = scenes.first else { return }
+        let host = UIHostingController(rootView: content)
+        host.view.backgroundColor = .clear
+        let window = Window(windowScene: scene)
+        window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.normal.rawValue + 1)
+        window.backgroundColor = .clear
+        window.overrideUserInterfaceStyle = .dark
+        window.touch = touch
+        window.rootViewController = host
+        window.isHidden = false
+        self.window = window
+    }
+
+    static func hide() {
+        window?.isHidden = true
+        window = nil
+    }
+}
+
 enum CreateFiles {
     static func newURL(_ ext: String) -> URL {
         FileManager.default.temporaryDirectory.appending(path: "dailies-\(UUID().uuidString).\(ext)")
