@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 // The tab bar: one floating capsule of glass holding Reels, Community, the Create key, Messages and Library,
-// each a symbol over its name, the way iOS draws its own bar. Create is not a tab. It opens the camera over everything.
+// each as its symbol alone. Create is not a tab. It opens the camera over everything.
 
 struct LiveTabBar: View {
     @ObservedObject private var nav = LiveNav.shared
@@ -34,23 +34,17 @@ struct LiveTabBar: View {
 
     private func item(_ index: Int, symbol: String, title: String) -> some View {
         let chosen = nav.tab == index
-        return VStack(spacing: 3) {
-            Image(systemName: symbol)
-                .font(.system(size: 19, weight: .semibold))
-                .frame(height: 24)
-            Text(title)
-                .font(DL.text(10, .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-        .foregroundStyle(chosen ? DL.ink : DL.ink2)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            if chosen {
-                // Held in from the slot's edges, so the highlight never crowds the Create key beside it.
-                Capsule().fill(DL.ink.opacity(0.1)).padding(.horizontal, 3).matchedGeometryEffect(id: "chosen", in: highlight)
+        return Image(systemName: symbol)
+            .font(.system(size: 22, weight: .semibold))
+            .foregroundStyle(chosen ? DL.ink : DL.ink2)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background {
+                if chosen {
+                    // Held in from the slot's edges, so the highlight never crowds the Create key beside it.
+                    Capsule().fill(DL.ink.opacity(0.1)).padding(.horizontal, 6).padding(.vertical, 4)
+                        .matchedGeometryEffect(id: "chosen", in: highlight)
+                }
             }
-        }
         .contentShape(Rectangle())
         .onTapGesture { select(index) }
         .accessibilityElement()
