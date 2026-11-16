@@ -73,6 +73,7 @@ struct G2AppearanceTile: View {
 
 struct G2SettingsScreen: View {
     @ObservedObject private var live = LiveStore.shared
+    @ObservedObject private var methods = AccountMethods.shared
 
     var body: some View {
         DLTabs(selected: 2) {
@@ -147,23 +148,58 @@ struct G2SettingsScreen: View {
         }
     }
 
+    /// Who is signed in on this phone and how, with the way in or out.
     private var accountCard: some View {
-        card {
+        let kind = LiveMode.on ? DeviceAccount.kind : "apple"
+        let how = ["password": "Signed in with a password", "apple": "Signed in with Apple", "google": "Signed in with Google"]
+        return card {
             HStack(spacing: 12) {
-                Image(systemName: "apple.logo")
+                Image(systemName: kind == "apple" ? "apple.logo" : "person.fill")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(DL.onInk)
                     .offset(y: -1)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(DL.ink))
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(Mock.displayName).font(DL.text(16, .medium)).foregroundStyle(DL.ink)
-                    Text("Signed in with Apple").font(DL.text(13)).foregroundStyle(DL.ink2)
+                    Text(LiveMode.on ? "@" + (live.me?.handle ?? "player") : Mock.displayName)
+                        .font(DL.text(16, .medium)).foregroundStyle(DL.ink).lineLimit(1)
+                    Text(kind.flatMap { how[$0] } ?? "Guest on this phone").font(DL.text(13)).foregroundStyle(DL.ink2)
                 }
                 Spacer()
-                Text("Sign out").font(DL.text(14, .semibold)).foregroundStyle(DL.ink).notYet("Signing out")
+                if kind == nil {
+                    Text("Log in").font(DL.text(14, .semibold)).foregroundStyle(DL.ink).opens(.account(nil))
+                } else {
+                    Text("Log out").font(DL.text(14, .semibold)).foregroundStyle(DL.ink).tap {
+                        guard LiveMode.on else { return }
+                        live.reset()
+                        LiveNav.shared.say("Logged out")
+                    }
+                }
             }
             .frame(height: 52)
+            // An account with a username can also be opened with Apple or Google once it is connected.
+            if kind == "password", methods.apple {
+                G2Hairline()
+                link("Connect Apple").contentShape(Rectangle()).tap { connect("apple") }
+            }
+            if kind == "password", methods.google {
+                G2Hairline()
+                link("Connect Google").contentShape(Rectangle()).tap { connect("google") }
+            }
+        }
+        .onAppear { methods.listen() }
+    }
+
+    private func connect(_ provider: String) {
+        let name = provider == "apple" ? "Apple" : "Google"
+        Task { @MainActor in
+            do {
+                if try await ConvexLink.shared.connect(provider) { LiveNav.shared.say("\(name) is connected") }
+            } catch DeviceAuthError.refused(let code) where code == "ALREADY_CONNECTED" {
+                LiveNav.shared.say("That \(name) account opens another DEGEN account")
+            } catch {
+                LiveNav.shared.say("Could not connect \(name). Try again.")
+            }
         }
     }
 

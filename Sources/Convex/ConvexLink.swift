@@ -53,6 +53,37 @@ final class ConvexLink {
         }
     }
 
+    /// Turns the guest account on this phone into one with a username and password, keeping everything it has.
+    func claim(username: String, password: String) async throws {
+        try await provider.auth.claim(username: username, password: password)
+    }
+
+    /// Moves this phone to another account. `prepare` signs in to it and throws if that fails, in which
+    /// case nothing changes. Otherwise the old session ends and the phone reconnects as the new account.
+    func switchAccount(_ prepare: @escaping (DeviceAuth) async throws -> Void) async throws {
+        try await prepare(provider.auth)
+        let previous = signInTask
+        signInTask = nil
+        signedInSubject.send(false)
+        previous?.cancel()
+        await previous?.value
+        await client.logout()
+        await provider.auth.switchOver()
+        start()
+    }
+
+    /// Ties an Apple or Google account to the account signed in on this phone, so either way in opens it.
+    /// false when the person closes the sign-in sheet.
+    func connect(_ name: String) async throws -> Bool {
+        let mine = try await provider.auth.validTokens(onToken: nil)
+        guard var proof = try await WebSignIn.shared.proof(for: name) else { return false }
+        proof["provider"] = name
+        let answer = try await DeviceAuth.call("users:connect", proof, as: mine.accessToken) as? String
+        // "taken" means that Apple or Google account already opens another account here.
+        guard answer == "connected" else { throw DeviceAuthError.refused(answer == "taken" ? "ALREADY_CONNECTED" : "INVALID_CODE") }
+        return true
+    }
+
     /// Waits until the phone is signed in.
     func ready() async {
         if signedInSubject.value { return }

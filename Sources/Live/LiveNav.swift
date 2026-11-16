@@ -23,6 +23,8 @@ enum Route: Hashable {
     case search
     case inbox
     case settings
+    /// Create an account or log in. The text says what the account is for, when something asked for one.
+    case account(String?)
     case saveGold
     case notify
     // people who make games
@@ -86,7 +88,7 @@ enum Route: Hashable {
             .sheet
         case .messages, .chat, .newGroup, .workplace:
             .push
-        case .playTogether, .libraryGame, .buyGold, .sendEarnings, .program:
+        case .playTogether, .libraryGame, .buyGold, .sendEarnings, .program, .account:
             .sheet
         case .earnings:
             .push
@@ -128,6 +130,13 @@ final class LiveNav: ObservableObject {
 
     func open(_ route: Route) {
         withAnimation(.snappy(duration: 0.32)) { layers.append(Layer(route: route)) }
+    }
+
+    /// true for someone with an account. A guest is shown the Account screen instead, saying what it is for.
+    func hasAccount(to what: String) -> Bool {
+        guard LiveMode.on, DeviceAccount.kind == nil else { return true }
+        open(.account("Create an account to \(what)."))
+        return false
     }
 
     func back() {
