@@ -79,14 +79,14 @@ private struct LiveTabBarGlass: ViewModifier {
     }
 }
 
-/// The gold plus in the middle of the bar. It sits on a darker lip like our keys and springs down when pressed.
+/// The gold plus in the middle of the bar: a flat circle, larger than the tabs beside it. It dips when pressed.
 struct LiveCreateKey: View {
     var body: some View {
         Button {
             if LiveStore.shared.s.haptics { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
             LiveNav.shared.open(.create(nil))
         } label: {
-            Image(systemName: "plus").font(.system(size: 20, weight: .black))
+            Image(systemName: "plus").font(.system(size: 22, weight: .bold))
         }
         .buttonStyle(CreateKeyStyle())
         .accessibilityLabel("Create")
@@ -95,17 +95,12 @@ struct LiveCreateKey: View {
     private struct CreateKeyStyle: ButtonStyle {
         func makeBody(configuration: Configuration) -> some View {
             let down = configuration.isPressed
-            let lip: CGFloat = 4
-            let shape = RoundedRectangle(cornerRadius: 15, style: .continuous)
             configuration.label
                 .foregroundStyle(DL.onGold)
-                .frame(width: 50, height: 40)
-                .background(DL.gold, in: shape)
-                .offset(y: down ? lip : 0)
-                .background(shape.fill(DL.goldLip).offset(y: lip))
-                .padding(.bottom, lip)
-                .scaleEffect(down ? 0.94 : 1)
-                .animation(.spring(response: 0.28, dampingFraction: 0.45), value: down)
+                .frame(width: 52, height: 52)
+                .background(DL.gold, in: Circle())
+                .scaleEffect(down ? 0.9 : 1)
+                .animation(.spring(response: 0.28, dampingFraction: 0.5), value: down)
         }
     }
 }
