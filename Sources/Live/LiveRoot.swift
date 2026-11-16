@@ -145,6 +145,8 @@ struct LayerView: View {
             G2InboxScreen()
         case .settings:
             G2SettingsScreen()
+        case .account(let reason):
+            AccountScreen(reason: reason)
         case .saveGold:
             G2SaveGoldSheetScreen()
         case .notify:
@@ -599,6 +601,7 @@ enum LiveLaunch {
         case "search": return .search
         case "inbox": return .inbox
         case "settings": return .settings
+        case "account": return .account(nil)
         case "saveGold": return .saveGold
         case "notify": return .notify
         case "studio": return .studio

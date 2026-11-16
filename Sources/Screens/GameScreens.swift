@@ -182,6 +182,22 @@ struct ResultsScreen: View {
             ResultsBoardCard(board: board, settled: settled)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
+            if LiveMode.on, DeviceAccount.kind == nil {
+                // A guest's score lives on this phone's silent account. An account keeps it.
+                HStack(spacing: 10) {
+                    Image(systemName: "person.crop.circle.badge.plus").font(.system(size: 18, weight: .semibold))
+                    Text("Create an account to keep your score").font(DL.text(15, .semibold))
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(DL.ink2)
+                }
+                .foregroundStyle(DL.ink)
+                .padding(.horizontal, 16)
+                .frame(height: 52)
+                .background(DL.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .opens(.account("Create an account to keep your score."))
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+            }
             Spacer(minLength: 0)
         }
         .ignoresSafeArea(edges: .top)

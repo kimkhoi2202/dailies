@@ -85,6 +85,7 @@ struct G1CommentRow: View {
     }
 
     private func toggleLike() {
+        guard LiveNav.shared.hasAccount(to: "like comments") else { return }
         var liked = live.s.likedComments
         if let index = liked.firstIndex(of: comment.id) {
             liked.remove(at: index)
