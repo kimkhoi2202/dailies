@@ -34,9 +34,16 @@ struct CreateGameIcon: View {
 }
 
 enum CreateLength: String, CaseIterable {
-    case long = "60s", short = "15s", photo = "PHOTO"
+    case long = "60s", short = "15s", unlimited = "UNLIMITED", photo = "PHOTO"
 
-    var seconds: Double { self == .short ? 15 : 60 }
+    /// nil records until the player stops.
+    var seconds: Double? {
+        switch self {
+        case .short: 15
+        case .long: 60
+        case .unlimited, .photo: nil
+        }
+    }
 }
 
 /// How the player sits on the game. Tapping yourself moves to the next one.
@@ -649,7 +656,11 @@ struct CreateCameraScreen: View {
     /// The ring around the centre game. Recording turns it into a gold stop square with the time running round it.
     private var recordButton: some View {
         let on = phase == .recording || phase == .finishing
-        let fraction: (Date) -> Double = { now in min(1, now.timeIntervalSince(recordStart) / length.seconds) }
+        let fraction: (Date) -> Double = { now in
+            let elapsed = now.timeIntervalSince(recordStart)
+            guard let limit = length.seconds else { return elapsed.truncatingRemainder(dividingBy: 60) / 60 }
+            return min(1, elapsed / limit)
+        }
         return ZStack {
             Circle().strokeBorder(.white.opacity(on ? 0.35 : 1), lineWidth: 5)
             if on {
@@ -908,7 +919,7 @@ struct CreateCameraScreen: View {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         withAnimation(.spring(duration: 0.4, bounce: 0.3)) { phase = .recording }
 
-        let limit = length.seconds
+        guard let limit = length.seconds else { return }
         Task {
             try? await Task.sleep(for: .seconds(limit))
             if token == mine && phase == .recording { await end(result: nil) }

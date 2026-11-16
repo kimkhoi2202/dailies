@@ -56,7 +56,7 @@ export const create = mutation({
       caption: args.caption.trim().slice(0, 140),
       overlay: args.overlay?.trim().slice(0, 80) || undefined,
       layout: args.layout,
-      durationMs: Math.max(0, Math.min(Number.isFinite(args.durationMs) ? args.durationMs : 0, 10 * 60 * 1000)),
+      durationMs: Math.max(0, Math.min(Number.isFinite(args.durationMs) ? args.durationMs : 0, 3 * 60 * 60 * 1000)),
       visibility: args.visibility,
       likes: 0,
       comments: 0,
