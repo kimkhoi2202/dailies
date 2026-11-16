@@ -554,7 +554,9 @@ struct CreateClipPage: View {
                     Color.black
                 }
             } else {
+                let windows = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.keyWindow }
                 CreateLoopingVideo(url: url, active: active, clock: clock).clipFilled(url)
+                    .padding(.top, windows.first?.safeAreaInsets.top ?? 0)
             }
         } else {
             CreateReplayStage(game: game, layout: layout, moving: active) { CreateCameraPlaceholder() }
