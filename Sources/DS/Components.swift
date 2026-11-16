@@ -236,19 +236,14 @@ struct DLRoundPlayKey: View {
     @Environment(\.dlPressed) private var pressed
 
     var body: some View {
-        let lip = size * 0.09
-        let travel = pressed ? lip : 0
-        let isGold = style == .gold
         Image(systemName: "play.fill")
             .font(.system(size: size * 0.4, weight: .black))
             .foregroundStyle(DL.onGold)
             // a play triangle looks centred only when it sits a little to the right
             .offset(x: size * 0.03)
             .frame(width: size, height: size)
-            .background(isGold ? DL.gold : Color.white, in: Circle())
-            .offset(y: travel)
-            .background(Circle().fill(isGold ? DL.goldLip : Color(hex: "B9B5AC")).offset(y: lip))
-            .padding(.bottom, lip)
+            .background(style == .gold ? DL.gold : Color.white, in: Circle())
+            .scaleEffect(pressed ? 0.92 : 1)
             .animation(.easeOut(duration: 0.09), value: pressed)
             .preference(key: DLHasKey.self, value: true)
             .accessibilityLabel("Play")
