@@ -51,7 +51,7 @@ struct VideoPage: View {
             .padding(.leading, 16)
             .padding(.trailing, 12)
             // The app lifts the block a little, to keep the last button clear of the real tab bar.
-            .padding(.bottom, LiveMode.on ? 134 : 108)
+            .padding(.bottom, LiveMode.on ? 118 : 108)
             .frame(maxHeight: .infinity, alignment: .bottom)
             playbackLine
         }
@@ -76,7 +76,7 @@ struct VideoPage: View {
                 }
                 .frame(height: 2)
                 .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 96)
+                .padding(.bottom, 104)
         }
     }
 

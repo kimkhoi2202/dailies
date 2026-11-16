@@ -50,38 +50,32 @@ struct CommunityFriendsFeed: View {
     var body: some View {
         let entries = CommunityEntry.all(clips: clips.feed, posts: community.posts)
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                CommunityStoriesRow()
-                    .padding(.top, 6)
-                    .padding(.bottom, 10)
-                if let challenge = community.challenges.first(where: { $0.expires > Date() }) {
-                    CommunityHairline()
-                    CommunityChallengeLine(challenge: challenge)
+            LazyVStack(alignment: .leading, spacing: 32) {
+                VStack(alignment: .leading, spacing: 18) {
+                    CommunityStoriesRow()
+                    if let challenge = community.challenges.first(where: { $0.expires > Date() }) {
+                        CommunityChallengeLine(challenge: challenge)
+                            .padding(.horizontal, DL.margin)
+                    }
                 }
                 if entries.isEmpty {
-                    CommunityHairline()
                     DLEmptyState(symbol: "person.2.fill", title: "Nothing here yet",
                                  detail: "Follow friends to see what they play and post.", key: "Invite") {
                         LiveNav.shared.share("Come and play with me on DEGEN")
                     }
-                    .padding(DL.margin)
+                    .padding(.horizontal, DL.margin)
                 }
                 ForEach(entries) { entry in
-                    CommunityHairline()
                     CommunityFeedRow(entry: entry)
                 }
             }
+            .padding(.top, 8)
             .padding(.bottom, 24)
             .animation(.snappy(duration: 0.3), value: entries.map(\.id))
         }
         .scrollIndicators(.hidden)
         .background(DL.body)
     }
-}
-
-/// A line the width of the screen between rows.
-struct CommunityHairline: View {
-    var body: some View { DL.line.frame(height: 1) }
 }
 
 // MARK: Stories
@@ -121,20 +115,20 @@ struct CommunityStoriesRow: View {
                         .accessibilityLabel("\(story.name), \(story.score) \(story.unit) in \(story.game.title)")
                 }
             }
-            .padding(.horizontal, DL.margin - 4)
+            .padding(.horizontal, DL.margin - 3)
         }
         .scrollIndicators(.hidden)
     }
 }
 
-/// A challenge, as one slim line: who, what to beat, the time left, and Accept.
+/// A challenge, as one quiet card: who, what to beat, the time left, and Accept.
 struct CommunityChallengeLine: View {
     let challenge: CommunityChallenge
 
     var body: some View {
-        HStack(spacing: 10) {
-            DLThumb(game: challenge.game, size: 36, radius: 10)
-            VStack(alignment: .leading, spacing: 1) {
+        HStack(spacing: 12) {
+            DLThumb(game: challenge.game, size: 40, radius: DL.tileRadius)
+            VStack(alignment: .leading, spacing: 2) {
                 Text("\(Text(challenge.from).fontWeight(.semibold)) challenged you")
                     .font(DL.text(14)).foregroundStyle(DL.ink).lineLimit(1)
                 TimelineView(.periodic(from: .now, by: 1)) { timeline in
@@ -148,8 +142,7 @@ struct CommunityChallengeLine: View {
                 .background(Capsule().fill(DL.gold))
                 .tap { LiveNav.shared.open(.gameReady(challenge.gameID)) }
         }
-        .padding(.horizontal, DL.margin)
-        .padding(.vertical, 10)
+        .dlCard(padding: 12)
     }
 }
 
@@ -166,7 +159,7 @@ struct CommunityFeedRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-                .padding(.vertical, 10)
+                .padding(.bottom, 10)
             media
                 .onScrollVisibilityChange(threshold: 0.55) { visible in onScreen = visible }
             actions
@@ -174,7 +167,6 @@ struct CommunityFeedRow: View {
             details
                 .padding(.top, 4)
         }
-        .padding(.bottom, 22)
         .sheet(isPresented: $sending) {
             CommunitySendSheet(game: Mock.game(entry.gameID), message: shareText)
                 .presentationDetents([.medium, .large])
@@ -250,7 +242,7 @@ struct CommunityFeedRow: View {
                 .tap { LiveNav.shared.open(.gameReady(entry.gameID)) }
                 .accessibilityLabel("Play \(Mock.game(entry.gameID).title)")
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, DL.margin)
     }
 
     // MARK: Media
@@ -368,7 +360,7 @@ struct CommunityFeedRow: View {
         }
         .font(.system(size: 23, weight: .regular))
         .foregroundStyle(DL.ink)
-        .padding(.horizontal, 14)
+        .padding(.horizontal, DL.margin)
         .frame(height: 40)
     }
 
@@ -392,7 +384,7 @@ struct CommunityFeedRow: View {
                 .font(DL.text(11)).foregroundStyle(DL.ink3)
                 .padding(.top, 1)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, DL.margin)
         .animation(.snappy(duration: 0.2), value: likes)
     }
 
@@ -473,7 +465,6 @@ struct CommunitySendSheet: View {
                 }
             }
             .padding(.horizontal, 20)
-            DL.line.frame(height: 1)
             Text("Your chats").dlLabel(11, color: DL.ink2).padding(.horizontal, 20)
             ScrollView {
                 LazyVStack(spacing: 4) {
