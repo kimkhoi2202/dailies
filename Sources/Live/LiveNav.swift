@@ -82,13 +82,13 @@ enum Route: Hashable {
         case .rate:
             .sheet
         case .gameReady, .play, .results, .shareRun, .publish, .reviewProgress, .reviewResult, .reviewChanges,
-             .create, .createPreview, .makeGame, .account:
+             .create, .createPreview, .makeGame:
             .cover
         case .comments, .fairness, .spend, .streak, .saveGold, .notify, .join, .startRoom:
             .sheet
         case .messages, .chat, .newGroup, .workplace:
             .push
-        case .playTogether, .libraryGame, .buyGold, .sendEarnings, .program:
+        case .playTogether, .libraryGame, .buyGold, .sendEarnings, .program, .account:
             .sheet
         case .earnings:
             .push

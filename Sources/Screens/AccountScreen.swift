@@ -45,6 +45,7 @@ struct AccountScreen: View {
                 Spacer()
                 DLIconButton(symbol: "xmark").goesBack().accessibilityLabel("Close")
             }
+            .padding(.top, 16)
             DLHeader(title: creating ? "Create account" : "Log in").padding(.top, 18)
             Text(creating ? (reason ?? "Pick a username and a password.") + " Your gold and scores stay with it." : "Your gold is where you left it.")
                 .font(DL.text(15)).foregroundStyle(DL.ink2)
@@ -84,6 +85,10 @@ struct AccountScreen: View {
                 .frame(maxWidth: .infinity).frame(height: 40)
                 .goesBack()
         }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(38)
+        .presentationBackground(DL.body)
         .onAppear { methods.listen() }
     }
 
