@@ -935,7 +935,7 @@ struct CreateCameraScreen: View {
         var url: URL?
         switch recording {
         case .screen:
-            do { url = try await CreateScreenRecorder.stop() } catch {
+            do { url = await CreateScreenRecorder.crop(try await CreateScreenRecorder.stop(), to: cardRect) } catch {
                 CreateScreenRecorder.log.error("Screen recording failed: \(String(describing: error), privacy: .public)")
             }
         case .camera: url = await camera.stopRecording()

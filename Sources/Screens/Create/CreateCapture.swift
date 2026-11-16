@@ -427,6 +427,46 @@ enum CreateScreenRecorder {
         return url
     }
 
+    /// Cuts a screen recording down to rect, a part of the screen in points, so the clip is the card
+    /// and not the black screen around it. Gives back the recording as it was if that fails.
+    static func crop(_ source: URL, to rect: CGRect) async -> URL {
+        let asset = AVURLAsset(url: source)
+        let screen = await MainActor.run {
+            UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.keyWindow }.first?.bounds.size ?? .zero
+        }
+        guard rect.width > 0, screen.width > 0,
+              let track = try? await asset.loadTracks(withMediaType: .video).first,
+              let (natural, turn, fps) = try? await track.load(.naturalSize, .preferredTransform, .nominalFrameRate),
+              turn.isIdentity,
+              let duration = try? await asset.load(.duration) else { return source }
+        let scale = natural.width / screen.width
+        var pixels = CGRect(x: rect.minX * scale, y: rect.minY * scale, width: rect.width * scale, height: rect.height * scale)
+            .integral.intersection(CGRect(origin: .zero, size: natural))
+        pixels.size = CGSize(width: floor(pixels.width / 2) * 2, height: floor(pixels.height / 2) * 2)
+        guard pixels.width > 0, pixels.height > 0, pixels.size != natural else { return source }
+
+        let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
+        layer.setTransform(CGAffineTransform(translationX: -pixels.minX, y: -pixels.minY), at: .zero)
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = CMTimeRange(start: .zero, duration: duration)
+        instruction.layerInstructions = [layer]
+        let composition = AVMutableVideoComposition()
+        composition.renderSize = pixels.size
+        composition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, fps.rounded())))
+        composition.instructions = [instruction]
+
+        guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else { return source }
+        export.videoComposition = composition
+        let out = CreateFiles.newURL("mp4")
+        do {
+            try await export.export(to: out, as: .mp4)
+            return out
+        } catch {
+            log.error("Cropping a recording failed: \(String(describing: error), privacy: .public)")
+            return source
+        }
+    }
+
     /// Stops a recording that is no longer wanted, and drops it.
     static func discard() {
         guard RPScreenRecorder.shared().isRecording else { return }
