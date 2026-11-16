@@ -125,6 +125,7 @@ struct CreateClipDecor: View {
     var sticker: String
     var onMoveText: ((Double, Double) -> Void)? = nil
     var onMoveSticker: ((Double, Double) -> Void)? = nil
+    var onTapText: (() -> Void)? = nil
 
     var body: some View {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -138,6 +139,7 @@ struct CreateClipDecor: View {
                 CreatePlaced(x: look.textX, y: look.textY, onMove: onMoveText) {
                     CreateOverlayLabel(text: trimmed, color: look.color, boxed: look.boxed)
                         .padding(.horizontal, 20)
+                        .onTapGesture { onTapText?() }
                 }
             }
         }
@@ -186,82 +188,5 @@ struct CreateScoreSticker: View {
         .background(Capsule().fill(DL.goldLip).offset(y: 3))
         .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
         .rotationEffect(.degrees(-4))
-    }
-}
-
-/// The editing tools in the preview sheet: filters, the text and its colour, and the sticker.
-struct CreateEditTools: View {
-    let game: MockGame
-    @Binding var look: CreateLook
-    @Binding var overlay: String
-    var typing: FocusState<Bool>.Binding
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ScrollView(.horizontal) {
-                HStack(spacing: 10) {
-                    ForEach(CreateFilter.allCases, id: \.self) { filter in
-                        let on = look.filter == filter
-                        VStack(spacing: 5) {
-                            ClipStill(game: game, phase: 0.3, showHUD: false, focusY: 0.4)
-                                .createFilter(filter)
-                                .frame(width: 54, height: 72)
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .strokeBorder(on ? DL.gold : .clear, lineWidth: 3))
-                            Text(filter.title).font(DL.text(11, on ? .semibold : .regular))
-                                .foregroundStyle(on ? DL.ink : DL.ink2)
-                        }
-                        .tap {
-                            UISelectionFeedbackGenerator().selectionChanged()
-                            look.filter = filter
-                        }
-                    }
-                }
-            }
-            .scrollIndicators(.hidden)
-
-            HStack(spacing: 8) {
-                TextField("Text on the video", text: $overlay)
-                    .font(DL.text(16, .semibold))
-                    .foregroundStyle(DL.ink)
-                    .focused(typing)
-                    .submitLabel(.done)
-                    .onChange(of: overlay) { _, text in
-                        if text.count > 80 { overlay = String(text.prefix(80)) }
-                    }
-                    .padding(12)
-                    .background(DL.body, in: RoundedRectangle(cornerRadius: DL.tileRadius, style: .continuous))
-                Text("A")
-                    .font(.system(size: 18, weight: .heavy))
-                    .foregroundStyle(look.boxed ? look.color.contrast : DL.ink)
-                    .frame(width: 44, height: 44)
-                    .background(look.boxed ? look.color.color : DL.body,
-                                in: RoundedRectangle(cornerRadius: DL.tileRadius, style: .continuous))
-                    .tap { look.boxed.toggle() }
-                    .accessibilityLabel(look.boxed ? "Text without a box" : "Text in a box")
-            }
-
-            HStack(spacing: 10) {
-                ForEach(CreateTextColor.allCases, id: \.self) { color in
-                    Circle().fill(color.color)
-                        .frame(width: 26, height: 26)
-                        .overlay(Circle().strokeBorder(DL.line, lineWidth: 1))
-                        .padding(3)
-                        .overlay(Circle().strokeBorder(look.color == color ? DL.ink : .clear, lineWidth: 2))
-                        .tap { look.color = color }
-                        .accessibilityLabel(color.rawValue)
-                }
-                Spacer(minLength: 4)
-                HStack(spacing: 5) {
-                    Image(systemName: "trophy.fill").font(.system(size: 12, weight: .bold))
-                    Text("Sticker").font(DL.text(13, .semibold))
-                }
-                .foregroundStyle(look.sticker ? DL.onGold : DL.ink)
-                .padding(.horizontal, 12).frame(height: 32)
-                .background(look.sticker ? DL.gold : DL.body, in: Capsule())
-                .tap { withAnimation(.snappy(duration: 0.25)) { look.sticker.toggle() } }
-            }
-        }
     }
 }
