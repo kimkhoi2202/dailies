@@ -1,37 +1,82 @@
 import { ConvexError, v } from "convex/values";
+import { vGoogleProfile } from "@convex-dev/auth/methods/google/server";
+import { makeFunctionReference } from "convex/server";
 import { components } from "./_generated/api";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, mutation, type MutationCtx, query } from "./_generated/server";
 import { currentUser, dayNumber, earningsFor, requireUser } from "./lib";
 
 const FIRST = ["quick", "sunny", "mellow", "brave", "swift", "cosmic", "jolly", "nimble", "tidy", "witty", "zesty", "calm"];
 const SECOND = ["otter", "falcon", "panda", "comet", "pixel", "mango", "badger", "robin", "lynx", "koala", "gecko", "heron"];
 export const COLORS = ["#7C5CFF", "#FF6B57", "#19B8A6", "#F5B301", "#FF7AB6", "#4C9AFF", "#8BC34A", "#FF9F43"];
 
+// A new player with a made-up name and nothing to their name.
+async function newPlayer(ctx: MutationCtx) {
+  const pick = (list: string[]) => list[Math.floor(Math.random() * list.length)];
+  let handle = "";
+  for (let attempt = 0; attempt < 8; attempt++) {
+    handle = pick(FIRST) + pick(SECOND) + Math.floor(10 + Math.random() * 990);
+    const taken = await ctx.db
+      .query("users")
+      .withIndex("by_handle", (q) => q.eq("handle", handle))
+      .unique();
+    if (taken === null) break;
+  }
+  return await ctx.db.insert("users", {
+    name: handle,
+    handle,
+    color: pick(COLORS),
+    gold: 0,
+    goldAllTime: 0,
+    rounds: 0,
+    streak: 0,
+    fastGold: true,
+    seeded: false,
+  });
+}
+
 export const createForDevice = internalMutation({
   args: { method: v.object({ name: v.literal("usernamePassword"), profile: v.object({}) }) },
   returns: v.id("users"),
+  handler: async (ctx) => await newPlayer(ctx),
+});
+
+// The player a Google account opens the first time it is seen. While users:connect is tying Google to
+// someone's account it is that player; otherwise a new one.
+export const createForGoogle = internalMutation({
+  args: { method: v.object({ name: v.literal("google"), profile: vGoogleProfile }) },
+  returns: v.id("users"),
   handler: async (ctx) => {
-    const pick = (list: string[]) => list[Math.floor(Math.random() * list.length)];
-    let handle = "";
-    for (let attempt = 0; attempt < 8; attempt++) {
-      handle = pick(FIRST) + pick(SECOND) + Math.floor(10 + Math.random() * 990);
-      const taken = await ctx.db
-        .query("users")
-        .withIndex("by_handle", (q) => q.eq("handle", handle))
-        .unique();
-      if (taken === null) break;
-    }
-    return await ctx.db.insert("users", {
-      name: handle,
-      handle,
-      color: pick(COLORS),
-      gold: 0,
-      goldAllTime: 0,
-      rounds: 0,
-      streak: 0,
-      fastGold: true,
-      seeded: false,
-    });
+    const note = await ctx.db.query("connecting").first();
+    return note?.userId ?? (await newPlayer(ctx));
+  },
+});
+
+// Named by its path so this file does not depend on the types of auth.ts, which depends on this file.
+const completeGoogle = makeFunctionReference<
+  "mutation",
+  { state: string; code: string },
+  { status: "complete"; tokens: { accessToken: string; refreshToken: string; userId: string } } | { status: "error" }
+>("auth:completeSignInWithGoogle");
+
+// Finishes a Google sign-in as the player on the phone. A Google account seen for the first time is tied to
+// that player ("connected"). One that already opens another player answers "other" with that player's session.
+export const connect = mutation({
+  args: { provider: v.literal("google"), state: v.string(), code: v.string() },
+  returns: v.object({
+    status: v.union(v.literal("connected"), v.literal("other"), v.literal("failed")),
+    tokens: v.optional(v.object({ accessToken: v.string(), refreshToken: v.string(), userId: v.string() })),
+  }),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const note = await ctx.db.insert("connecting", { userId: user._id });
+    const answer = await ctx.runMutation(completeGoogle, { state: args.state, code: args.code });
+    await ctx.db.delete("connecting", note);
+    if (answer.status !== "complete") return { status: "failed" as const };
+    const { accessToken, refreshToken, userId } = answer.tokens;
+    if (userId !== user._id) return { status: "other" as const, tokens: { accessToken, refreshToken, userId } };
+    // The phone keeps the session it has, so the one this sign-in made is closed.
+    await ctx.runMutation(components.auth.public.signOut, { refreshToken });
+    return { status: "connected" as const };
   },
 });
 
