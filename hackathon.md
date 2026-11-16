@@ -318,3 +318,20 @@ against the dev deployment, it cleaned the four stored videos. Checked in an
 iPhone simulator, where the stop key ends the recording and taps reach the game;
 a simulator cannot record its screen, so the recording itself is not checked yet.
 Convex features: internal queries, internal mutations, file storage, pagination.
+### 2026-11-16 - c167e6d
+The camera's rail and the clip timeline, on the `capy/camera-rail-without-labels`
+branch. The words under the rail's round buttons and under the five shapes in
+Layout are gone; a timed length shows its seconds as a badge on the hourglass
+(`Sources/Screens/Create/CreateCameraScreen.swift`). Rotate and Upload were
+drawn about 2 points and 1 point off the middle of their circles, measured on a
+screenshot, and `DLMediaButton` now moves them back
+(`Sources/DS/Components.swift`). Tapping yourself no longer changes the shape:
+only Layout does. Two hint lines came off the clip preview
+(`Sources/Screens/Create/CreatePreviewScreen.swift`). The line at the foot of a
+clip in Videos is now a timeline: a finger dragged along it takes the clip to
+that moment, and a posted video's line follows the real video instead of staying
+at zero (`Sources/Screens/FeedScreen.swift`, `Sources/Live/LiveRoot.swift`).
+Built for an iPhone on a Mac and installed on a phone over USB. In an iPhone
+simulator every rail symbol measured within a third of a point of its circle's
+middle and the line moved with a posted video; dragging the line was not tried
+by hand there. No Convex change.
