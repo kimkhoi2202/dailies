@@ -101,36 +101,30 @@ struct G1DetailTitle: View {
     }
 }
 
-/// The game's gold rate, and how much of today's limit is used. Short enough to sit whole above the tab bar.
+/// What the game gives gold for, and how much of today's limit is used. Short enough to sit whole above the tab bar.
 struct G1GoldCard: View {
     let game: MockGame
-
-    /// "1" for a whole rate, "0.9" otherwise.
-    private var rate: String {
-        game.goldPerMinute.rounded() == game.goldPerMinute ? "\(Int(game.goldPerMinute))" : game.rateLabel
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             G1CardHeader(label: "Gold", link: "How gold works").opens(.fairness(game.id))
             HStack(alignment: .center, spacing: 8) {
                 DLCoin(size: 30)
-                Text(rate)
-                    .font(DL.display(46))
+                Text(game.goldRule)
+                    .font(DL.text(15, .semibold))
                     .foregroundStyle(DL.ink)
-                    .frame(height: 38)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("gold a minute").font(DL.text(15, .semibold)).foregroundStyle(DL.ink)
-                    Text("Set by review").font(DL.text(12, .medium)).foregroundStyle(DL.ink2)
-                }
-                .padding(.leading, 2)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 38)
+                    .padding(.leading, 2)
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 1) {
                     Text("\(game.earnedToday) of \(game.capToday) today").font(DL.text(15, .semibold)).foregroundStyle(DL.ink)
                     Text("More gold in \(Mock.resetIn)").font(DL.text(12, .semibold)).foregroundStyle(DL.goldText)
                 }
+                .lineLimit(1)
+                .fixedSize()
             }
-            .lineLimit(1)
             DLMeter(value: Double(game.earnedToday), height: 8)
         }
         .dlCard()

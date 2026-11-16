@@ -130,19 +130,9 @@ struct G2SettingsScreen: View {
         }
     }
 
-    /// Only in the app: quicker gold for a short demo, and a way back to the starting story.
+    /// Only in the app: a way back to the starting story.
     private var demoCard: some View {
         card {
-            HStack {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Faster gold").font(DL.text(16, .medium)).foregroundStyle(DL.ink)
-                    Text("10 times the real rate, so short rounds show gold").font(DL.text(12)).foregroundStyle(DL.ink2)
-                }
-                Spacer()
-                G2Switch(isOn: live.s.fastGold).tap { live.s.fastGold.toggle() }
-            }
-            .frame(height: 52)
-            G2Hairline()
             HStack {
                 Text("Start over").font(DL.text(16, .medium)).foregroundStyle(DL.ink)
                 Spacer()

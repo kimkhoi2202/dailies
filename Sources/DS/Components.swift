@@ -82,23 +82,36 @@ struct DLMeter: View {
 }
 
 /// The balance chip. On media it is frosted glass with white numerals. On a page it is a plain surface.
+/// In the app a ring round the coin fills as time in the app nears its next mark of the day.
 struct DLGoldChip: View {
     /// nil shows the player's balance and follows it as it changes.
     var balance: Int? = nil
     var onMedia: Bool = true
     @ObservedObject private var store = LiveStore.shared
+    @ObservedObject private var time = AppTime.shared
 
     var body: some View {
         let amount = balance ?? store.s.balance
-        HStack(spacing: 7) {
+        let ring = LiveMode.on
+        HStack(spacing: ring ? 5 : 7) {
             DLCoin(size: 20)
+                .frame(width: ring ? 28 : 20, height: ring ? 28 : 20)
+                .overlay {
+                    if ring {
+                        Circle().inset(by: 1.25).stroke((onMedia ? Color.white : DL.ink).opacity(0.16), lineWidth: 2.5)
+                        Circle().inset(by: 1.25).trim(from: 0, to: time.progress)
+                            .stroke(DL.gold, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                            .animation(.snappy(duration: 0.5), value: time.progress)
+                    }
+                }
             Text(groupedNumber(amount))
                 .font(DL.display(22)).monospacedDigit()
                 .foregroundStyle(onMedia ? Color.white : DL.ink)
                 .contentTransition(.numericText(value: Double(amount)))
                 .animation(.snappy(duration: 0.5), value: amount)
         }
-        .padding(.leading, 8).padding(.trailing, 13)
+        .padding(.leading, ring ? 5 : 8).padding(.trailing, 13)
         .frame(height: 38)
         .background {
             if onMedia { MediaGlass(shape: Capsule(), dim: 0.42) } else { Capsule().fill(DL.surface) }

@@ -293,7 +293,8 @@ struct GameReadyScreen: View {
         HStack(spacing: 10) {
             DLCoin(size: 26)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Earn \(game.rateText)ute").font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
+                Text(game.goldRule).font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
+                    .lineLimit(1).minimumScaleFactor(0.75)
                 Text(game.isFullToday
                      ? "Limit reached. More gold in \(Mock.resetIn)"
                      : "\(game.leftToday) of 100 still to collect here today")

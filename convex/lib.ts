@@ -5,7 +5,19 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 export const GAME_DAILY_LIMIT = 100;
 export const STUDIO_DAILY_LIMIT = 300;
-export const FAST_GOLD_MULTIPLIER = 10;
+/** What one round may collect: this much, plus one gold for every two seconds since it opened. */
+export const ROUND_HEAD_START = 30;
+/** Gold for time with the app open, each mark once a day. The same list as AppTime.marks in the app. */
+export const TIME_MARKS = [
+  { minutes: 15, gold: 5 },
+  { minutes: 30, gold: 5 },
+  { minutes: 60, gold: 10 },
+  { minutes: 120, gold: 20 },
+  { minutes: 180, gold: 20 },
+  { minutes: 240, gold: 25 },
+  { minutes: 300, gold: 25 },
+  { minutes: 360, gold: 40 },
+];
 
 export async function currentUser(ctx: QueryCtx | MutationCtx) {
   const userId = await getAuthUserId(ctx);

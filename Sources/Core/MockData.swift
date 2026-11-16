@@ -53,7 +53,30 @@ struct MockGame: Identifiable {
     /// Gold this game can still give today, after the game's limit and its studio's.
     var leftToday: Int { LiveStore.shared.room(for: self) }
     var isFullToday: Bool { leftToday == 0 }
-    var rateLabel: String { String(format: "%.1f", goldPerMinute) }
+    /// What the game gives gold for, as the game itself counts it (the `gold` of its model).
+    var goldRule: String {
+        switch kind {
+        case .tippyTower: "1 gold for every 3 perfect drops in a row."
+        case .fiveUp: "5 gold for solving. 5 more for each try left."
+        case .laneDash: "1 gold for every 4 gems."
+        case .inkland: "1 gold for every 4% of the land you hold."
+        case .spiralDrop: "1 gold for a 3 floor fall. 2 for each level."
+        case .gulpCity: "1 gold for every 10% of the city you eat."
+        case .slipOut: "1 gold for every 6 arrows. 2 for each level."
+        case .blockParty: "1 gold for every 3 lines. Combos count for more."
+        case .wildEights: "1 gold for every 3 cards played. 8 for going out first."
+        case .brickOut: "3 gold for each board. 5 with no wasted move."
+        case .dailyGrid: "3 gold for each board. 5 if solved in 25 seconds."
+        case .letterRush: "1 gold for a 5 letter word. Longer words give more."
+        case .pourParty: "3 gold for each level you clear."
+        case .deepEnd: "1 to 5 gold for each answer. Rarer answers give more."
+        case .jamSlide: "3 gold for each board. 5 with no wasted move."
+        case .busRush: "1 gold for every 15 riders. 2 for each lot."
+        case .cornerPocket: "1 gold for each ball you sink. 5 for the 8."
+        case .canCannon: "1 gold for each star. Up to 3 a shelf."
+        case .shortStack: "3 gold for each pot you take."
+        }
+    }
 
     /// The gameplay, drawn in code at phone proportions. The caller crops it (see ClipStill).
     @ViewBuilder func scene(phase: Double? = nil, showHUD: Bool = true) -> some View {
@@ -155,7 +178,7 @@ enum Mock {
     /// The last seven days, today last: the ones inside the current streak.
     static var streakWeek: [Bool] {
         let saved = LiveStore.shared.s
-        // The streak ends today if a round gave gold today, otherwise yesterday.
+        // The streak ends today if a game was finished today, otherwise yesterday.
         let last = saved.lastPlayDay == saved.day ? 6 : 5
         return (0..<7).map { $0 <= last && $0 > last - saved.streak }
     }
@@ -188,10 +211,10 @@ enum Mock {
     static let perGameDailyCap = 100
     static let perStudioDailyCap = 300
     static let fairnessLines = [
-        "About 1 gold for each minute you play.",
+        "Gold is for how you play, not how long.",
         "Up to 100 gold a day from one game.",
         "Up to 300 gold a day from one studio.",
-        "Watching never earns gold.",
+        "Time in DEGEN adds up to 150 gold a day.",
         "Gold from a pack is on top of these limits.",
     ]
 

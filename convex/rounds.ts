@@ -1,8 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import {
-  FAST_GOLD_MULTIPLIER,
   GAME_DAILY_LIMIT,
+  ROUND_HEAD_START,
   STUDIO_DAILY_LIMIT,
   assertCurrentDay,
   dayNumber,
@@ -41,8 +41,8 @@ export const start = mutation({
       roundId,
       seed,
       best: best?.score ?? 0,
-      carry: earnings.find((row) => row.gameSlug === game.slug)?.carry ?? 0,
-      goldPerMinute: game.goldPerMinute * (user.fastGold ? FAST_GOLD_MULTIPLIER : 1),
+      // Builds from before gold came from the game still read this.
+      goldPerMinute: game.goldPerMinute,
       left: Math.max(0, Math.min(GAME_DAILY_LIMIT - today, STUDIO_DAILY_LIMIT - studioToday)),
     };
   },
@@ -53,6 +53,10 @@ export const finish = mutation({
     roundId: v.id("rounds"),
     score: v.number(),
     activeMs: v.number(),
+    // The gold the game gave out in the round, for what the player did in it.
+    gold: v.optional(v.number()),
+    // true when the game ran to its end, false when the player left early.
+    completed: v.optional(v.boolean()),
     unit: v.optional(v.string()),
     scoreText: v.optional(v.string()),
   },
@@ -72,14 +76,14 @@ export const finish = mutation({
     const today = row?.gold ?? 0;
     const studioToday = earnings.filter((entry) => entry.studio === game.studio).reduce((sum, entry) => sum + entry.gold, 0);
     const left = Math.max(0, Math.min(GAME_DAILY_LIMIT - today, STUDIO_DAILY_LIMIT - studioToday));
-    const rate = game.goldPerMinute * (user.fastGold ? FAST_GOLD_MULTIPLIER : 1);
-    // Part of a gold left over from the last round counts toward this one.
-    const raw = (row?.carry ?? 0) + (playMs / 60000) * rate;
-    const whole = Math.floor(raw);
-    const gold = Math.min(left, whole);
-    const carry = gold < whole ? 0 : raw - whole;
+    // A build from before gold came from the game sends none: it gets a gold for each minute played.
+    const collected = args.gold === undefined ? playMs / 60000 : Number.isFinite(args.gold) ? args.gold : 0;
+    // The phone says what the round collected. It cannot be more than the time since the round
+    // opened allows, or more than the day has left.
+    const possible = ROUND_HEAD_START + Math.floor((now - round.startedAt) / 2000);
+    const gold = Math.max(0, Math.min(left, possible, Math.floor(collected)));
 
-    if (row) await ctx.db.patch("earnings", row._id, { gold: row.gold + gold, playMs: row.playMs + playMs, carry });
+    if (row) await ctx.db.patch("earnings", row._id, { gold: row.gold + gold, playMs: row.playMs + playMs });
     else
       await ctx.db.insert("earnings", {
         userId: user._id,
@@ -88,7 +92,6 @@ export const finish = mutation({
         studio: game.studio,
         gold,
         playMs,
-        carry,
       });
 
     if (gold > 0)
@@ -101,9 +104,10 @@ export const finish = mutation({
         gameSlug: game.slug,
       });
 
+    // A day counts toward the streak once one game is played to its end, with or without gold.
     let streak = user.streak;
     let lastGoldDay = user.lastGoldDay;
-    if (gold > 0 && lastGoldDay !== round.day) {
+    if ((args.completed ?? score > 0) && lastGoldDay !== round.day) {
       streak = lastGoldDay !== undefined && dayNumber(round.day) - dayNumber(lastGoldDay) === 1 ? streak + 1 : 1;
       lastGoldDay = round.day;
     }
@@ -143,7 +147,6 @@ export const finish = mutation({
     return {
       gold,
       playMs,
-      carry,
       balance: user.gold + gold,
       today: today + gold,
       left: left - gold,

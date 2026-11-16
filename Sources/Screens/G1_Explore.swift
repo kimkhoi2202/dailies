@@ -150,7 +150,7 @@ struct G1NewCard: View {
                         .padding(8)
                 }
             G1ShelfName(game: game)
-            Text(game.rateText).dlLabel(10).padding(.top, 3)
+            Text(game.isFullToday ? "Limit reached" : "\(game.leftToday) gold left today").dlLabel(10).padding(.top, 3)
         }
         .frame(width: width, alignment: .leading)
         .accessibilityElement(children: .combine)

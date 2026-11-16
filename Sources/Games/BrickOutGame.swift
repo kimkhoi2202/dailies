@@ -69,6 +69,8 @@ final class BrickOutModel {
     private(set) var scoreAge = 10.0
     private(set) var movesUsed = 0
     private(set) var levelsCleared = 0
+    /// Three gold for a board cleared, five when no move was wasted.
+    private(set) var gold = 0
     private(set) var bricksOut = 0
     private(set) var boosters = [1, 1, 1]
     private(set) var armed = -1
@@ -465,6 +467,7 @@ final class BrickOutModel {
         stage = .clearing
         clearClock = 0
         levelsCleared += 1
+        gold += movesUsed <= level.blocks.count ? 5 : 3
         let gain = 50 * level.number
         score += gain
         scoreAge = 0
@@ -864,6 +867,7 @@ final class BrickOutRunner: ObservableObject {
         case .tap: GameHaptics.tap()
         case .none: break
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result
