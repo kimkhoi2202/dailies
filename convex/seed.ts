@@ -311,7 +311,7 @@ const GAMES = [
   {
     slug: "blind-box",
     title: "Blind Box",
-    studio: "Sparkle Fraud",
+    studio: "Hype Machine",
     pitch: "Pick a box. Prepare yourself.",
     how: "Tap one box on the shelf. Sit through what happens next. Whatever was inside is worth a few points, give or take.",
     minPlayers: 1,

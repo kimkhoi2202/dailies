@@ -537,7 +537,7 @@ struct BlindBoxPainter {
             if let label = item.label {
                 let area = CGRect(x: rect.minX + item.labelRect.minX * rect.width, y: rect.minY + item.labelRect.minY * rect.height,
                                   width: item.labelRect.width * rect.width, height: item.labelRect.height * rect.height)
-                let type = min(area.height * 0.55, area.width / CGFloat(label.count) * 1.45)
+                let type = min(area.height * 0.55, area.width / CGFloat(label.count) * 1.12)
                 var c = ctx
                 c.translateBy(x: area.midX, y: area.midY)
                 c.rotate(by: .degrees(-3))

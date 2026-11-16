@@ -335,7 +335,7 @@ enum Mock {
 
       MockGame(
         id: "blind-box", kind: .blindBox, title: "Blind Box", tagline: "Pick a box. Prepare yourself.",
-        category: "Party", players: "1 player", mode: "Casual", studio: "Sparkle Fraud",
+        category: "Party", players: "1 player", mode: "Casual", studio: "Hype Machine",
         goldPerMinute: 1.0, avgSession: "0m 30s", seedEarned: 0,
         plays: "312K", likes: "41.2K", dislikes: "6.3K", approval: 87,
         bestScore: "10 points", clipPhase: 0.44, tint: Color(red: 0.93, green: 0.36, blue: 0.62)),
