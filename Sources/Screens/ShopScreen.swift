@@ -720,7 +720,7 @@ private struct ShopSheet<Content: View>: View {
             .padding(.bottom, bottom + 8)
             .offset(y: raised ? 0 : 700)
         }
-        .onAppear { withAnimation(.snappy(duration: 0.32)) { raised = true } }
+        .onAppear { withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { raised = true } }
     }
 }
 

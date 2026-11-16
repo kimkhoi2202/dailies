@@ -40,7 +40,6 @@ struct JoinRoomSheet: View {
                 HStack {
                     Text("JOIN A ROOM").font(DL.display(34)).foregroundStyle(DL.ink)
                     Spacer()
-                    DLIconButton(symbol: "xmark", size: 32).goesBack().accessibilityLabel("Close")
                 }
                 Text("Type the 4 letter code your friend sees in their room.")
                     .font(DL.text(15)).foregroundStyle(DL.ink2)
@@ -101,7 +100,6 @@ struct StartRoomSheet: View {
                 HStack {
                     Text("START A ROOM").font(DL.display(34)).foregroundStyle(DL.ink)
                     Spacer()
-                    DLIconButton(symbol: "xmark", size: 32).goesBack().accessibilityLabel("Close")
                 }
                 Text(problem ?? "Pick a game. Friends join with your room code.")
                     .font(DL.text(15)).foregroundStyle(problem == nil ? DL.ink2 : DL.danger)

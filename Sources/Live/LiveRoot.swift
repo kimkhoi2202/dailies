@@ -43,7 +43,8 @@ struct LiveRoot: View {
                     .padding(.horizontal, 24).padding(.bottom, 110)
                     .frame(maxHeight: .infinity, alignment: .bottom)
                     .allowsHitTesting(false)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity),
+                                            removal: .scale(scale: 0.97).combined(with: .opacity)))
                     .zIndex(999)
             }
         }

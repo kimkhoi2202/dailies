@@ -46,8 +46,8 @@ struct G1SpendSheetBar: View {
         HStack {
             Text(label).dlLabel(10.5)
             Spacer()
-            DLIconButton(symbol: "xmark", size: 36).goesBack().accessibilityLabel("Close")
         }
+        .frame(height: 36)
     }
 }
 

@@ -44,8 +44,14 @@ struct CommunitySegment: View {
                     .foregroundStyle(chosen ? DL.onInk : DL.ink)
                     .frame(maxWidth: .infinity)
                     .frame(height: 38)
-                    .background(Capsule().fill(chosen ? DL.ink : Color.clear))
-                    .tap { withAnimation(.snappy(duration: 0.28)) { selected = index } }
+                    .tap { withAnimation(.interpolatingSpring(mass: 1, stiffness: 1200, damping: 120)) { selected = index } }
+            }
+        }
+        .background {
+            // One pill that slides to the chosen item.
+            GeometryReader { proxy in
+                let width = (proxy.size.width - 4 * CGFloat(items.count - 1)) / CGFloat(items.count)
+                Capsule().fill(DL.ink).frame(width: width).offset(x: CGFloat(selected) * (width + 4))
             }
         }
         .padding(4)
