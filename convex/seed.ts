@@ -323,6 +323,8 @@ const GAMES = [
     likes: 198,
     dislikes: 11,
     scores: [460, 580, 300, 400, 640, 520],
+  },
+  {
     slug: "blind-box",
     title: "Blind Box",
     studio: "Hype Machine",
