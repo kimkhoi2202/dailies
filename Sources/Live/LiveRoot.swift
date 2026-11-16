@@ -282,6 +282,8 @@ struct LiveClipPage: View {
     var saveable = true
     @ObservedObject private var store = LiveStore.shared
     @State private var loopStart = Date()
+    /// Where a finger on the line is holding the clip.
+    @State private var held: Double?
 
     private static let loopSeconds = 7.0
 
@@ -291,8 +293,8 @@ struct LiveClipPage: View {
             if active {
                 TimelineView(.animation(minimumInterval: 1.0 / 40)) { timeline in
                     let loops = timeline.date.timeIntervalSince(loopStart) / Self.loopSeconds
-                    let phase = loops - loops.rounded(.towardZero)
-                    VideoPage(clip: clip, progress: CGFloat(phase), voted: vote, phase: phase, saveKey: saveKey)
+                    let phase = held ?? (loops - loops.rounded(.towardZero))
+                    VideoPage(clip: clip, progress: CGFloat(phase), voted: vote, phase: phase, saveKey: saveKey, onSeek: seek)
                 }
             } else {
                 // At rest a clip shows its opening moment.
@@ -305,6 +307,14 @@ struct LiveClipPage: View {
     }
 
     private var saveKey: String? { saveable ? CreateClips.sampleKey(clip.id) : nil }
+
+    /// Holds the clip where the finger is on its line, and plays on from there once the finger lifts.
+    private func seek(_ to: Double, done: Bool) {
+        // Just short of the end, which is the same moment as the start.
+        let to = min(to, 0.999)
+        loopStart = Date().addingTimeInterval(-to * Self.loopSeconds)
+        held = done ? nil : to
+    }
 }
 
 // MARK: Playing
