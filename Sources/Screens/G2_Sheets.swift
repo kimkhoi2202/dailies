@@ -9,7 +9,7 @@ enum G2StreakData {
     /// Saturday, in a week that starts on Sunday.
     static let todayIndex = 6
     static let rules: [String] = [
-        "A day counts once you collect 1 gold.",
+        "A day counts once you finish one game.",
         "A missed day uses a rest day.",
         "Missed anyway? Play within 48 hours to get it back. It is never for sale.",
     ]

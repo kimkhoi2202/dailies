@@ -9,6 +9,9 @@ import UIKit
 // A game is a SwiftUI view made with `init(options: GameOptions, link: GameLink)`. The app shows it
 // edge to edge, lays a close button (top left) and the gold counter (top right) over it, keeps the
 // play time, and moves to the results screen when the game calls `link.finish(_:)`.
+//
+// Gold is for what the player does, never for time passing. A game keeps a running total of the
+// gold its round has given and passes it to `link.collect(_:)`, every frame if that is easiest.
 
 /// The outcome of one round, handed to the app when the round is over.
 public struct GameResult: Equatable {
@@ -72,7 +75,15 @@ public final class GameLink: ObservableObject {
 
     public private(set) var isFinished = false
 
+    /// The gold this round has given so far. Not published: the app's counter reads it as it ticks.
+    public private(set) var gold = 0
+
     public init() {}
+
+    /// Called by the game with the round's gold so far. The total only goes up, and stops at the end of the round.
+    public func collect(_ total: Int) {
+        if !isFinished && total > gold { gold = total }
+    }
 
     /// Called by the game once, after the round has ended and its short ending has played.
     /// Only the first call counts.

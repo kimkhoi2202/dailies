@@ -244,6 +244,8 @@ final class PourPartyModel {
 
     private(set) var level = 1
     private(set) var levelsCleared = 0
+    /// Three gold for each level cleared.
+    var gold: Int { 3 * levelsCleared }
     private(set) var undosLeft = PourPartyModel.undosPerLevel
     private(set) var levelPours = 0
     private(set) var totalPours = 0
@@ -747,6 +749,7 @@ final class PourPartyRunner: ObservableObject {
         case .tap: GameHaptics.tap()
         case .none: break
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

@@ -140,6 +140,9 @@ final class BlindBoxModel {
         return f
     }
 
+    /// One gold for every three points of what the box held, once it is shown.
+    var gold: Int { stage == .reveal || stage == .finished ? BlindBoxRules.items[item].points / 3 : 0 }
+
     var result: GameResult {
         let thing = BlindBoxRules.items[item]
         return GameResult(score: thing.points, unit: "points", detail: "Box " + String(picked + 1) + " held " + thing.said + ".")
@@ -196,6 +199,7 @@ final class BlindBoxRunner: ObservableObject {
             }
         }
         model.clearFeedback()
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

@@ -64,6 +64,8 @@ final class TippyTowerModel {
     private(set) var streak = 0
     private(set) var bestStreak = 0
     private(set) var perfects = 0
+    /// One gold each time the run of perfect drops reaches another three.
+    private(set) var gold = 0
 
     private(set) var sinceLanding = 100.0
     private(set) var cam = TippyTowerPainter.slabH
@@ -261,6 +263,7 @@ final class TippyTowerModel {
             streak += 1
             perfects += 1
             bestStreak = Swift.max(bestStreak, streak)
+            if streak % 3 == 0 { gold += 1 }
             slab = TippyTowerSlab(x0: top.x0, x1: top.x1, z0: top.z0, z1: top.z1, axis: along, error: error)
             slab.perfect = true
             slab.streak = streak
@@ -566,6 +569,7 @@ final class TippyTowerRunner: ObservableObject {
         case .landed: GameHaptics.thud()
         case .none: break
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

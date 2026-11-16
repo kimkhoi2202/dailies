@@ -19,7 +19,6 @@ struct ConvexMe: Decodable, Equatable {
         let studio: String
         let gold: Double
         let playMs: Double
-        let carry: Double?
     }
 
     let id: String
@@ -31,7 +30,6 @@ struct ConvexMe: Decodable, Equatable {
     let rounds: Double
     let streak: Double
     let playedToday: Bool
-    let fastGold: Bool
     let changes: Double?
     let today: Double
     let earnings: [Earning]
@@ -39,7 +37,7 @@ struct ConvexMe: Decodable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case id = "_id"
-        case name, handle, color, gold, goldAllTime, rounds, streak, playedToday, fastGold, changes, today, earnings, owned
+        case name, handle, color, gold, goldAllTime, rounds, streak, playedToday, changes, today, earnings, owned
     }
 }
 
@@ -134,16 +132,13 @@ struct ConvexRoundStart: Decodable {
     let roundId: String
     let seed: Double
     let best: Double
-    let goldPerMinute: Double
     let left: Double
-    let carry: Double?
 }
 
 /// The answer to `rounds:finish`: what the server decided the round was worth.
 struct ConvexRoundFinish: Decodable {
     let gold: Double
     let playMs: Double?
-    let carry: Double?
     let balance: Double
     let today: Double
     let left: Double
@@ -152,6 +147,15 @@ struct ConvexRoundFinish: Decodable {
     let newBest: Bool
     let streak: Double
     let changes: Double?
+}
+
+/// The answer to `time:beat`: the time the app has been open today and what it has given.
+struct ConvexTimeBeat: Decodable {
+    let ms: Double
+    /// How many of the day's marks have given their gold.
+    let marks: Double
+    /// Gold this beat added.
+    let gold: Double
 }
 
 /// One row of `rounds:history`: a finished round of the player's.

@@ -191,6 +191,8 @@ final class LaneDashModel {
 
     // Score
     private(set) var gems = 0
+    /// One gold for every four gems.
+    var gold: Int { gems / 4 }
     private(set) var nearMisses = 0
     private(set) var ramps = 0
     private(set) var extraMetres = 0
@@ -1087,6 +1089,7 @@ final class LaneDashRound: ObservableObject {
             lastFrameAt = date
         }
         buzz()
+        link.collect(model.gold)
         if !reported, let result = model.result {
             reported = true
             DispatchQueue.main.async { link.finish(result) }

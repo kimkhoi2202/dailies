@@ -28,7 +28,9 @@ export default defineSchema({
     goldAllTime: v.number(),
     rounds: v.number(),
     streak: v.number(),
+    // The last day that counted toward the streak: a day counts once the player finishes one game.
     lastGoldDay: v.optional(v.string()),
+    // From gold by the minute. Only builds from before gold came from the game still use it.
     fastGold: v.boolean(),
     seeded: v.boolean(),
     // Counts every change to this player's gold, so a phone can tell when its own change has landed.
@@ -173,12 +175,22 @@ export default defineSchema({
 
   ledger: defineTable({
     userId: v.id("users"),
-    kind: v.union(v.literal("round"), v.literal("spend"), v.literal("buy")),
+    kind: v.union(v.literal("round"), v.literal("spend"), v.literal("buy"), v.literal("time")),
     title: v.string(),
     detail: v.string(),
     amount: v.number(),
     gameSlug: v.optional(v.string()),
   }).index("by_user", ["userId"]),
+
+  // How long a player has had the app open on one day, counted by the server between the app's beats.
+  appTime: defineTable({
+    userId: v.id("users"),
+    day: v.string(),
+    ms: v.number(),
+    lastBeatAt: v.number(),
+    // How many of the day's marks have given their gold.
+    marks: v.number(),
+  }).index("by_user_and_day", ["userId", "day"]),
 
   clips: defineTable({
     userId: v.id("users"),

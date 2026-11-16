@@ -102,6 +102,7 @@ export const me = query({
       rounds: user.rounds,
       streak: streakAlive ? user.streak : 0,
       playedToday: user.lastGoldDay === args.day,
+      // Builds from before gold came from the game still read this.
       fastGold: user.fastGold,
       changes: user.changes ?? 0,
       today: earnings.reduce((sum, row) => sum + row.gold, 0),
@@ -110,7 +111,6 @@ export const me = query({
         studio: row.studio,
         gold: row.gold,
         playMs: row.playMs,
-        carry: row.carry ?? 0,
       })),
       owned: purchases.map((row) => row.item),
     };
@@ -151,10 +151,9 @@ export const claim = mutation({
 });
 
 export const update = mutation({
-  args: { name: v.optional(v.string()), fastGold: v.optional(v.boolean()) },
+  args: { name: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    if (args.fastGold !== undefined) await ctx.db.patch("users", user._id, { fastGold: args.fastGold });
     if (args.name === undefined) return null;
     const name = args.name.trim().replace(/\s+/g, " ");
     if (name.length < 2 || name.length > 20) throw new ConvexError("Names are 2 to 20 characters");

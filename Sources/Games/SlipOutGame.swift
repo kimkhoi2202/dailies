@@ -58,6 +58,8 @@ final class SlipOutModel {
     /// Arrows slid out over the whole round.
     private(set) var score = 0
     private(set) var levelsCleared = 0
+    /// One gold for every six arrows slid out, and two for each level cleared.
+    var gold: Int { score / 6 + 2 * levelsCleared }
     /// Round clock: from the first tap to the end.
     private(set) var time = 0.0
     /// Scenery clock: runs whenever the game is not paused.
@@ -413,6 +415,7 @@ final class SlipOutRunner: ObservableObject {
         case .tap: GameHaptics.tap()
         case .none: break
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

@@ -81,6 +81,8 @@ final class CornerPocketModel {
     private(set) var misses: Int
     private(set) var racks = 0
     private(set) var sunk = 0
+    /// One gold for each ball the player sinks, five for the 8.
+    private(set) var gold = 0
     private(set) var shots = 0
     private(set) var yourShots = 0
     private(set) var rackShots = 0
@@ -506,6 +508,7 @@ final class CornerPocketModel {
         score += gained
         scoreAge = 0
         if ball != 8 { sunk += count }
+        gold += ball == 8 ? 5 : count
         for n in table.potted where n != 0 && (ball == 8 ? n == 8 : n != 8) {
             guard let i = table.index(of: n) else { continue }
             if solo == false && Self.group(of: n) != players[0].group && ball != 8 { continue }
@@ -1052,6 +1055,7 @@ final class CornerPocketRunner: ObservableObject {
         } else if feel.contains(.click) || feel.contains(.tap) {
             GameHaptics.tap()
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result

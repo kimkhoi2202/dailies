@@ -416,6 +416,11 @@ final class FiveUpModel {
 
     var finalScore: Int { Self.pointsPerLetter * bestPlaced + solvePoints }
 
+    /// Five gold for solving and five more for each try left over. Shown once the last row has turned over.
+    var gold: Int {
+        solved && (stage == .ending || stage == .finished) ? 5 * (Self.maxTries - guesses.count + 1) : 0
+    }
+
     /// The score as the header shows it now: points roll in as each row finishes turning over.
     var shownScore: Int {
         if stage == .finished { return finalScore }
@@ -744,6 +749,7 @@ final class FiveUpDriver: ObservableObject {
             case .tick: GameHaptics.tap()
             }
         }
+        link.collect(model.gold)
         if !reported, let result = model.result {
             reported = true
             DispatchQueue.main.async { link.finish(result) }

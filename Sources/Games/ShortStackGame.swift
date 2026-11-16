@@ -409,6 +409,8 @@ final class ShortStackModel {
     private var landed = false
     private var bestShown = -1
     private var potsTaken = 0
+    /// Three gold for each pot the player takes.
+    var gold: Int { 3 * potsTaken }
     private var feedback = Feedback.none
     private var endClock = 0.0
 
@@ -1077,6 +1079,7 @@ final class ShortStackRunner: ObservableObject {
         case .thud: GameHaptics.thud()
         case .none: break
         }
+        link.collect(model.gold)
         if model.stage == .finished, !reported {
             reported = true
             let result = model.result
