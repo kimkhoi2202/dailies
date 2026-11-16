@@ -132,8 +132,12 @@ struct AccountScreen: View {
 
     private func web(_ provider: String) {
         run {
-            guard let tokens = try await WebSignIn.shared.tokens(for: provider) else { throw CancellationError() }
-            try await LiveStore.shared.switchAccount { await $0.prepare(tokens: tokens, kind: provider) }
+            // A new Apple or Google account is tied to the guest account here, so what it has is kept.
+            // One that already opens an account switches this phone to that account.
+            let done = try await ConvexLink.shared.connect(provider) { theirs in
+                try await LiveStore.shared.switchAccount { await $0.prepare(tokens: theirs, kind: provider) }
+            }
+            if !done { throw CancellationError() }
         }
     }
 

@@ -167,6 +167,12 @@ actor DeviceAuth {
         SecretBox.save(secrets)
     }
 
+    /// Records that this phone's account now also opens with Apple or Google.
+    func mark(kind: String) {
+        secrets.kind = kind
+        SecretBox.save(secrets)
+    }
+
     /// Checks the username and password of an existing account with the server.
     /// Nothing changes on the phone until `switchOver`.
     func prepare(username: String, password: String) async throws {
@@ -252,7 +258,7 @@ actor DeviceAuth {
             return tokens
         }
         // Only an account with a username and password can sign in again by itself.
-        guard secrets.kind == nil || secrets.kind == "password" else { throw DeviceAuthError.refused("SESSION_ENDED") }
+        guard !secrets.username.isEmpty else { throw DeviceAuthError.refused("SESSION_ENDED") }
         let login = ["username": secrets.username, "password": secrets.password]
         let signIn = try await call("auth:signInWithUsernamePassword", login) as? [String: Any] ?? [:]
         if let tokens = tokens(in: signIn) { return tokens }
