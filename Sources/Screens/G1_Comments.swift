@@ -130,7 +130,6 @@ struct G1CommentsScreen: View {
                     Text("Comments").font(DL.text(17, .semibold)).foregroundStyle(DL.ink)
                     Text(G1CommentsData.clip.comments).font(DL.text(17)).foregroundStyle(DL.ink2)
                     Spacer()
-                    DLIconButton(symbol: "xmark", size: 32)
                 }
                 .padding(.horizontal, 20)
                 VStack(alignment: .leading, spacing: 16) {

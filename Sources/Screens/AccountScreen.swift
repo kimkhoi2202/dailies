@@ -43,7 +43,6 @@ struct AccountScreen: View {
             HStack {
                 DLLogo(height: 28)
                 Spacer()
-                DLIconButton(symbol: "xmark").goesBack().accessibilityLabel("Close")
             }
             .padding(.top, 16)
             DLHeader(title: creating ? "Create account" : "Log in").padding(.top, 18)

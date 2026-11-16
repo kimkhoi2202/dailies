@@ -161,7 +161,6 @@ struct FairnessSheetScreen: View {
                 HStack {
                     Text("HOW GOLD WORKS").font(DL.display(34)).foregroundStyle(DL.ink)
                     Spacer()
-                    DLIconButton(symbol: "xmark", size: 36).goesBack().accessibilityLabel("Close")
                 }
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.seal.fill").font(.system(size: 22)).foregroundStyle(DL.goldText)
