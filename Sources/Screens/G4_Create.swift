@@ -1,37 +1,47 @@
 import SwiftUI
 
-// MAKING A GAME: a wish, a short talk with the studio, then the game. The studio is an OpenAI model
-// behind a Convex action (convex/ai.ts). It shapes the wish onto one of the built-in engines, and the
-// app plays the result like any other game. Nothing here is public: a made game stays with its maker.
+// DESIGNING A GAME: a first line, a short back and forth with the studio, and a design sheet that
+// fills in as they talk. The studio is an OpenAI model behind a Convex action (convex/ai.ts). It asks
+// one question at a time, offers ideas when the maker has none, and settles one part of the sheet
+// after another. The sheet is the plan for a game; nothing is built from it in the app.
 
-/// The built-in engine a made game plays on, by the name the server stores.
-enum G4Engine {
-    /// "Tippy Tower" for "tippyTower": the shipped game that runs that engine.
-    static func title(_ kind: String?) -> String {
-        guard let kind, let engine = GameKind(rawValue: kind) else { return "an engine" }
-        return Mock.games.first { $0.kind == engine }?.title ?? "an engine"
-    }
-
-    /// One word for where a creation stands, for lists.
+enum G4Sheet {
+    /// One word for where a design stands, for lists.
     static func statusWord(_ creation: ConvexCreation) -> String {
         switch creation.status {
-        case "building": return "Building"
-        case "ready": return "Ready to play"
+        case "ready": return "Sheet complete"
         case "failed": return "Needs another go"
-        default: return creation.thinking ? "The studio is thinking" : "Wishing"
+        default: return creation.thinking ? "The studio is thinking" : "\(Int((creation.progress * 100).rounded()))% settled"
         }
     }
 
-    /// Where a creation opens from a list: the talk while it is talking, the game once it is being built.
+    /// Where a design opens from a list: the finished sheet, else the talk.
     static func route(_ creation: ConvexCreation) -> Route {
-        creation.status == "building" || creation.status == "ready" ? .makePreview(creation.id) : .makeChat(creation.id)
+        creation.status == "ready" ? .makePreview(creation.id) : .makeChat(creation.id)
+    }
+
+    /// The parts of the sheet in the order they read, with their labels. Empty parts are left out.
+    static func parts(_ design: ConvexDesign) -> [(label: String, text: String)] {
+        let single: [(String, String?)] = [
+            ("Genre", design.genre), ("Setting", design.setting), ("You play", design.player), ("The goal", design.goal),
+            ("Controls", design.controls), ("Scoring", design.scoring), ("Over a round", design.progression),
+            ("The look", design.look), ("Sound", design.sound),
+        ]
+        var rows: [(String, String)] = []
+        for (label, text) in single {
+            if let text, !text.isEmpty { rows.append((label, text)) }
+        }
+        if let rules = design.rules, !rules.isEmpty {
+            rows.insert(("Rules", rules.map { "- " + $0 }.joined(separator: "\n")), at: min(5, rows.count))
+        }
+        return rows
     }
 }
 
-/// The bar at the bottom of the wish and talk screens: a growing text field with a round send button.
+/// The bar at the bottom of the talk: a growing text field with a round send button.
 private struct G4Composer: View {
     @Binding var draft: String
-    var placeholder = "Tap to wish"
+    var placeholder = "Describe your game"
     var enabled = true
     var send: () -> Void
     @FocusState private var typing: Bool
@@ -73,12 +83,14 @@ private struct G4Thinking: View {
     }
 }
 
-// MARK: The wish
+// MARK: The first line
 
 struct G4CreateScreen: View {
     @ObservedObject private var store = LiveStore.shared
     @State private var draft = ""
     @State private var sending = false
+
+    private let starters = ["A game about my cat", "Something I can play one handed", "Puzzles, but fast", "A boss fight in 60 seconds"]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -87,26 +99,34 @@ struct G4CreateScreen: View {
             VStack(spacing: 18) {
                 DLMonogram(size: 96)
                 VStack(spacing: 2) {
-                    ForEach(["What game", "would you make?"], id: \.self) { line in
+                    ForEach(["Design a game", "with the studio"], id: \.self) { line in
                         Text(line.uppercased()).font(DL.display(40)).foregroundStyle(DL.ink).frame(height: 36)
                     }
                 }
-                Text("Say a theme, a feeling or a whole idea. The studio shapes it onto one of our engines.")
+                Text("Bring a word, a feeling or a whole idea. The studio asks a few questions and writes the design sheet with you.")
                     .font(DL.text(15))
                     .foregroundStyle(DL.ink2)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 24)
-                DLTextKey(title: sending ? "Opening" : "Inspire me", symbol: "sparkles")
+                DLTextKey(title: sending ? "Opening" : "Surprise me", symbol: "wand.and.stars")
                     .frame(width: 220)
-                    .tap { begin("Inspire me") }
+                    .tap { begin("Surprise me. I have no idea yet.") }
                     .padding(.top, 6)
             }
             Spacer(minLength: 12)
-            HStack(spacing: 12) {
-                DL.line.frame(height: 1)
-                Text("OR").dlLabel(11)
-                DL.line.frame(height: 1)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Or start from one of these").dlLabel(10.5).padding(.leading, 4)
+                ForEach(starters, id: \.self) { line in
+                    HStack {
+                        Text(line).font(DL.text(15, .medium)).foregroundStyle(DL.ink)
+                        Spacer()
+                        Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .bold)).foregroundStyle(DL.ink3)
+                    }
+                    .padding(.horizontal, 16).frame(height: 44)
+                    .background(Capsule().fill(DL.surface))
+                    .tap { begin(line) }
+                }
             }
             .padding(.bottom, 14)
             G4Composer(draft: $draft, enabled: !sending) { begin(draft) }
@@ -117,7 +137,7 @@ struct G4CreateScreen: View {
         .background(DL.body.ignoresSafeArea())
     }
 
-    /// Opens a creation with the first wish and goes to the talk.
+    /// Opens a design with the first line and goes to the talk.
     private func begin(_ text: String) {
         let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty, !sending else { return }
@@ -128,7 +148,7 @@ struct G4CreateScreen: View {
                 draft = ""
                 LiveNav.shared.open(.makeChat(id))
             } catch {
-                LiveNav.shared.say("The studio did not answer. Try again.")
+                LiveNav.shared.say("The studio did not pick up. Try again.")
             }
             sending = false
         }
@@ -145,16 +165,17 @@ struct G4CreateChatScreen: View {
 
     private var detail: ConvexCreationDetail? { store.creation(creationID) }
 
-    /// The maker can answer while the studio is listening and the game is not yet built.
+    /// The maker can answer whenever the studio is not in the middle of a reply.
     private var canSend: Bool {
         guard let detail else { return false }
-        return detail.status == "talking" && !detail.thinking && !sending
+        return !detail.thinking && !sending
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            DLNavBar(title: "Studio", trailingSymbol: "xmark", trailingAction: { LiveNav.shared.closeFlow() })
+            DLNavBar(title: detail?.design?.title ?? "Studio", trailingSymbol: "xmark", trailingAction: { LiveNav.shared.closeFlow() })
                 .padding(.horizontal, DL.margin)
+            if let detail { sheetStrip(detail) }
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 20) {
@@ -164,7 +185,9 @@ struct G4CreateChatScreen: View {
                             }
                             if detail.thinking { G4Thinking() }
                             if detail.status == "failed" { failed(detail) }
-                            if detail.status == "building" || detail.status == "ready" { built(detail) }
+                            if detail.status == "ready" {
+                                DLTextKey(title: "Read the sheet", symbol: "doc.text").opens(.makePreview(creationID)).padding(.top, 4)
+                            }
                         } else {
                             G4Thinking()
                         }
@@ -180,14 +203,12 @@ struct G4CreateChatScreen: View {
                 .onChange(of: detail?.messages.count) { scrollToEnd(proxy) }
                 .onChange(of: detail?.thinking) { scrollToEnd(proxy) }
                 .onChange(of: detail?.status) { _, status in
-                    if status == "building" { LiveNav.shared.open(.makePreview(creationID)) }
+                    if status == "ready" { LiveNav.shared.open(.makePreview(creationID)) }
                 }
             }
-            if detail?.status == "talking" || detail?.status == "failed" || detail == nil {
-                G4Composer(draft: $draft, enabled: canSend) { send(draft) }
-                    .padding(.horizontal, DL.margin)
-                    .padding(.bottom, 8)
-            }
+            G4Composer(draft: $draft, placeholder: detail?.status == "ready" ? "Change something" : "Describe your game", enabled: canSend) { send(draft) }
+                .padding(.horizontal, DL.margin)
+                .padding(.bottom, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DL.body.ignoresSafeArea())
@@ -195,6 +216,25 @@ struct G4CreateChatScreen: View {
 
     private func scrollToEnd(_ proxy: ScrollViewProxy) {
         withAnimation(.snappy(duration: 0.3)) { proxy.scrollTo("end", anchor: .bottom) }
+    }
+
+    /// How far the sheet has come, with a way to it. Tapping opens the sheet as it stands.
+    private func sheetStrip(_ detail: ConvexCreationDetail) -> some View {
+        let settled = detail.design.map { G4Sheet.parts($0).count } ?? 0
+        return HStack(spacing: 10) {
+            DLRing(progress: detail.progress, size: 26, line: 4, showTick: true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(detail.status == "ready" ? "Sheet complete" : "Design sheet").font(DL.text(14, .semibold)).foregroundStyle(DL.ink)
+                Text(settled == 0 ? "Nothing settled yet" : "\(settled) of 10 parts settled").font(DL.text(12)).foregroundStyle(DL.ink2)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(DL.ink2)
+        }
+        .padding(.horizontal, 14).frame(height: 50)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(DL.surface))
+        .padding(.horizontal, DL.margin)
+        .padding(.top, 6)
+        .opens(.makePreview(creationID))
     }
 
     @ViewBuilder private func row(_ message: ConvexCreationMessage, last: Bool, detail: ConvexCreationDetail) -> some View {
@@ -210,24 +250,24 @@ struct G4CreateChatScreen: View {
                 Text(message.text)
                     .font(DL.text(17)).foregroundStyle(DL.ink)
                     .fixedSize(horizontal: false, vertical: true)
-                // Choices and ideas can only be taken from the studio's latest line.
-                if last && detail.status == "talking" {
+                // Answers and ideas can only be taken from the studio's latest line.
+                if last && detail.status == "talking" && !detail.thinking {
                     ForEach(message.options, id: \.self) { option in
-                        choice(option).tap { send(option) }
+                        answer(option).tap { send(option) }
                     }
                     ForEach(message.ideas.indices, id: \.self) { index in
                         idea(message.ideas[index])
                     }
                     if !message.options.isEmpty || !message.ideas.isEmpty {
                         HStack(spacing: 8) {
-                            Image(systemName: "arrow.2.squarepath").font(.system(size: 14, weight: .bold))
-                            Text("More options").font(DL.text(15, .semibold))
+                            Image(systemName: "shuffle").font(.system(size: 14, weight: .bold))
+                            Text(message.ideas.isEmpty ? "Other answers" : "Different ideas").font(DL.text(15, .semibold))
                         }
                         .foregroundStyle(DL.ink2)
                         .padding(.horizontal, 18)
                         .frame(height: 44)
                         .background(Capsule().fill(DL.surface))
-                        .tap { send("More options") }
+                        .tap { send(message.ideas.isEmpty ? "Give me other answers to that." : "Show me three different ideas.") }
                     }
                 }
             }
@@ -235,7 +275,7 @@ struct G4CreateChatScreen: View {
     }
 
     /// One answer the maker can tap instead of typing.
-    private func choice(_ text: String) -> some View {
+    private func answer(_ text: String) -> some View {
         Text(text)
             .font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
             .multilineTextAlignment(.center)
@@ -244,45 +284,37 @@ struct G4CreateChatScreen: View {
             .background(Capsule().strokeBorder(DL.ink, lineWidth: 2))
     }
 
-    /// A game the studio suggests. The arrow asks for it to be built.
+    /// A game the studio suggests. Tapping it takes the idea on.
     private func idea(_ idea: ConvexCreationMessage.Idea) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(idea.title.uppercased()).font(DL.display(30)).foregroundStyle(DL.ink).frame(height: 28)
-            Text(idea.pitch)
-                .font(DL.text(15)).foregroundStyle(DL.ink2)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack {
-                Spacer()
-                Image(systemName: "arrow.down").font(.system(size: 16, weight: .black))
-                    .foregroundStyle(DL.onInk)
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(DL.ink))
-                Spacer()
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(idea.title.uppercased()).font(DL.display(28)).foregroundStyle(DL.ink).frame(height: 26)
+                Text(idea.pitch)
+                    .font(DL.text(15)).foregroundStyle(DL.ink2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.top, 2)
+            Spacer(minLength: 8)
+            Image(systemName: "arrow.right").font(.system(size: 15, weight: .black))
+                .foregroundStyle(DL.onInk)
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(DL.ink))
         }
         .dlCard(padding: 16)
-        .tap { send("Make \(idea.title). \(idea.pitch)") }
+        .tap { send("Let us go with \(idea.title): \(idea.pitch)") }
     }
 
     private func failed(_ detail: ConvexCreationDetail) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("The studio lost its thread.").font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
+            Text("The studio lost the thread.").font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
             if let error = detail.error {
                 Text(error).font(DL.text(13)).foregroundStyle(DL.ink2).lineLimit(3)
             }
-            DLTextKey(title: "Try again", style: .ink)
+            DLTextKey(title: "Ask again", style: .ink)
                 .tap {
                     Task { @MainActor in try? await store.retryCreation(creationID) }
                 }
         }
         .dlCard(padding: 16)
-    }
-
-    private func built(_ detail: ConvexCreationDetail) -> some View {
-        DLTextKey(title: detail.status == "ready" ? "Open the game" : "Watch it being built", symbol: "arrow.right")
-            .opens(.makePreview(creationID))
-            .padding(.top, 4)
     }
 
     private func send(_ text: String) {
@@ -302,176 +334,133 @@ struct G4CreateChatScreen: View {
     }
 }
 
-// MARK: The game
+// MARK: The sheet
 
 struct G4CreatePreviewScreen: View {
     let creationID: String
     @ObservedObject private var store = LiveStore.shared
     @ObservedObject private var nav = LiveNav.shared
-    @State private var breathing = false
+    @State private var finishing = false
 
     private var detail: ConvexCreationDetail? { store.creation(creationID) }
-    private var status: String { detail?.status ?? "building" }
-    private var made: MockGame? { detail?.gameSlug.flatMap { store.madeGame($0) } }
+    private var design: ConvexDesign { detail?.design ?? ConvexDesign() }
+    private var ready: Bool { detail?.status == "ready" }
 
     var body: some View {
         VStack(spacing: 0) {
-            DLNavBar(title: detail?.title ?? "New game", trailingSymbol: "xmark", trailingAction: { LiveNav.shared.closeFlow() })
+            DLNavBar(title: ready ? "Design sheet" : "Sheet so far", trailingSymbol: "xmark", trailingAction: { LiveNav.shared.closeFlow() })
                 .padding(.horizontal, DL.margin)
-            if status == "ready", let made {
-                preview(made)
-            } else if status == "failed" {
-                failed
-            } else {
-                progress
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    cover
+                    if let detail, !ready { standing(detail) }
+                    ForEach(G4Sheet.parts(design), id: \.label) { part in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(part.label).dlLabel(10.5)
+                            Text(part.text)
+                                .font(DL.text(15)).foregroundStyle(DL.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .dlCard(padding: 16)
+                    }
+                    if ready {
+                        Text("This sheet is the plan for your game. Share it, or keep talking to change any part of it.")
+                            .font(DL.text(13)).foregroundStyle(DL.ink2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 4)
+                        DLTextKey(title: "Share the sheet", symbol: "square.and.arrow.up", style: .ink)
+                            .tap { LiveNav.shared.share(shareText) }
+                    }
+                }
+                .padding(.horizontal, DL.margin)
+                .padding(.top, 8)
+                .padding(.bottom, 20)
             }
+            .scrollIndicators(.hidden)
             bottomBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DL.body.ignoresSafeArea())
     }
 
-    // MARK: Being built
-
-    private var progress: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                DLMonogram(size: 112)
-                    .scaleEffect(breathing ? 1.06 : 0.96)
-                    .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: breathing)
-                    .onAppear { breathing = true }
-                    .padding(.top, 28)
-                Text("BUILDING YOUR GAME").font(DL.display(34)).foregroundStyle(DL.ink).padding(.top, 22)
-                Text(progressLine)
-                    .font(DL.text(15)).foregroundStyle(DL.ink2)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 6)
-                Text("While you wait").dlLabel(11).padding(.top, 30).padding(.bottom, 10)
-                VStack(spacing: 10) {
-                    waitCard("coin", "How gold is collected", "About a gold a minute, up to 100 a day in one game")
-                        .opens(.fairness(Mock.tippyTower.id))
-                    waitCard("checkmark.seal.fill", "What the review checks", "Every game is played 240 times before it goes live")
-                        .opens(.reviewResult)
-                    waitCard("clock", "Your gold today", "See what today's play came to")
-                        .opens(.gold)
-                }
+    /// The title and pitch on the game's own colour.
+    private var cover: some View {
+        let tint = Color(hex: design.tint ?? "F5B301")
+        return VStack(alignment: .leading, spacing: 6) {
+            Spacer(minLength: 0)
+            Text((design.title ?? "Untitled").uppercased())
+                .font(DL.display(42)).foregroundStyle(.white)
+                .lineLimit(2).minimumScaleFactor(0.6)
+            Text(design.pitch ?? (ready ? "" : "The pitch comes once the idea is settled."))
+                .font(DL.text(15, .medium)).foregroundStyle(.white.opacity(0.9))
+                .fixedSize(horizontal: false, vertical: true)
+            if let genre = design.genre, !genre.isEmpty {
+                DLMediaTag(text: genre).padding(.top, 6)
             }
-            .padding(.horizontal, DL.margin)
-            .padding(.bottom, 20)
         }
-        .scrollIndicators(.hidden)
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: 220, alignment: .bottomLeading)
+        .background(
+            LinearGradient(colors: [tint.opacity(0.85), tint.opacity(0.55), Color.black.opacity(0.7)], startPoint: .top, endPoint: .bottom)
+                .background(tint)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DL.cardRadius, style: .continuous))
     }
 
-    private var progressLine: String {
-        guard let detail, let title = detail.title else { return "The studio is settling the design." }
-        return "\(title) is being laid out on the \(G4Engine.title(detail.kind)) engine."
-    }
-
-    private func waitCard(_ symbol: String, _ title: String, _ detail: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            if symbol == "coin" {
-                DLCoin(size: 20).padding(.top, 1)
-            } else {
-                Image(systemName: symbol).font(.system(size: 17, weight: .semibold)).foregroundStyle(DL.ink).frame(width: 22)
+    /// While the talk is on: how much is settled and the key that finishes the sheet.
+    private func standing(_ detail: ConvexCreationDetail) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 6) {
+                Text("Settled so far").dlLabel(10.5)
+                Spacer()
+                Text("\(Int((detail.progress * 100).rounded()))%").font(DL.display(28)).foregroundStyle(DL.ink)
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(DL.text(16, .semibold)).foregroundStyle(DL.ink)
-                Text(detail).font(DL.text(13)).foregroundStyle(DL.ink2).fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 8)
-            Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(DL.ink2)
-        }
-        .dlCard(padding: 16)
-    }
-
-    // MARK: Ready
-
-    private func preview(_ made: MockGame) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                ClipStill(game: made, phase: 0.5, showHUD: false, focusY: 0.2)
-                    .overlay(alignment: .bottomLeading) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(made.title.uppercased())
-                                .font(DL.display(38)).foregroundStyle(.white)
-                                .lineLimit(1).minimumScaleFactor(0.6)
-                            Text(made.tagline).font(DL.text(15, .medium)).foregroundStyle(.white.opacity(0.9))
+            .frame(height: 24)
+            DLMeter(value: detail.progress, total: 1, height: 8)
+            Text(detail.thinking ? "The studio is writing the next part." : "Keep answering the studio, or finish the sheet with what is here.")
+                .font(DL.text(13)).foregroundStyle(DL.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+            if !detail.thinking && detail.status == "talking" && detail.progress >= 0.5 {
+                DLTextKey(title: finishing ? "Writing it up" : "Finish the sheet", symbol: "checkmark", style: .ink)
+                    .tap {
+                        guard !finishing else { return }
+                        finishing = true
+                        Task { @MainActor in
+                            try? await store.finishCreation(creationID)
+                            finishing = false
                         }
-                        .padding(18)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .center, endPoint: .bottom))
                     }
-                    .frame(height: 300)
-                    .clipShape(RoundedRectangle(cornerRadius: DL.cardRadius, style: .continuous))
-                    .padding(.top, 8)
-                HStack(spacing: 8) {
-                    DLTag(text: made.category)
-                    DLTag(text: "Plays like \(G4Engine.title(detail?.kind))")
-                    DLTag(text: "Private", symbol: "eye.slash")
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("How to play").dlLabel(10.5)
-                    Text(detail?.how ?? "")
-                        .font(DL.text(15)).foregroundStyle(DL.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .dlCard(padding: 16)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Who can play it").dlLabel(10.5)
-                    Text("Only you, for now. Publishing sends it to the review, and gold starts once the review is done.")
-                        .font(DL.text(15)).foregroundStyle(DL.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .dlCard(padding: 16)
-                DLPlayKey(trailing: "ALONE, NO GOLD YET")
-                    .opens(.play(made.id, solo: true))
-                    .padding(.top, 4)
             }
-            .padding(.horizontal, DL.margin)
-            .padding(.bottom, 20)
         }
-        .scrollIndicators(.hidden)
+        .dlCard(padding: 14)
     }
 
-    private var failed: some View {
-        VStack(spacing: 14) {
-            Spacer()
-            Text("The studio lost its thread.").font(DL.text(17, .semibold)).foregroundStyle(DL.ink)
-            Text(detail?.error ?? "Something went wrong on the way to an answer.")
-                .font(DL.text(14)).foregroundStyle(DL.ink2)
-                .multilineTextAlignment(.center)
-                .lineLimit(4)
-            DLTextKey(title: "Try again", style: .ink)
-                .frame(width: 200)
-                .tap {
-                    Task { @MainActor in try? await store.retryCreation(creationID) }
-                    LiveNav.shared.replaceTop(.makeChat(creationID))
-                }
-            Spacer()
-        }
-        .padding(.horizontal, DL.margin)
+    private var shareText: String {
+        var lines = [(design.title ?? "Untitled").uppercased(), design.pitch ?? "", ""]
+        for part in G4Sheet.parts(design) { lines.append("\(part.label): \(part.text)") }
+        lines.append("")
+        lines.append("Designed in the DEGEN studio")
+        return lines.joined(separator: "\n")
     }
 
     // MARK: The bar
 
-    /// Back to the wish, the two sides of a creation, and a way to throw it away.
+    /// Start over, the two sides of a design, and a way to throw it away.
     private var bottomBar: some View {
         HStack(spacing: 10) {
-            DLIconButton(symbol: "arrow.counterclockwise")
+            DLIconButton(symbol: "plus")
                 .tap {
                     LiveNav.shared.closeFlow()
                     LiveNav.shared.open(.makeGame)
                 }
                 .accessibilityLabel("Start another")
             HStack(spacing: 0) {
-                Text("Wish")
+                Text("Talk")
                     .font(DL.text(14, .semibold)).foregroundStyle(DL.ink2)
                     .frame(maxWidth: .infinity).frame(height: 34)
                     .contentShape(Rectangle())
-                    .tap(showWish)
-                Text("Preview")
+                    .tap(showTalk)
+                Text("Sheet")
                     .font(DL.text(14, .semibold)).foregroundStyle(DL.onInk)
                     .frame(maxWidth: .infinity).frame(height: 34)
                     .background(Capsule().fill(DL.ink))
@@ -491,7 +480,7 @@ struct G4CreatePreviewScreen: View {
     }
 
     /// The talk is usually the screen under this one. If it is not, it opens on top.
-    private func showWish() {
+    private func showTalk() {
         if case .makeChat(let id)? = nav.layers.dropLast().last?.route, id == creationID {
             LiveNav.shared.back()
         } else {
