@@ -2,7 +2,7 @@ import AuthenticationServices
 import UIKit
 
 // Signing in with Apple or Google. The system's sign-in sheet opens the provider's page, the backend
-// sends the answer back on a degen:// address, and the code in it is traded for a session.
+// sends the answer back on a degen:// address, and the code in it goes to the backend to finish.
 
 @MainActor
 final class WebSignIn: NSObject, ASWebAuthenticationPresentationContextProviding {
@@ -44,14 +44,5 @@ final class WebSignIn: NSObject, ASWebAuthenticationPresentationContextProviding
             throw DeviceAuthError.refused("INVALID_CODE")
         }
         return ["state": state, "code": code]
-    }
-
-    /// A session for the account the person picks with `provider`, or nil when they close the sheet.
-    func tokens(for provider: String) async throws -> DeviceTokens? {
-        guard let proof = try await proof(for: provider) else { return nil }
-        let path = provider == "apple" ? "auth:completeSignInWithApple" : "auth:completeSignInWithGoogle"
-        let done = try await DeviceAuth.call(path, proof) as? [String: Any] ?? [:]
-        guard let tokens = DeviceAuth.tokens(in: done) else { throw DeviceAuthError.refused("INVALID_CODE") }
-        return tokens
     }
 }
