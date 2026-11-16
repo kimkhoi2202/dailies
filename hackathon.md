@@ -8,11 +8,11 @@
 - **Frontend:** not deployed
 - **Convex deployment:** https://blissful-jackal-368.convex.cloud
 - **Components:** @convex-dev/auth (auth, authPassword, authUsername)
-- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions, scheduler, environment variables, realtime queries
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions, file storage, scheduler, environment variables, realtime queries
 - **Auth:** Convex Auth
 - **AI models:** gpt-6-luna (OpenAI Responses API, from a Convex action)
 - **Started:** 2026-11-15T18:02:39Z
-- **Last updated:** 2026-11-16T01:31:04Z
+- **Last updated:** 2026-11-16T02:24:25Z
 
 ## Log
 
@@ -335,3 +335,20 @@ Built for an iPhone on a Mac and installed on a phone over USB. In an iPhone
 simulator every rail symbol measured within a third of a point of its circle's
 middle and the line moved with a posted video; dragging the line was not tried
 by hand there. No Convex change.
+
+### 2026-11-16 - 86fd04f
+A game can sit on the Home Screen as its own icon, on the
+`capy/home-screen-game-icon` branch. iOS only lets Safari add an icon, so the
+round button beside Close on the results screen draws the game's icon from its
+scene, stores it in Convex and opens a page in Safari that shows the icon and
+the three taps that add it (`Sources/Live/HomeShortcut.swift`,
+`Sources/Screens/GameScreens.swift`, `convex/shortcuts.ts`, `convex/http.ts`).
+Opened from the Home Screen, that page hands over to the app on a
+`degen://play/<game id>` address and the app starts a round of that game
+(`Sources/Core/MockApp.swift`, `Info.plist`, `project.yml`). Built on Revyl and
+run on a cloud iPhone against the dev deployment: the button opened the page
+with Tippy Tower's icon, Add to Home Screen put that icon beside DEGEN's, and
+tapping it opened DEGEN in a Tippy Tower round, twice. The page shows white for
+a moment before the app takes over, and opening the icon with DEGEN fully closed
+was not tried. Convex features: schema, indexes, mutations, internal queries,
+file storage, HTTP actions.
