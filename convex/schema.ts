@@ -21,7 +21,6 @@ export const designValidator = v.object({
 
 export default defineSchema({
   users: defineTable({
-    room: v.optional(v.any()),
     name: v.string(),
     handle: v.string(),
     color: v.string(),
