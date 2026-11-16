@@ -12,9 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** gpt-6-luna (OpenAI Responses API, from a Convex action)
 - **Started:** 2026-11-15T18:02:39Z
-- **Last updated:** 2026-11-15T21:13:57Z
-
-- **Last updated:** 2026-11-15T22:57:48Z
+- **Last updated:** 2026-11-16T01:05:28Z
 
 ## Log
 
@@ -258,3 +256,18 @@ filling up, the sheet screen shows every settled part on the game's colour, and
 a finished sheet can be shared as text (`Sources/Screens/G4_Create.swift`,
 `Sources/Screens/G3_Studio.swift`). Run from the CLI: "A game about my cat"
 became The Quiet Paws, a tap-to-path sneaking puzzle, in six exchanges.
+
+### 2026-11-16 - f8debd0
+Polished the app's chrome after trying it on a phone. The tab bar is one
+floating capsule of the system's glass on iOS 26 and later, with a frosted
+capsule before that, showing icons only: Reels first, then Community, a flat
+gold circle for Create, Messages and Library (`Sources/Live/LiveTabBar.swift`).
+Posted clips fill the screen in Reels: a clip is a recording of the whole camera
+screen and carried that screen's black bands, so the app measures the bands in
+one frame of each video and zooms past them (`Sources/Screens/ClipFill.swift`).
+The Community feed lost its divider lines and is separated by spacing and one
+card for the challenge (`Sources/Screens/CommunityFeed.swift`). The round Play
+key is a flat circle (`Sources/DS/Components.swift`). A camera rework, with the
+picture edge to edge and one rail of expanding buttons, is open as a pull
+request and not merged. Checked in an iPhone simulator and on cloud iPhones;
+the camera has not been run on a real phone yet. No Convex change.
