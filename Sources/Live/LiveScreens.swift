@@ -29,6 +29,7 @@ enum LiveBoard {
         "can-cannon": ["kaz": 1480, "devon.plays": 1210, "juno": 990, "noor.runs": 760, "tofu": 540, "wordnerd.sam": 310],
         "short-stack": ["kaz": 2460, "devon.plays": 1840, "tofu": 1310, "wordnerd.sam": 1120, "noor.runs": 920, "juno": 640],
         "sakura-days": ["juno": 640, "kaz": 580, "wordnerd.sam": 520, "devon.plays": 460, "tofu": 400, "noor.runs": 300],
+        "blind-box": ["tofu": 10, "kaz": 7, "juno": 6, "devon.plays": 4, "noor.runs": 2, "wordnerd.sam": 0],
     ]
 
     /// The sample friends' scores for a game, best first. Empty for a game with none.
@@ -73,6 +74,7 @@ enum LiveBoard {
         case .canCannon: "points"
         case .shortStack: "chips"
         case .sakuraDays: "points"
+        case .blindBox: "points"
         }
     }
 
@@ -111,6 +113,7 @@ enum LiveBoard {
         case .canCannon: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         case .shortStack: return apart == 1 ? "1 chip" : "\(groupedNumber(apart)) chips"
         case .sakuraDays: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
+        case .blindBox: return apart == 1 ? "1 point" : "\(groupedNumber(apart)) points"
         }
     }
 

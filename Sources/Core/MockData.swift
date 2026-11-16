@@ -9,7 +9,7 @@ import SwiftUI
 // Whatever changes as the player plays (balance, today's gold, streak) is read from LiveStore.
 
 enum GameKind: String, CaseIterable {
-    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide, busRush, cornerPocket, canCannon, shortStack, sakuraDays
+    case fiveUp, tippyTower, spiralDrop, laneDash, gulpCity, inkland, slipOut, blockParty, wildEights, brickOut, dailyGrid, letterRush, pourParty, deepEnd, jamSlide, busRush, cornerPocket, canCannon, shortStack, sakuraDays, blindBox
 }
 
 struct MockGame: Identifiable {
@@ -79,6 +79,7 @@ struct MockGame: Identifiable {
         case .canCannon: CanCannonScene(phase: moment, showHUD: showHUD)
         case .shortStack: ShortStackScene(phase: moment, showHUD: showHUD)
         case .sakuraDays: SakuraDaysScene(phase: moment, showHUD: showHUD)
+        case .blindBox: BlindBoxScene(phase: moment, showHUD: showHUD)
         }
     }
 }
@@ -339,6 +340,11 @@ enum Mock {
         goldPerMinute: 1.0, avgSession: "2m 40s", seedEarned: 0,
         plays: "142K", likes: "19.8K", dislikes: "1.1K", approval: 95,
         bestScore: "640 points", clipPhase: 0.72, tint: Color(red: 0.93, green: 0.45, blue: 0.62)),
+        id: "blind-box", kind: .blindBox, title: "Blind Box", tagline: "Pick a box. Prepare yourself.",
+        category: "Party", players: "1 player", mode: "Casual", studio: "Hype Machine",
+        goldPerMinute: 1.0, avgSession: "0m 30s", seedEarned: 0,
+        plays: "312K", likes: "41.2K", dislikes: "6.3K", approval: 87,
+        bestScore: "10 points", clipPhase: 0.44, tint: Color(red: 0.93, green: 0.36, blue: 0.62)),
     ]
 
     private static var counted: (version: Int, games: [MockGame], clips: [MockClip]) = (-1, [], [])
@@ -378,6 +384,7 @@ enum Mock {
     static var cornerPocket: MockGame { games[17] }
     static var canCannon: MockGame { games[18] }
     static var sakuraDays: MockGame { games[19] }
+    static var blindBox: MockGame { games[20] }
 
     // MARK: Videos
 
@@ -422,6 +429,8 @@ enum Mock {
                  caption: "two pair on the river and the whole table folded too late", length: "0:33", comments: "143", shares: "508"),
         (id: "c20", game: "sakura-days", player: "juno",
                  caption: "took Hana to the bridge and the fireworks went off right on cue", length: "0:34", comments: "167", shares: "830"),
+        (id: "c21", game: "blind-box", player: "juno",
+                 caption: "fifteen seconds of rainbow aura for one sock", length: "0:25", comments: "264", shares: "1.4K"),
     ]
     static var clips: [MockClip] { refresh(); return counted.clips }
 
